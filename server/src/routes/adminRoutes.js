@@ -4,6 +4,10 @@ const {
   createPhotographer,
 } = require("../controllers/adminController");
 
+const {
+  createInvoice,
+} = require("../controllers/invoiceController");
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -37,6 +41,18 @@ router.post(
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   createPhotographer
+);
+
+// ==========================================
+// CREATE INVOICE
+// POST /api/admin/invoices
+// ==========================================
+
+router.post(
+  "/invoices",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createInvoice
 );
 
 
