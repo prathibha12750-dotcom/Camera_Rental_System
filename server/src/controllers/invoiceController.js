@@ -106,10 +106,35 @@ const createInvoice = async (req, res, next) => {
     }
 }
 
+// =================================
+// GET ALL INVOICES
+// GET /api/admin/invoices
+// =================================
+
+const getInvoices = async (req, res, next) => {
+    try {
+        const invoices = await Invoice.find().populate("customer","name email").sort({createdAt: -1});
+
+        return res.status(200).json({
+            success: true,
+            message: "Invoices retrieved successfully",
+            data: {
+                invoices,
+            }
+        });
+    } catch(error) {
+        next(error);
+    }
+}
+
+
+
+
 //-----------------------------------
 //EXPORT
 //-----------------------------------
 
 module.exports = {
     createInvoice,
+    getInvoices,
 };

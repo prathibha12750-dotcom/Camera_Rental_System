@@ -6,6 +6,7 @@ const {
 
 const {
   createInvoice,
+  getInvoices,
 } = require("../controllers/invoiceController");
 
 const authenticate = require("../middleware/authenticate");
@@ -53,6 +54,18 @@ router.post(
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   createInvoice
+);
+
+// ==========================================
+// GET ALL INVOICES
+// GET /api/admin/invoices
+// ==========================================
+
+router.get(
+  "/invoices",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getInvoices
 );
 
 
