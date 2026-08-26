@@ -13,6 +13,7 @@ import Register from "../pages/auth/Register";
 import Unauthorized from "../pages/Unauthorized";
 
 import CustomerHome from "../pages/customer/CustomerHome";
+import CustomerProfile from "../pages/customer/CustomerProfile";
 import PhotographerHome from "../pages/photographer/PhotographerHome";
 import AdminHome from "../pages/admin/AdminHome";
 
@@ -70,7 +71,7 @@ const AppRoutes = () => {
 
           {/* Customer Routes */}
           <Route
-            element={
+               element={
               <RoleRoute
                 allowedRoles={["CUSTOMER"]}
               />
@@ -79,6 +80,11 @@ const AppRoutes = () => {
             <Route
               path="/customer"
               element={<CustomerHome />}
+            />
+
+            <Route
+              path="/customer/profile"
+              element={<CustomerProfile />}
             />
           </Route>
 

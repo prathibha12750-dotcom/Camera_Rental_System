@@ -93,6 +93,16 @@ const Navbar = () => {
               </Link>
             )}
 
+            {/* Customer Profile */}
+            {user?.role === "CUSTOMER" && (
+              <Link
+                to="/customer/profile"
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-orange-50 hover:text-orange-600"
+              >
+                Profile
+              </Link>
+          )}
+
 
             {/* Divider */}
             <div className="hidden h-8 w-px bg-gray-200 sm:block" />
