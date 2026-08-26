@@ -165,5 +165,5 @@ const getInvoiceById = async (req, res, next) => {
 module.exports = {
     createInvoice,
     getInvoices,
-    getInvoiceById
+    getInvoiceById,
 };

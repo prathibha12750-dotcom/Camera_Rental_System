@@ -4,11 +4,22 @@ const {
   createPhotographer,
 } = require("../controllers/adminController");
 
+
+// imports by Abilash starts here
+
 const {
   createInvoice,
   getInvoices,
   getInvoiceById,
 } = require("../controllers/invoiceController");
+
+const {
+  createPayment,
+  getPaymentsByInvoice
+} = require("../controllers/paymentController");
+
+// imports by Abilash ends here
+
 
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
@@ -45,6 +56,8 @@ router.post(
   createPhotographer
 );
 
+// Abilash routes starts here
+
 // ==========================================
 // CREATE INVOICE
 // POST /api/admin/invoices
@@ -80,5 +93,32 @@ router.get(
   authorizeRoles("STAFF_ADMIN"),
   getInvoiceById
 );
+
+// ===========================================
+// CREATE PAYMENT
+// POST /api/admin/payments
+// ===========================================
+
+router.post(
+  "/payments",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createPayment
+);
+
+// ===========================================
+// GET PAYMENTS FOR AN INVOICE
+// GET /api/admi/payments/invoice/:invoiceId
+// ===========================================
+
+router.get(
+  "/payments/invoice/:invoiceId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getPaymentsByInvoice
+);
+
+
+// Abilash routes ends here
 
 module.exports = router;
