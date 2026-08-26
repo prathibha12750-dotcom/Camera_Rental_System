@@ -7,6 +7,7 @@ const {
 const {
   createInvoice,
   getInvoices,
+  getInvoiceById,
 } = require("../controllers/invoiceController");
 
 const authenticate = require("../middleware/authenticate");
@@ -68,5 +69,16 @@ router.get(
   getInvoices
 );
 
+// ==========================================
+// GET SINGLE INVOICE
+// GET /api/admin/invoices/:id
+// ==========================================
+
+router.get(
+  "/invoices/:id",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getInvoiceById
+);
 
 module.exports = router;
