@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const customerRoutes = require("./routes/customerRoutes");
+const photographerRoutes = require("./routes/photographerRoutes");
 
 const app = express();
 
@@ -64,6 +65,8 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/customer", customerRoutes);
+
+app.use("/api/photographer", photographerRoutes);
 
 
 // ==========================================

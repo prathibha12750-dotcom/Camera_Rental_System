@@ -15,6 +15,9 @@ import Unauthorized from "../pages/Unauthorized";
 import CustomerHome from "../pages/customer/CustomerHome";
 import CustomerProfile from "../pages/customer/CustomerProfile";
 import PhotographerHome from "../pages/photographer/PhotographerHome";
+import PhotographerProfile from "../pages/photographer/PhotographerProfile";
+import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
+import PhotographerAvailability from "../pages/photographer/PhotographerAvailability";
 import AdminHome from "../pages/admin/AdminHome";
 
 import ProtectedRoute from "./ProtectedRoute";
@@ -77,6 +80,7 @@ const AppRoutes = () => {
               />
             }
           >
+            {/* prathibha routes start */}
             <Route
               path="/customer"
               element={<CustomerHome />}
@@ -86,6 +90,9 @@ const AppRoutes = () => {
               path="/customer/profile"
               element={<CustomerProfile />}
             />
+
+            {/* prathibha routes end */}
+
           </Route>
 
           {/* Photographer Routes */}
@@ -96,10 +103,26 @@ const AppRoutes = () => {
               />
             }
           >
+
+            {/* prathibha routes start */}
             <Route
               path="/photographer"
               element={<PhotographerHome />}
             />
+            <Route
+              path="/photographer/profile"
+              element={<PhotographerProfile />}
+            />
+            <Route
+              path="/photographer/portfolio"
+              element={<PhotographerPortfolio />}
+            />
+            <Route
+              path="/photographer/availability"
+              element={<PhotographerAvailability />}
+            />
+            {/* prathibha routes end */}
+
           </Route>
 
           {/* Staff Admin Routes */}

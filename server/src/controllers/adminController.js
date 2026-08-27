@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
+const Photographer = require("../models/Photographer");
 
 
 // ==========================================
@@ -8,8 +9,15 @@ const User = require("../models/User");
 // POST /api/admin/photographers
 // ==========================================
 const createPhotographer = async (req, res, next) => {
+  let createdUser = null;
+
   try {
-    const { name, email, password } = req.body;
+    const {
+      name,
+      email,
+      password,
+    } = req.body;
+
 
     // --------------------------------------
     // 1. Validate required fields
@@ -22,6 +30,7 @@ const createPhotographer = async (req, res, next) => {
       });
     }
 
+
     if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
@@ -29,12 +38,14 @@ const createPhotographer = async (req, res, next) => {
       });
     }
 
+
     if (!password) {
       return res.status(400).json({
         success: false,
         message: "Password is required",
       });
     }
+
 
     // --------------------------------------
     // 2. Validate password length
@@ -47,19 +58,23 @@ const createPhotographer = async (req, res, next) => {
       });
     }
 
+
     // --------------------------------------
     // 3. Normalize email
     // --------------------------------------
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail =
+      email.trim().toLowerCase();
+
 
     // --------------------------------------
-    // 4. Check if email already exists
+    // 4. Check existing user
     // --------------------------------------
 
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
+
 
     if (existingUser) {
       return res.status(409).json({
@@ -68,46 +83,108 @@ const createPhotographer = async (req, res, next) => {
       });
     }
 
+
     // --------------------------------------
     // 5. Hash password
     // --------------------------------------
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash =
+      await bcrypt.hash(password, 12);
+
 
     // --------------------------------------
-    // 6. Create photographer
+    // 6. Create User account
     // --------------------------------------
 
-    const photographer = await User.create({
+    createdUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
 
-      // IMPORTANT:
-      // This endpoint can ONLY create photographers.
+      // This endpoint can only create
+      // Photographer accounts.
       role: "PHOTOGRAPHER",
 
       status: "ACTIVE",
     });
 
+
     // --------------------------------------
-    // 7. Return safe response
+    // 7. Create Photographer profile
+    // --------------------------------------
+
+    const photographer =
+      await Photographer.create({
+        user: createdUser._id,
+
+        // Professional information starts
+        // empty and can be completed later
+        // by the photographer.
+        bio: "",
+        specialization: "",
+        location: "",
+        hourlyRate: null,
+        packageRates: [],
+        profileImage: "",
+      });
+
+
+    // --------------------------------------
+    // 8. Return safe response
     // --------------------------------------
 
     return res.status(201).json({
       success: true,
       message: "Photographer account created successfully",
+
       data: {
         photographer: {
           id: photographer._id,
-          name: photographer.name,
-          email: photographer.email,
-          role: photographer.role,
-          status: photographer.status,
+          userId: createdUser._id,
+
+          name: createdUser.name,
+          email: createdUser.email,
+
+          role: createdUser.role,
+          status: createdUser.status,
+
+          profile: {
+            bio: photographer.bio,
+            specialization:
+              photographer.specialization,
+            location:
+              photographer.location,
+            hourlyRate:
+              photographer.hourlyRate,
+            packageRates:
+              photographer.packageRates,
+            profileImage:
+              photographer.profileImage,
+          },
         },
       },
     });
+
   } catch (error) {
+
+    // --------------------------------------
+    // Roll back User if Photographer
+    // profile creation failed.
+    // --------------------------------------
+
+    if (createdUser) {
+      try {
+        await User.findByIdAndDelete(
+          createdUser._id
+        );
+      } catch (cleanupError) {
+        console.error(
+          "Failed to clean up User after Photographer creation error:",
+          cleanupError
+        );
+      }
+    }
+
     next(error);
   }
 };
