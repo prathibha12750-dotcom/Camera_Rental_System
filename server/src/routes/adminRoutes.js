@@ -18,6 +18,12 @@ const {
   getPaymentsByInvoice
 } = require("../controllers/paymentController");
 
+const {
+  createDeposit,
+  getDepositByInvoice,
+  getDepositById,
+} = require("../controllers/depositController");
+
 // imports by Abilash ends here
 
 
@@ -118,6 +124,41 @@ router.get(
   getPaymentsByInvoice
 );
 
+// ==========================================
+// RECORD SECURITY DEPOSIT
+// POST /api/admin/deposits
+// ==========================================
+
+router.post(
+  "/deposits",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createDeposit
+);
+
+// ==========================================
+// GET DEPOSITS FOR AN INVOICE
+// GET /api/admin/deposits/invoice/:invoiceId
+// ==========================================
+
+router.get(
+  "/deposits/invoice/:invoiceId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getDepositByInvoice
+);
+
+// ==========================================
+// GET SINGLE DEPOSIT
+// GET /aoi/admin/deposits/:depositId
+// ==========================================
+
+router.get(
+  "/deposits/:depositId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getDepositById
+);
 
 // Abilash routes ends here
 
