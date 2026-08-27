@@ -24,6 +24,12 @@ const {
   getDepositById,
 } = require("../controllers/depositController");
 
+const {
+  createRefund,
+  getRefundById,
+  getRefundsByInvoice
+} = require("../controllers/refundController");
+
 // imports by Abilash ends here
 
 
@@ -159,6 +165,44 @@ router.get(
   authorizeRoles("STAFF_ADMIN"),
   getDepositById
 );
+
+// =========================================
+// CREATE REFUND
+// POST /api/admin/refunds
+// =========================================
+
+router.post(
+  "/refunds",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createRefund
+);
+
+// =========================================
+// GET REFUNDS FOR AN INVOICE
+// GET /api/admin/refunds/invoice/:invoiceId
+// =========================================
+
+router.get(
+  "/refunds/invoice/:invoiceId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRefundsByInvoice
+);
+
+
+// ========================================
+// GET SINGLE REFUND
+// GET /api/admin/refunds/:refundId
+// ========================================
+
+router.get(
+  "/refunds/:refundId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRefundById
+);
+
 
 // Abilash routes ends here
 
