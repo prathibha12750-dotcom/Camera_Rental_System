@@ -41,6 +41,10 @@ const {
   getMonthlyRevenue
 } = require("../controllers/reportController");
 
+const {
+    getDashboardStats,
+} = require("../controllers/dashboardController");
+
 // imports by Abilash ends here
 
 
@@ -272,6 +276,18 @@ router.get(
     authenticate,
     authorizeRoles("STAFF_ADMIN"),
     getMonthlyRevenue
+);
+
+// ==========================================
+// ADMIN DASHBOARD
+// GET /api/admin/dashboard
+// ==========================================
+
+router.get(
+    "/dashboard",
+    authenticate,
+    authorizeRoles("STAFF_ADMIN"),
+    getDashboardStats
 );
 
 
