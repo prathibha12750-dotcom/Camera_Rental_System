@@ -30,6 +30,12 @@ const {
   getRefundsByInvoice
 } = require("../controllers/refundController");
 
+const {
+    createNotification,
+    getNotificationByUser,
+    markNotificationAsRead,
+} = require("../controllers/notificationController");
+
 // imports by Abilash ends here
 
 
@@ -201,6 +207,42 @@ router.get(
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   getRefundById
+);
+
+// ==========================================
+// CREATE NOTIFICATION
+// POST /api/admin/notification
+// ==========================================
+
+router.post(
+  "/notifications",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createNotification
+);
+
+// ==========================================
+// GET USER NOTIFICATION
+// POST /api/admin/notification/user/:userId
+// ==========================================
+
+router.get(
+  "/notifications/user/:userId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getNotificationByUser
+);
+
+// ==================================================
+// MARK NOTIFICATION AS READ
+// POST /api/admin/notification/:notificationId/read
+// ==================================================
+
+router.patch(
+  "/notifications/:notificationId/read",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  markNotificationAsRead
 );
 
 
