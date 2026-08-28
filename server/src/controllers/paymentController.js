@@ -1,6 +1,7 @@
 const Payment = require("../models/payment");
 const Invoice = require("../models/invoice");
 const User = require("../models/User");
+const Notification = require("../models/notification");
 
 const updateInvoicePaymentStatus = async (invoiceId) => {
     // Get invoice
@@ -140,6 +141,17 @@ const createPayment = async (req, res, next) => {
         //----------------------------------------
 
         await updateInvoicePaymentStatus(existingInvoice._id);
+
+        //----------------------------------------
+        // 6. Create payment notification
+        //----------------------------------------
+
+        await Notification.create({
+            recipient: customer._id,
+            title: "Payment Recorded",
+            message: `A payment of LKR ${amount} has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
+            type: "PAYMENT_RECORDED",
+        });
         
 
         //----------------------------------------
