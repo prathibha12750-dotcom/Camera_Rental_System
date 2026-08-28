@@ -37,12 +37,15 @@ const CustomerBookings = () => {
     success,
     setSuccess,
   ] = useState(
-    location.state
-      ?.bookingCreated
+    location.state?.bookingCreated
       ? "Booking request submitted successfully."
       : ""
   );
 
+
+  // ==========================================
+  // LOAD BOOKINGS
+  // ==========================================
 
   useEffect(() => {
 
@@ -112,15 +115,194 @@ const CustomerBookings = () => {
   }, []);
 
 
+  // ==========================================
+  // DATE HELPERS
+  // ==========================================
+
+  const getTodayString = () => {
+
+    const today =
+      new Date();
+
+
+    const year =
+      today.getFullYear();
+
+    const month =
+      String(
+        today.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const day =
+      String(
+        today.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+    return `${year}-${month}-${day}`;
+  };
+
+
+  const getBookingDateString = (
+    value
+  ) => {
+
+    if (!value) {
+      return "";
+    }
+
+
+    return String(
+      value
+    ).split("T")[0];
+  };
+
+
   const formatDate = (
     value
   ) => {
 
+    if (!value) {
+      return "";
+    }
+
+
     return new Date(
       value
-    ).toLocaleDateString();
+    ).toLocaleDateString(
+      undefined,
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
   };
 
+
+  // ==========================================
+  // UPCOMING / HISTORY
+  // ==========================================
+
+  const today =
+    getTodayString();
+
+
+  const upcomingBookings =
+    bookings
+      .filter(
+        (booking) => {
+
+          const bookingDate =
+            getBookingDateString(
+              booking.date
+            );
+
+
+          const activeStatus =
+            [
+              "REQUESTED",
+              "CONFIRMED",
+            ].includes(
+              booking.status
+            );
+
+
+          return (
+            bookingDate >= today &&
+            activeStatus
+          );
+        }
+      )
+      .sort(
+        (a, b) => {
+
+          const dateDifference =
+            getBookingDateString(
+              a.date
+            ).localeCompare(
+              getBookingDateString(
+                b.date
+              )
+            );
+
+
+          if (
+            dateDifference !== 0
+          ) {
+            return dateDifference;
+          }
+
+
+          return a.startTime.localeCompare(
+            b.startTime
+          );
+        }
+      );
+
+
+  const bookingHistory =
+    bookings
+      .filter(
+        (booking) => {
+
+          const bookingDate =
+            getBookingDateString(
+              booking.date
+            );
+
+
+          const activeStatus =
+            [
+              "REQUESTED",
+              "CONFIRMED",
+            ].includes(
+              booking.status
+            );
+
+
+          return !(
+            bookingDate >= today &&
+            activeStatus
+          );
+        }
+      )
+      .sort(
+        (a, b) => {
+
+          const dateDifference =
+            getBookingDateString(
+              b.date
+            ).localeCompare(
+              getBookingDateString(
+                a.date
+              )
+            );
+
+
+          if (
+            dateDifference !== 0
+          ) {
+            return dateDifference;
+          }
+
+
+          return b.startTime.localeCompare(
+            a.startTime
+          );
+        }
+      );
+
+
+  // ==========================================
+  // CANCEL BOOKING
+  // ==========================================
 
   const handleCancel =
     async (id) => {
@@ -180,6 +362,93 @@ const CustomerBookings = () => {
     };
 
 
+  // ==========================================
+  // BOOKING CARD
+  // ==========================================
+
+  const renderBooking = (
+    booking,
+    allowCancel
+  ) => (
+
+    <article
+      key={booking._id}
+      className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+    >
+
+      <div className="flex flex-col justify-between gap-5 sm:flex-row">
+
+        <div>
+
+          <h3 className="text-lg font-semibold text-gray-950">
+            {
+              booking.photographer
+                ?.user
+                ?.name ||
+              "Photographer"
+            }
+          </h3>
+
+
+          <p className="mt-2 text-sm text-gray-500">
+            {formatDate(
+              booking.date
+            )}
+            {" • "}
+            {booking.startTime}
+            {" — "}
+            {booking.endTime}
+          </p>
+
+
+          {booking.notes && (
+
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              {booking.notes}
+            </p>
+
+          )}
+
+        </div>
+
+
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+
+          <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700">
+            {booking.status}
+          </span>
+
+
+          {allowCancel &&
+            [
+              "REQUESTED",
+              "CONFIRMED",
+            ].includes(
+              booking.status
+            ) && (
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleCancel(
+                    booking._id
+                  )
+                }
+                className="text-sm font-semibold text-red-600 hover:text-red-700"
+              >
+                Cancel Booking
+              </button>
+
+            )}
+
+        </div>
+
+      </div>
+
+    </article>
+  );
+
+
   if (loading) {
     return <Loading />;
   }
@@ -203,125 +472,141 @@ const CustomerBookings = () => {
         </h1>
 
 
+        <p className="mt-2 text-sm text-gray-500">
+          View your upcoming photographer
+          bookings and previous booking history.
+        </p>
+
+
         {error && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>
+
         )}
 
 
         {success && (
-          <div className="mt-6 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
             {success}
           </div>
+
         )}
 
 
-        <div className="mt-8 space-y-4">
+        {/* ==================================
+            UPCOMING BOOKINGS
+        ================================== */}
 
-          {bookings.length ===
+        <section className="mt-8">
+
+          <div className="mb-5">
+
+            <h2 className="text-xl font-semibold text-gray-950">
+              Upcoming Bookings
+            </h2>
+
+
+            <p className="mt-1 text-sm text-gray-500">
+              {upcomingBookings.length}{" "}
+              {upcomingBookings.length ===
+              1
+                ? "upcoming booking"
+                : "upcoming bookings"}
+            </p>
+
+          </div>
+
+
+          {upcomingBookings.length ===
           0 ? (
 
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
-              No photographer bookings yet.
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
+                U
+              </div>
+
+
+              <h3 className="mt-4 font-semibold text-gray-950">
+                No upcoming bookings
+              </h3>
+
+
+              <p className="mt-2 text-sm text-gray-500">
+                Your future requested and
+                confirmed bookings will appear
+                here.
+              </p>
+
             </div>
 
           ) : (
 
-            bookings.map(
-              (booking) => (
+            <div className="space-y-4">
 
-                <article
-                  key={
-                    booking._id
-                  }
-                  className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-                >
+              {upcomingBookings.map(
+                (booking) =>
+                  renderBooking(
+                    booking,
+                    true
+                  )
+              )}
 
-                  <div className="flex flex-col justify-between gap-5 sm:flex-row">
-
-                    <div>
-
-                      <h2 className="text-lg font-semibold text-gray-950">
-                        {
-                          booking
-                            .photographer
-                            ?.user
-                            ?.name
-                        }
-                      </h2>
-
-
-                      <p className="mt-2 text-sm text-gray-500">
-                        {formatDate(
-                          booking.date
-                        )}
-                        {" • "}
-                        {
-                          booking.startTime
-                        }
-                        {" — "}
-                        {
-                          booking.endTime
-                        }
-                      </p>
-
-
-                      {booking.notes && (
-
-                        <p className="mt-3 text-sm leading-6 text-gray-600">
-                          {
-                            booking.notes
-                          }
-                        </p>
-
-                      )}
-
-                    </div>
-
-
-                    <div className="flex flex-col items-start gap-3 sm:items-end">
-
-                      <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700">
-                        {
-                          booking.status
-                        }
-                      </span>
-
-
-                      {[
-                        "REQUESTED",
-                        "CONFIRMED",
-                      ].includes(
-                        booking.status
-                      ) && (
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCancel(
-                              booking._id
-                            )
-                          }
-                          className="text-sm font-semibold text-red-600 hover:text-red-700"
-                        >
-                          Cancel Booking
-                        </button>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-                </article>
-
-              )
-            )
+            </div>
 
           )}
 
-        </div>
+        </section>
+
+
+        {/* ==================================
+            BOOKING HISTORY
+        ================================== */}
+
+        <section className="mt-12">
+
+          <div className="mb-5">
+
+            <h2 className="text-xl font-semibold text-gray-950">
+              Booking History
+            </h2>
+
+
+            <p className="mt-1 text-sm text-gray-500">
+              Completed, cancelled, rejected
+              and previous bookings.
+            </p>
+
+          </div>
+
+
+          {bookingHistory.length ===
+          0 ? (
+
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">
+              No booking history yet.
+            </div>
+
+          ) : (
+
+            <div className="space-y-4">
+
+              {bookingHistory.map(
+                (booking) =>
+                  renderBooking(
+                    booking,
+                    false
+                  )
+              )}
+
+            </div>
+
+          )}
+
+        </section>
 
       </div>
 

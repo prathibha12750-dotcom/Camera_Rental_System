@@ -321,13 +321,34 @@ const PhotographerProfile = () => {
       // ------------------------------------------
       // Keep authentication user state updated
       // ------------------------------------------
-
+      
       if (updatedPhotographer.user) {
         updateUser({
-        ...user,
-        ...updatedPhotographer.user,
-        });
-      }
+            ...user,
+
+            id:
+                updatedPhotographer.user?.id ||
+                updatedPhotographer.user?._id ||
+                user?.id,
+
+            name:
+                updatedPhotographer.user?.name ||
+                user?.name,
+
+            email:
+                updatedPhotographer.user?.email ||
+                user?.email,
+
+            role:
+                updatedPhotographer.user?.role ||
+                user?.role,
+
+            status:
+                updatedPhotographer.user?.status ||
+                user?.status,
+            });
+    }
+
 
 
       setSuccess(
