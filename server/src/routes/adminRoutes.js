@@ -36,6 +36,11 @@ const {
     markNotificationAsRead,
 } = require("../controllers/notificationController");
 
+const {
+  getDailyRevenue,
+  getMonthlyRevenue
+} = require("../controllers/reportController");
+
 // imports by Abilash ends here
 
 
@@ -243,6 +248,30 @@ router.patch(
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   markNotificationAsRead
+);
+
+// ==================================================
+// DAILY REVENUE REPORT
+// GET /api/admin/reports/revenue/daily
+// ==================================================
+
+router.get(
+  "/reports/revenue/daily",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getDailyRevenue
+);
+
+// ==========================================
+// MONTHLY REVENUE REPORT
+// GET /api/admin/reports/revenue/monthly
+// ==========================================
+
+router.get(
+    "/reports/revenue/monthly",
+    authenticate,
+    authorizeRoles("STAFF_ADMIN"),
+    getMonthlyRevenue
 );
 
 

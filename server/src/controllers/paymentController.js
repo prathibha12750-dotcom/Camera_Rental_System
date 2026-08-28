@@ -155,7 +155,7 @@ const createPayment = async (req, res, next) => {
         
 
         //----------------------------------------
-        // 6. Return response
+        // 7. Return response
         //----------------------------------------
 
         return res.status(201).json({
