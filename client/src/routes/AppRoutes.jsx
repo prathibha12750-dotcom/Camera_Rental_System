@@ -14,6 +14,8 @@ import Unauthorized from "../pages/Unauthorized";
 
 import CustomerHome from "../pages/customer/CustomerHome";
 import CustomerProfile from "../pages/customer/CustomerProfile";
+import PhotographerListing from "../pages/customer/PhotographerListing";
+import PhotographerDetails from "../pages/customer/PhotographerDetails";
 import PhotographerHome from "../pages/photographer/PhotographerHome";
 import PhotographerProfile from "../pages/photographer/PhotographerProfile";
 import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
@@ -85,12 +87,18 @@ const AppRoutes = () => {
               path="/customer"
               element={<CustomerHome />}
             />
-
             <Route
               path="/customer/profile"
               element={<CustomerProfile />}
             />
-
+            <Route
+              path="/customer/photographers"
+              element={<PhotographerListing />}
+            />
+            <Route
+              path="/customer/photographers/:id"
+              element={<PhotographerDetails />}
+            />
             {/* prathibha routes end */}
 
           </Route>

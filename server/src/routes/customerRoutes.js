@@ -6,6 +6,13 @@ const {
   changePassword,
 } = require("../controllers/customerController");
 
+const {
+  getPhotographers,
+  getPhotographerDetails,
+} = require(
+  "../controllers/photographerDiscoveryController"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -43,4 +50,23 @@ router.put(
 );
 
 
+// ==========================================
+// PHOTOGRAPHER DISCOVERY
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/photographers",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getPhotographers
+);
+
+
+router.get(
+  "/photographers/:id",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getPhotographerDetails
+);
 module.exports = router;
