@@ -78,19 +78,23 @@ const PhotographerHome = () => {
           </Link>
 
           {/* Bookings */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
-              B
-            </div>
-
-            <h2 className="mt-5 text-lg font-semibold text-gray-950">
-              Bookings
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              Review and manage customer photography bookings.
-            </p>
+          <Link
+            to="/photographer/bookings"
+            className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
+            B
           </div>
+
+          <h2 className="mt-5 text-lg font-semibold text-gray-950">
+          Bookings
+        </h2>
+
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          Review and manage customer photography booking requests.
+        </p>
+</Link>
+          
         </div>
       </div>
     </main>

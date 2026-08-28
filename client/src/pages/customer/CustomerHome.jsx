@@ -64,20 +64,23 @@ const CustomerHome = () => {
 
 
           {/* Bookings */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <Link
+            to="/customer/bookings"
+            className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
               B
             </div>
 
             <h2 className="mt-5 text-lg font-semibold text-gray-950">
-              Bookings
+              My Bookings
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Track your upcoming rental and photography bookings.
+              Review your photographer booking requests and booking status.
             </p>
-          </div>
-
+          </Link>
+          
         </div>
       </div>
     </main>

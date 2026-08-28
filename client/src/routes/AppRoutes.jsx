@@ -16,10 +16,15 @@ import CustomerHome from "../pages/customer/CustomerHome";
 import CustomerProfile from "../pages/customer/CustomerProfile";
 import PhotographerListing from "../pages/customer/PhotographerListing";
 import PhotographerDetails from "../pages/customer/PhotographerDetails";
+import PhotographerBooking from "../pages/customer/PhotographerBooking";
+import CustomerBookings from "../pages/customer/CustomerBookings";
+
 import PhotographerHome from "../pages/photographer/PhotographerHome";
 import PhotographerProfile from "../pages/photographer/PhotographerProfile";
 import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
 import PhotographerAvailability from "../pages/photographer/PhotographerAvailability";
+import PhotographerBookings from "../pages/photographer/PhotographerBookings";
+
 import AdminHome from "../pages/admin/AdminHome";
 
 import ProtectedRoute from "./ProtectedRoute";
@@ -99,6 +104,14 @@ const AppRoutes = () => {
               path="/customer/photographers/:id"
               element={<PhotographerDetails />}
             />
+            <Route
+              path="/customer/photographers/:id/book"
+              element={<PhotographerBooking />}
+            />
+            <Route
+              path="/customer/bookings"
+              element={<CustomerBookings />}
+            />
             {/* prathibha routes end */}
 
           </Route>
@@ -128,6 +141,10 @@ const AppRoutes = () => {
             <Route
               path="/photographer/availability"
               element={<PhotographerAvailability />}
+            />
+            <Route
+              path="/photographer/bookings"
+              element={<PhotographerBookings />}
             />
             {/* prathibha routes end */}
 

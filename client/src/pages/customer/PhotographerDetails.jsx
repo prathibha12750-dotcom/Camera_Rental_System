@@ -550,15 +550,23 @@ const PhotographerDetails = () => {
 
         <section className="mt-10 rounded-2xl border border-orange-200 bg-orange-50 p-6">
 
-          <h2 className="text-lg font-semibold text-gray-950">
-            Want to book this photographer?
-          </h2>
+            <h2 className="text-lg font-semibold text-gray-950">
+                Want to book this photographer?
+            </h2>
 
 
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Photographer booking will be
-            available in the next phase.
-          </p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+                Select an available date and time period
+                and submit a booking request.
+            </p>
+
+
+            <Link
+                to={`/customer/photographers/${photographer._id}/book`}
+                className="mt-5 inline-flex rounded-xl bg-gray-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+            >
+                Book Photographer
+            </Link>
 
         </section>
 

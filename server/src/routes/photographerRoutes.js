@@ -19,6 +19,13 @@ const {
   deleteAvailability,
 } = require("../controllers/availabilityController");
 
+const {
+  getPhotographerBookings,
+  updatePhotographerBookingStatus,
+} = require(
+  "../controllers/bookingController"
+);
+
 const authenticate =
   require("../middleware/authenticate");
 
@@ -107,6 +114,22 @@ router.put(
 router.delete(
   "/availability/:id",
   deleteAvailability
+);
+
+
+// ==========================================
+// PHOTOGRAPHER BOOKINGS
+// ==========================================
+
+router.get(
+  "/bookings",
+  getPhotographerBookings
+);
+
+
+router.patch(
+  "/bookings/:id/status",
+  updatePhotographerBookingStatus
 );
 
 

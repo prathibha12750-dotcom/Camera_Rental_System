@@ -13,6 +13,14 @@ const {
   "../controllers/photographerDiscoveryController"
 );
 
+const {
+  createBooking,
+  getCustomerBookings,
+  cancelCustomerBooking,
+} = require(
+  "../controllers/bookingController"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -69,4 +77,33 @@ router.get(
   authorizeRoles("CUSTOMER"),
   getPhotographerDetails
 );
+
+// ==========================================
+// PHOTOGRAPHER BOOKINGS
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/bookings",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getCustomerBookings
+);
+
+
+router.post(
+  "/bookings",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  createBooking
+);
+
+
+router.patch(
+  "/bookings/:id/cancel",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  cancelCustomerBooking
+);
+
 module.exports = router;
