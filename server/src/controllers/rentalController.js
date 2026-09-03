@@ -1,3 +1,5 @@
+const DamageRecord = require("../models/DamageRecord");
+const Return = require("../models/Return");
 const Rental = require("../models/Rental");
 const Equipment = require("../models/Equipment");
 
@@ -387,6 +389,8 @@ const issueRental = async (req, res, next) => {
 
 const returnRental = async (req, res, next) => {
   try {
+    const { condition, damageDescription, notes } = req.body;
+
     const rental = await Rental.findById(req.params.id);
 
     if (!rental) {
@@ -396,11 +400,38 @@ const returnRental = async (req, res, next) => {
       });
     }
 
-    // Only active rentals can be returned
     if (rental.status !== "ACTIVE") {
       return res.status(400).json({
         success: false,
         message: "Only active rentals can be returned",
+      });
+    }
+
+    if (!condition) {
+      return res.status(400).json({
+        success: false,
+        message: "Return condition is required",
+      });
+    }
+
+    const allowedConditions = [
+      "EXCELLENT",
+      "GOOD",
+      "FAIR",
+      "DAMAGED",
+    ];
+
+    if (!allowedConditions.includes(condition)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid return condition",
+      });
+    }
+
+    if (condition === "DAMAGED" && !damageDescription) {
+      return res.status(400).json({
+        success: false,
+        message: "Damage description is required for damaged equipment",
       });
     }
 
@@ -413,12 +444,48 @@ const returnRental = async (req, res, next) => {
       });
     }
 
-    // Update rental
-    rental.status = "RETURNED";
-    rental.returnedAt = new Date();
+    const returnedAt = new Date();
 
-    // Normal return: equipment becomes available again
-    equipment.status = "AVAILABLE";
+    const returnRecord = await Return.create({
+      rental: rental._id,
+      equipment: equipment._id,
+      customer: rental.customer,
+      returnedAt,
+      condition,
+      damageDescription: damageDescription || "",
+      notes: notes || "",
+      receivedBy: req.user.userId,
+    });
+
+    // ======================================
+    // damagerecord connecting
+    // ======================================
+
+    let damageRecord = null;
+
+    if (condition === "DAMAGED") {
+      damageRecord = await DamageRecord.create({
+        rental: rental._id,
+        equipment: equipment._id,
+        customer: rental.customer,
+        returnRecord: returnRecord._id,
+        description: damageDescription,
+        reportedBy: req.user.userId,
+      });
+    }
+
+    // =========================================
+
+    rental.status = "RETURNED";
+    rental.returnedAt = returnedAt;
+
+    equipment.condition = condition;
+
+    if (condition === "DAMAGED") {
+      equipment.status = "DAMAGED";
+    } else {
+      equipment.status = "AVAILABLE";
+    }
 
     await rental.save();
     await equipment.save();
@@ -429,6 +496,39 @@ const returnRental = async (req, res, next) => {
       data: {
         rental,
         equipment,
+        returnRecord,
+        damageRecord,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+// return equipment ends here
+// =========================================================
+
+
+// ==========================================================
+// Get all damage records
+// ==========================================================
+
+const getAllDamageRecords = async (req, res, next) => {
+  try {
+    const damageRecords = await DamageRecord.find()
+      .populate("customer", "name email")
+      .populate(
+        "equipment",
+        "name brand model serialNumber condition status"
+      )
+      .populate("reportedBy", "name email")
+      .populate("returnRecord")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: damageRecords.length,
+      data: {
+        damageRecords,
       },
     });
   } catch (error) {
@@ -436,8 +536,209 @@ const returnRental = async (req, res, next) => {
   }
 };
 
-// return equipment ends here
-// =========================================================
+// ==============================================================
+
+
+// ==============================================================
+// damage status update endpoint
+// ==============================================================
+
+const updateDamageRecordStatus = async (req, res, next) => {
+  try {
+    const { status, repairCost } = req.body;
+
+    const allowedStatuses = [
+      "REPORTED",
+      "UNDER_INSPECTION",
+      "MAINTENANCE",
+      "RESOLVED",
+    ];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid damage record status",
+      });
+    }
+
+    const damageRecord = await DamageRecord.findById(req.params.id);
+
+    if (!damageRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Damage record not found",
+      });
+    }
+
+    const equipment = await Equipment.findById(damageRecord.equipment);
+
+    if (!equipment) {
+      return res.status(404).json({
+        success: false,
+        message: "Equipment not found",
+      });
+    }
+
+    damageRecord.status = status;
+
+    if (repairCost !== undefined) {
+      damageRecord.repairCost = repairCost;
+    }
+
+    if (status === "UNDER_INSPECTION") {
+      equipment.status = "DAMAGED";
+    }
+
+    if (status === "MAINTENANCE") {
+      equipment.status = "MAINTENANCE";
+    }
+
+    if (status === "RESOLVED") {
+      damageRecord.resolvedAt = new Date();
+      equipment.status = "AVAILABLE";
+      equipment.condition = "GOOD";
+    } else {
+      damageRecord.resolvedAt = null;
+    }
+
+    await damageRecord.save();
+    await equipment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Damage record updated successfully",
+      data: {
+        damageRecord,
+        equipment,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =============================================================
+
+
+// =============================================================
+// Detect overdue rentals
+// =============================================================
+
+const getOverdueRentals = async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    const rentals = await Rental.find({
+      status: "ACTIVE",
+      endDate: { $lt: now },
+    })
+      .populate("customer", "name email")
+      .populate(
+        "equipment",
+        "name brand model serialNumber rentalPricePerDay"
+      )
+      .sort({ endDate: 1 });
+
+    const overdueRentals = rentals.map((rental) => {
+      const millisecondsOverdue = now - rental.endDate;
+
+      const daysOverdue = Math.ceil(
+        millisecondsOverdue / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        ...rental.toObject(),
+        daysOverdue,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: overdueRentals.length,
+      data: {
+        rentals: overdueRentals,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ===========================================================
+
+
+
+// ===========================================================
+// customer rental history
+// ===========================================================
+
+const getMyRentals = async (req, res, next) => {
+  try {
+    const rentals = await Rental.find({
+      customer: req.user.userId,
+    })
+      .populate(
+        "equipment",
+        "name brand model serialNumber rentalPricePerDay status condition"
+      )
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: rentals.length,
+      data: {
+        rentals,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =================================================================
+
+
+// ==========================================================
+// customer cancellation of a pending request
+// ==========================================================
+
+const cancelRental = async (req, res, next) => {
+  try {
+    const rental = await Rental.findOne({
+      _id: req.params.id,
+      customer: req.user.userId,
+    });
+
+    if (!rental) {
+      return res.status(404).json({
+        success: false,
+        message: "Rental not found",
+      });
+    }
+
+    if (rental.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending rental requests can be cancelled",
+      });
+    }
+
+    rental.status = "CANCELLED";
+    await rental.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Rental cancelled successfully",
+      data: {
+        rental,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ======================================================
 
 module.exports = {
   checkAvailability,
@@ -446,5 +747,10 @@ module.exports = {
   approveRental,
   rejectRental,
   issueRental,
-  returnRental, 
+  returnRental,
+  getAllDamageRecords,
+  updateDamageRecordStatus,
+  getOverdueRentals,
+  getMyRentals,
+  cancelRental, 
 };
