@@ -19,6 +19,10 @@ import AdminHome from "../pages/admin/AdminHome";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
+// import start by Abilash
+import AdminLayout from "../components/admin/AdminLayout";
+// import end by Abilash
+
 const NotFound = () => {
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 px-6 py-16">
@@ -104,10 +108,19 @@ const AppRoutes = () => {
               />
             }
           >
-            <Route
-              path="/admin"
-              element={<AdminHome />}
-            />
+            {/*Route adding starts by Abilash*/}
+
+
+            <Route element={<AdminLayout />}>
+              <Route
+                path="/admin"
+                element={<AdminHome />}
+              />
+            </Route>
+
+            
+            {/*Route adding ends by Abilash*/}
+            
           </Route>
 
         </Route>
