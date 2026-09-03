@@ -1,4 +1,11 @@
+// ==========================================================
+//Routes added by thasindu nayanajith
+
 const equipmentRoutes = require("./routes/equipmentRoutes"); //Connect the equipment routes
+const rentalRoutes = require("./routes/rentalRoutes");//connect the rental routes
+
+//end of the routes by thasindu
+// ===========================================================
 
 const express = require("express");
 const cors = require("cors");
@@ -68,7 +75,9 @@ app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/admin", adminRoutes);
 
-app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes
+app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes by thasindu
+
+app.use("/api/rentals", rentalRoutes);//connect the rental routes by thasindu
 
 
 // ==========================================
