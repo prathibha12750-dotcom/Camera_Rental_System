@@ -1,3 +1,5 @@
+const equipmentRoutes = require("./routes/equipmentRoutes"); //Connect the equipment routes
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -8,6 +10,10 @@ const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
+
+//const app = express();
+
+
 
 // SECURITY MIDDLEWARE
 
@@ -61,6 +67,8 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/admin", adminRoutes);
+
+app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes
 
 
 // ==========================================
