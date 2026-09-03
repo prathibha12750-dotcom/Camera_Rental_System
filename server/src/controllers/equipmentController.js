@@ -48,10 +48,45 @@ const createEquipment = async (req, res, next) => {
 // ==========================================
 // GET ALL EQUIPMENT
 // GET /api/equipment
-// ==========================================
+//SEARCH AND FILTER EQUIPMENTS
+
 const getAllEquipment = async (req, res, next) => {
   try {
-    const equipment = await Equipment.find().sort({
+    const {
+      search,
+      category,
+      brand,
+      condition,
+      status,
+    } = req.query;
+
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+        { model: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (category) {
+      filter.category = category;
+    }
+
+    if (brand) {
+      filter.brand = brand;
+    }
+
+    if (condition) {
+      filter.condition = condition;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    const equipment = await Equipment.find(filter).sort({
       createdAt: -1,
     });
 
@@ -66,6 +101,9 @@ const getAllEquipment = async (req, res, next) => {
     next(error);
   }
 };
+
+//END OF SEARCH AND FILTER EQUIPMENTS
+// ==========================================
 
 
 // ==========================================
