@@ -13,6 +13,7 @@ const {
   getOverdueRentals,
   getMyRentals,
   cancelRental,
+  completeRental,
 } = require("../controllers/rentalController");
 
 const authenticate = require("../middleware/authenticate");
@@ -111,6 +112,14 @@ router.patch(
   "/:id/cancel",
   authenticate,
   cancelRental
+);
+
+//complete reantal
+router.patch(
+  "/:id/complete",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  completeRental
 );
 
 
