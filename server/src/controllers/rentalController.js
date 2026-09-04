@@ -740,6 +740,48 @@ const cancelRental = async (req, res, next) => {
 
 // ======================================================
 
+
+
+// ============================================================
+// complete rental 
+// ============================================================
+
+const completeRental = async (req, res, next) => {
+  try {
+    const rental = await Rental.findById(req.params.id);
+
+    if (!rental) {
+      return res.status(404).json({
+        success: false,
+        message: "Rental not found",
+      });
+    }
+
+    if (rental.status !== "RETURNED") {
+      return res.status(400).json({
+        success: false,
+        message: "Only returned rentals can be completed",
+      });
+    }
+
+    rental.status = "COMPLETED";
+
+    await rental.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Rental completed successfully",
+      data: {
+        rental,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==================================================================
+
 module.exports = {
   checkAvailability,
   createRentalRequest,
@@ -752,5 +794,6 @@ module.exports = {
   updateDamageRecordStatus,
   getOverdueRentals,
   getMyRentals,
-  cancelRental, 
+  cancelRental,
+  completeRental, 
 };
