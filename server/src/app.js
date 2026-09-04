@@ -3,6 +3,7 @@
 
 const equipmentRoutes = require("./routes/equipmentRoutes"); //Connect the equipment routes
 const rentalRoutes = require("./routes/rentalRoutes");//connect the rental routes
+const categoryRoutes = require("./routes/categoryRoutes");//coonect the category routes
 
 //end of the routes by thasindu
 // ===========================================================
@@ -75,9 +76,21 @@ app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/admin", adminRoutes);
 
+
+// ======================================================================================
+// routes connects by thasindu
+// ======================================================================================
+
 app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes by thasindu
 
 app.use("/api/rentals", rentalRoutes);//connect the rental routes by thasindu
+
+app.use("/api/categories", categoryRoutes);//connect the category routes by thasindu
+
+// ======================================================================================
+// End of the routes connects by thasindu
+// ======================================================================================
+
 
 
 // ==========================================
