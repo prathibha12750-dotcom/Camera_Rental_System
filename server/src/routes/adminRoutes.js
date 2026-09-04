@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   createPhotographer,
+  getCustomers, //imported by abilash
 } = require("../controllers/adminController");
 
 
@@ -84,6 +85,18 @@ router.post(
 );
 
 // Abilash routes starts here
+
+// ==========================================
+// GET ALL CUSTOMERS
+// GET /api/admin/customers
+// ==========================================
+
+router.get(
+  "/customers",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getCustomers
+);
 
 // ==========================================
 // CREATE INVOICE
