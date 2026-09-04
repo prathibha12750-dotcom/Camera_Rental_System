@@ -543,11 +543,22 @@ const PhotographerBooking = () => {
 
 
   const selectedDateFreePeriods =
-    selectedDate
-      ? freePeriodsByDate[
+    useMemo(() => {
+
+      if (!selectedDate) {
+        return [];
+      }
+
+      return (
+        freePeriodsByDate[
           selectedDate
         ] || []
-      : [];
+      );
+
+    }, [
+      freePeriodsByDate,
+      selectedDate,
+    ]);
 
 
   const startTimeOptions =
