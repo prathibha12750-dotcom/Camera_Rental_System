@@ -9,7 +9,6 @@ import {
 } from "react-router-dom";
 
 import api from "../../services/api";
-import Loading from "../../components/Loading";
 
 
 const PhotographerDetails = () => {
@@ -122,6 +121,7 @@ const PhotographerDetails = () => {
           }
 
         }
+
       };
 
 
@@ -135,27 +135,141 @@ const PhotographerDetails = () => {
   }, [id]);
 
 
+  // ==========================================
+  // DATE FORMAT
+  // ==========================================
+
   const formatDate = (
     value
   ) => {
+
+    if (!value) {
+      return "";
+    }
+
 
     return new Date(
       value
     ).toLocaleDateString(
       undefined,
       {
+        weekday: "short",
         year: "numeric",
-        month: "long",
+        month: "short",
         day: "numeric",
       }
     );
+
   };
 
 
+  // ==========================================
+  // LOADING
+  // ==========================================
+
   if (loading) {
-    return <Loading />;
+
+    return (
+      <main className="
+        min-h-[calc(100vh-4rem)]
+        bg-gray-50
+        px-4
+        py-6
+        sm:px-6
+        lg:px-8
+      ">
+
+        <div className="
+          mx-auto
+          max-w-7xl
+          animate-pulse
+        ">
+
+          <div className="
+            h-5
+            w-40
+            rounded
+            bg-gray-200
+          " />
+
+
+          <div className="
+            mt-6
+            rounded-3xl
+            border
+            border-gray-200
+            bg-white
+            p-6
+            sm:p-8
+          ">
+
+            <div className="
+              flex
+              flex-col
+              gap-6
+              md:flex-row
+            ">
+
+              <div className="
+                h-44
+                w-full
+                rounded-2xl
+                bg-gray-200
+                sm:w-44
+              " />
+
+
+              <div className="
+                flex-1
+                space-y-4
+              ">
+
+                <div className="
+                  h-4
+                  w-28
+                  rounded
+                  bg-gray-200
+                " />
+
+                <div className="
+                  h-8
+                  w-64
+                  max-w-full
+                  rounded
+                  bg-gray-200
+                " />
+
+                <div className="
+                  h-5
+                  w-48
+                  rounded
+                  bg-gray-100
+                " />
+
+                <div className="
+                  h-12
+                  w-40
+                  rounded-xl
+                  bg-gray-100
+                " />
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+    );
+
   }
 
+
+  // ==========================================
+  // ERROR
+  // ==========================================
 
   if (
     error ||
@@ -163,16 +277,50 @@ const PhotographerDetails = () => {
   ) {
 
     return (
-      <main className="min-h-screen bg-gray-50 px-4 py-10">
+      <main className="
+        min-h-[calc(100vh-4rem)]
+        bg-gray-50
+        px-4
+        py-10
+        sm:px-6
+      ">
 
-        <div className="mx-auto max-w-4xl rounded-2xl border border-red-200 bg-white p-8 shadow-sm">
+        <div className="
+          mx-auto
+          max-w-2xl
+          rounded-2xl
+          border
+          border-red-200
+          bg-white
+          p-8
+          shadow-sm
+        ">
 
-          <h1 className="text-2xl font-bold text-gray-950">
+          <p className="
+            text-sm
+            font-semibold
+            text-red-600
+          ">
+            Unable to load profile
+          </p>
+
+
+          <h1 className="
+            mt-2
+            text-2xl
+            font-bold
+            text-gray-950
+          ">
             Photographer unavailable
           </h1>
 
 
-          <p className="mt-3 text-sm text-red-600">
+          <p className="
+            mt-3
+            text-sm
+            leading-6
+            text-gray-600
+          ">
             {error ||
               "Photographer not found."}
           </p>
@@ -180,7 +328,19 @@ const PhotographerDetails = () => {
 
           <Link
             to="/customer/photographers"
-            className="mt-6 inline-flex rounded-xl bg-gray-950 px-5 py-3 text-sm font-semibold text-white"
+            className="
+              mt-6
+              inline-flex
+              rounded-xl
+              bg-gray-950
+              px-5
+              py-3
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-orange-600
+            "
           >
             Back to Photographers
           </Link>
@@ -189,33 +349,89 @@ const PhotographerDetails = () => {
 
       </main>
     );
+
   }
 
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="
+      min-h-[calc(100vh-4rem)]
+      bg-gray-50
+      px-4
+      py-6
+      sm:px-6
+      lg:px-8
+      lg:py-8
+    ">
 
-      <div className="mx-auto max-w-6xl">
+      <div className="
+        mx-auto
+        max-w-7xl
+      ">
 
+
+        {/* ==================================
+            BACK NAVIGATION
+        ================================== */}
 
         <Link
           to="/customer/photographers"
-          className="text-sm font-medium text-gray-500 transition hover:text-gray-950"
+          className="
+            inline-flex
+            items-center
+            gap-2
+            text-sm
+            font-medium
+            text-gray-500
+            transition
+            hover:text-gray-950
+          "
         >
-          ← Back to Photographers
+
+          <span aria-hidden="true">
+            ←
+          </span>
+
+          Back to Photographers
+
         </Link>
 
 
-        {/* PROFILE */}
+        {/* ==================================
+            PROFILE HEADER
+        ================================== */}
 
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="
+          mt-5
+          overflow-hidden
+          rounded-3xl
+          border
+          border-gray-200
+          bg-white
+          shadow-sm
+        ">
 
-          <div className="flex flex-col gap-6 md:flex-row">
+          <div className="
+            flex
+            flex-col
+            gap-7
+            p-6
+            sm:p-8
+            lg:flex-row
+            lg:items-center
+          ">
 
 
             {/* IMAGE */}
 
-            <div className="shrink-0">
+            <div className="
+              shrink-0
+              overflow-hidden
+              rounded-2xl
+              bg-gray-100
+              lg:h-52
+              lg:w-52
+            ">
 
               {photographer.profileImage ? (
 
@@ -228,12 +444,31 @@ const PhotographerDetails = () => {
                       ?.name ||
                     "Photographer"
                   }
-                  className="h-40 w-40 rounded-2xl object-cover"
+                  className="
+                    aspect-square
+                    h-full
+                    w-full
+                    object-cover
+                  "
                 />
 
               ) : (
 
-                <div className="flex h-40 w-40 items-center justify-center rounded-2xl bg-orange-100 text-4xl font-bold text-orange-700">
+                <div className="
+                  flex
+                  aspect-square
+                  h-full
+                  min-h-48
+                  w-full
+                  items-center
+                  justify-center
+                  bg-gradient-to-br
+                  from-orange-50
+                  to-gray-100
+                  text-5xl
+                  font-bold
+                  text-orange-700
+                ">
 
                   {photographer.user
                     ?.name
@@ -248,58 +483,161 @@ const PhotographerDetails = () => {
             </div>
 
 
-            <div className="flex-1">
+            {/* MAIN PROFILE INFO */}
 
-              <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-                Photographer
+            <div className="
+              min-w-0
+              flex-1
+            ">
+
+              <p className="
+                text-sm
+                font-semibold
+                text-orange-600
+              ">
+                Professional Photographer
               </p>
 
 
-              <h1 className="mt-2 text-3xl font-bold text-gray-950">
-                {
-                  photographer.user
-                    ?.name
-                }
+              <h1 className="
+                mt-2
+                text-3xl
+                font-bold
+                tracking-tight
+                text-gray-950
+                sm:text-4xl
+              ">
+
+                {photographer.user
+                  ?.name ||
+                  "Photographer"}
+
               </h1>
 
 
-              <p className="mt-2 text-lg font-medium text-gray-700">
+              <p className="
+                mt-2
+                text-base
+                font-medium
+                text-gray-600
+                sm:text-lg
+              ">
+
                 {photographer.specialization ||
-                  "Professional Photographer"}
+                  "Photography Services"}
+
               </p>
 
 
               {photographer.location && (
 
-                <p className="mt-3 text-sm text-gray-500">
-                  Location:{" "}
+                <div className="
+                  mt-4
+                  flex
+                  items-center
+                  gap-2
+                  text-sm
+                  text-gray-500
+                ">
+
+                  <svg
+                    className="
+                      h-5
+                      w-5
+                      shrink-0
+                    "
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z" />
+
+                    <circle
+                      cx="12"
+                      cy="10"
+                      r="2"
+                    />
+                  </svg>
+
                   {
                     photographer.location
                   }
-                </p>
+
+                </div>
 
               )}
 
 
-              <div className="mt-5">
+              <div className="
+                mt-6
+                flex
+                flex-col
+                gap-4
+                sm:flex-row
+                sm:items-end
+                sm:justify-between
+              ">
 
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Hourly Rate
-                </p>
+                <div>
+
+                  <p className="
+                    text-xs
+                    font-medium
+                    uppercase
+                    tracking-wider
+                    text-gray-400
+                  ">
+                    Hourly rate
+                  </p>
 
 
-                <p className="mt-1 text-xl font-bold text-gray-950">
+                  <p className="
+                    mt-1
+                    text-2xl
+                    font-bold
+                    text-gray-950
+                  ">
 
-                  {photographer.hourlyRate !==
-                  null &&
-                  photographer.hourlyRate !==
-                    undefined
-                    ? `LKR ${Number(
-                        photographer.hourlyRate
-                      ).toLocaleString()}`
-                    : "Contact for pricing"}
+                    {photographer.hourlyRate !==
+                      null &&
+                    photographer.hourlyRate !==
+                      undefined
+                      ? `LKR ${Number(
+                          photographer.hourlyRate
+                        ).toLocaleString()}`
+                      : "Contact for pricing"}
 
-                </p>
+                  </p>
+
+                </div>
+
+
+                <Link
+                  to={`/customer/photographers/${photographer._id}/book`}
+                  className="
+                    inline-flex
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-orange-600
+                    px-6
+                    py-3
+                    text-sm
+                    font-semibold
+                    text-white
+                    shadow-sm
+                    transition
+                    hover:bg-orange-700
+                    focus:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-orange-500
+                    focus-visible:ring-offset-2
+                  "
+                >
+                  Book Photographer
+                </Link>
 
               </div>
 
@@ -307,72 +645,180 @@ const PhotographerDetails = () => {
 
           </div>
 
-
-          {photographer.bio && (
-
-            <div className="mt-8 border-t border-gray-100 pt-6">
-
-              <h2 className="text-lg font-semibold text-gray-950">
-                About
-              </h2>
+        </section>
 
 
-              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-600">
-                {photographer.bio}
-              </p>
+        {/* ==================================
+            ABOUT
+        ================================== */}
 
-            </div>
+        <section className="
+          mt-8
+          border-b
+          border-gray-200
+          pb-8
+        ">
 
-          )}
+          <div className="
+            max-w-3xl
+          ">
+
+            <p className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wider
+              text-orange-600
+            ">
+              About
+            </p>
+
+
+            <h2 className="
+              mt-1
+              text-2xl
+              font-bold
+              text-gray-950
+            ">
+              About this photographer
+            </h2>
+
+
+            <p className="
+              mt-4
+              whitespace-pre-line
+              text-sm
+              leading-7
+              text-gray-600
+            ">
+
+              {photographer.bio ||
+                "This photographer has not added a professional biography yet."}
+
+            </p>
+
+          </div>
 
         </section>
 
 
-        {/* PACKAGES */}
+        {/* ==================================
+            PACKAGES
+        ================================== */}
 
         <section className="mt-8">
 
-          <h2 className="text-xl font-semibold text-gray-950">
-            Photography Packages
-          </h2>
+          <div>
+
+            <p className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wider
+              text-orange-600
+            ">
+              Pricing
+            </p>
+
+
+            <h2 className="
+              mt-1
+              text-2xl
+              font-bold
+              text-gray-950
+            ">
+              Photography Packages
+            </h2>
+
+
+            <p className="
+              mt-2
+              text-sm
+              text-gray-500
+            ">
+              Available service packages
+              offered by this photographer.
+            </p>
+
+          </div>
 
 
           {photographer
             .packageRates
             ?.length > 0 ? (
 
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
+            <div className="
+              mt-5
+              grid
+              gap-4
+              md:grid-cols-2
+              xl:grid-cols-3
+            ">
 
               {photographer.packageRates.map(
                 (pkg) => (
 
                   <article
-                    key={pkg._id}
-                    className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+                    key={
+                      pkg._id ||
+                      pkg.name
+                    }
+                    className="
+                      rounded-2xl
+                      border
+                      border-gray-200
+                      bg-white
+                      p-5
+                      shadow-sm
+                    "
                   >
 
-                    <h3 className="font-semibold text-gray-950">
-                      {pkg.name}
-                    </h3>
+                    <div className="
+                      flex
+                      items-start
+                      justify-between
+                      gap-4
+                    ">
+
+                      <h3 className="
+                        font-semibold
+                        text-gray-950
+                      ">
+                        {pkg.name}
+                      </h3>
+
+
+                      <p className="
+                        shrink-0
+                        font-bold
+                        text-orange-600
+                      ">
+
+                        LKR{" "}
+
+                        {Number(
+                          pkg.price
+                        ).toLocaleString()}
+
+                      </p>
+
+                    </div>
 
 
                     {pkg.description && (
 
-                      <p className="mt-2 text-sm leading-6 text-gray-500">
+                      <p className="
+                        mt-3
+                        text-sm
+                        leading-6
+                        text-gray-500
+                      ">
                         {
                           pkg.description
                         }
                       </p>
 
                     )}
-
-
-                    <p className="mt-5 text-lg font-bold text-orange-600">
-                      LKR{" "}
-                      {Number(
-                        pkg.price
-                      ).toLocaleString()}
-                    </p>
 
                   </article>
 
@@ -383,54 +829,146 @@ const PhotographerDetails = () => {
 
           ) : (
 
-            <p className="mt-4 text-sm text-gray-500">
-              No photography packages have
-              been added yet.
-            </p>
+            <div className="
+              mt-5
+              rounded-2xl
+              border
+              border-dashed
+              border-gray-300
+              bg-white
+              px-5
+              py-7
+            ">
+
+              <p className="
+                text-sm
+                text-gray-500
+              ">
+                No photography packages
+                have been added yet.
+              </p>
+
+            </div>
 
           )}
 
         </section>
 
 
-        {/* PORTFOLIO */}
+        {/* ==================================
+            PORTFOLIO
+        ================================== */}
 
         <section className="mt-10">
 
-          <h2 className="text-xl font-semibold text-gray-950">
-            Portfolio
-          </h2>
+          <div>
+
+            <p className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wider
+              text-orange-600
+            ">
+              Work
+            </p>
+
+
+            <h2 className="
+              mt-1
+              text-2xl
+              font-bold
+              text-gray-950
+            ">
+              Portfolio
+            </h2>
+
+
+            <p className="
+              mt-2
+              text-sm
+              text-gray-500
+            ">
+              A selection of this
+              photographer's previous work.
+            </p>
+
+          </div>
 
 
           {portfolio.length ===
           0 ? (
 
-            <p className="mt-4 text-sm text-gray-500">
-              No portfolio items available.
-            </p>
+            <div className="
+              mt-5
+              rounded-2xl
+              border
+              border-dashed
+              border-gray-300
+              bg-white
+              px-6
+              py-9
+              text-center
+            ">
+
+              <p className="
+                text-sm
+                text-gray-500
+              ">
+                No portfolio items are
+                available yet.
+              </p>
+
+            </div>
 
           ) : (
 
-            <div className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="
+              mt-5
+              grid
+              gap-5
+              sm:grid-cols-2
+              xl:grid-cols-3
+            ">
 
               {portfolio.map(
                 (item) => (
 
                   <article
                     key={item._id}
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+                    className="
+                      group
+                      overflow-hidden
+                      rounded-2xl
+                      border
+                      border-gray-200
+                      bg-white
+                      shadow-sm
+                    "
                   >
 
-                    <div className="aspect-[4/3] bg-gray-100">
+                    <div className="
+                      aspect-[4/3]
+                      overflow-hidden
+                      bg-gray-100
+                    ">
 
                       <img
                         src={
                           item.imageUrl
                         }
                         alt={
-                          item.title
+                          item.title ||
+                          "Portfolio work"
                         }
-                        className="h-full w-full object-cover"
+                        className="
+                          h-full
+                          w-full
+                          object-cover
+                          transition
+                          duration-300
+                          group-hover:scale-[1.02]
+                        "
                       />
 
                     </div>
@@ -438,16 +976,23 @@ const PhotographerDetails = () => {
 
                     <div className="p-5">
 
-                      <h3 className="font-semibold text-gray-950">
-                        {
-                          item.title
-                        }
+                      <h3 className="
+                        font-semibold
+                        text-gray-950
+                      ">
+                        {item.title}
                       </h3>
 
 
                       {item.description && (
 
-                        <p className="mt-2 text-sm leading-6 text-gray-500">
+                        <p className="
+                          mt-2
+                          line-clamp-3
+                          text-sm
+                          leading-6
+                          text-gray-500
+                        ">
                           {
                             item.description
                           }
@@ -469,68 +1014,156 @@ const PhotographerDetails = () => {
         </section>
 
 
-        {/* AVAILABILITY */}
+        {/* ==================================
+            AVAILABILITY
+        ================================== */}
 
         <section className="mt-10">
 
-          <h2 className="text-xl font-semibold text-gray-950">
-            Availability
-          </h2>
+          <div className="
+            flex
+            flex-col
+            gap-3
+            sm:flex-row
+            sm:items-end
+            sm:justify-between
+          ">
+
+            <div>
+
+              <p className="
+                text-xs
+                font-semibold
+                uppercase
+                tracking-wider
+                text-orange-600
+              ">
+                Schedule
+              </p>
 
 
-          <p className="mt-1 text-sm text-gray-500">
-            Upcoming available dates and
-            service periods.
-          </p>
+              <h2 className="
+                mt-1
+                text-2xl
+                font-bold
+                text-gray-950
+              ">
+                Upcoming Availability
+              </h2>
+
+
+              <p className="
+                mt-2
+                text-sm
+                text-gray-500
+              ">
+                Available dates and
+                time periods currently
+                listed by the photographer.
+              </p>
+
+            </div>
+
+          </div>
 
 
           {availability.length ===
           0 ? (
 
-            <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+            <div className="
+              mt-5
+              rounded-2xl
+              border
+              border-dashed
+              border-gray-300
+              bg-white
+              px-6
+              py-9
+              text-center
+            ">
 
-              <p className="text-sm text-gray-500">
+              <p className="
+                text-sm
+                text-gray-500
+              ">
                 This photographer has no
-                upcoming availability listed.
+                upcoming availability
+                listed.
               </p>
 
             </div>
 
           ) : (
 
-            <div className="mt-5 space-y-3">
+            <div className="
+              mt-5
+              grid
+              gap-3
+              md:grid-cols-2
+            ">
 
               {availability.map(
                 (slot) => (
 
                   <div
                     key={slot._id}
-                    className="flex flex-col justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center"
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-4
+                      rounded-2xl
+                      border
+                      border-gray-200
+                      bg-white
+                      p-5
+                      shadow-sm
+                    "
                   >
 
-                    <div>
+                    <div className="
+                      min-w-0
+                    ">
 
-                      <p className="font-semibold text-gray-950">
+                      <p className="
+                        font-semibold
+                        text-gray-950
+                      ">
                         {formatDate(
                           slot.date
                         )}
                       </p>
 
 
-                      <p className="mt-1 text-sm text-gray-500">
-                        {
-                          slot.startTime
-                        }
+                      <p className="
+                        mt-1
+                        text-sm
+                        text-gray-500
+                      ">
+
+                        {slot.startTime}
+
                         {" — "}
-                        {
-                          slot.endTime
-                        }
+
+                        {slot.endTime}
+
                       </p>
 
                     </div>
 
 
-                    <span className="w-fit rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700">
+                    <span className="
+                      shrink-0
+                      rounded-full
+                      border
+                      border-green-200
+                      bg-green-50
+                      px-3
+                      py-1.5
+                      text-xs
+                      font-semibold
+                      text-green-700
+                    ">
                       Available
                     </span>
 
@@ -546,27 +1179,75 @@ const PhotographerDetails = () => {
         </section>
 
 
-        {/* BOOKING PLACEHOLDER */}
+        {/* ==================================
+            FINAL BOOKING CTA
+        ================================== */}
 
-        <section className="mt-10 rounded-2xl border border-orange-200 bg-orange-50 p-6">
+        <section className="
+          mt-10
+          rounded-2xl
+          border
+          border-orange-200
+          bg-orange-50
+          p-6
+          sm:flex
+          sm:items-center
+          sm:justify-between
+          sm:gap-6
+        ">
 
-            <h2 className="text-lg font-semibold text-gray-950">
-                Want to book this photographer?
+          <div>
+
+            <h2 className="
+              text-lg
+              font-semibold
+              text-gray-950
+            ">
+              Ready to work with{" "}
+
+              {photographer.user
+                ?.name ||
+                "this photographer"}
+              ?
             </h2>
 
 
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-                Select an available date and time period
-                and submit a booking request.
+            <p className="
+              mt-2
+              text-sm
+              leading-6
+              text-gray-600
+            ">
+              Review available dates
+              and submit a photography
+              booking request.
             </p>
 
+          </div>
 
-            <Link
-                to={`/customer/photographers/${photographer._id}/book`}
-                className="mt-5 inline-flex rounded-xl bg-gray-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
-            >
-                Book Photographer
-            </Link>
+
+          <Link
+            to={`/customer/photographers/${photographer._id}/book`}
+            className="
+              mt-5
+              inline-flex
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              bg-gray-950
+              px-6
+              py-3
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-orange-600
+              sm:mt-0
+            "
+          >
+            Book Photographer
+          </Link>
 
         </section>
 
@@ -574,6 +1255,7 @@ const PhotographerDetails = () => {
 
     </main>
   );
+
 };
 
 

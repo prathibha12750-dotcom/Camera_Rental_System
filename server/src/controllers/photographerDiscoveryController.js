@@ -4,7 +4,7 @@ const User = require("../models/User");
 const Photographer = require("../models/Photographer");
 const Portfolio = require("../models/Portfolio");
 const Availability = require("../models/Availability");
-
+const Booking = require("../models/Booking");
 
 // ==========================================
 // HELPER — ESCAPE REGEX
@@ -369,6 +369,41 @@ const getPhotographerDetails = async (
       });
 
 
+      // --------------------------------------
+      // Busy booking periods
+      //
+      // Only REQUESTED and CONFIRMED bookings
+      // block customer time selection.
+      //
+      // Do not expose customer information,
+      // notes, booking IDs, or other private
+      // booking data.
+      // --------------------------------------
+
+      const busyPeriods =
+        await Booking.find({
+          photographer:
+            photographer._id,
+
+          date: {
+            $gte: today,
+          },
+
+          status: {
+            $in: [
+              "REQUESTED",
+              "CONFIRMED",
+            ],
+          },
+        })
+          .select(
+            "date startTime endTime -_id"
+          )
+          .sort({
+            date: 1,
+            startTime: 1,
+          });
+
     return res.status(200).json({
       success: true,
 
@@ -376,6 +411,7 @@ const getPhotographerDetails = async (
         photographer,
         portfolio,
         availability,
+        busyPeriods,
       },
     });
 

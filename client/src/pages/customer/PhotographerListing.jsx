@@ -8,7 +8,15 @@ import {
 } from "react-router-dom";
 
 import api from "../../services/api";
-import Loading from "../../components/Loading";
+
+
+const emptyFilters = {
+  search: "",
+  specialization: "",
+  location: "",
+  minRate: "",
+  maxRate: "",
+};
 
 
 const PhotographerListing = () => {
@@ -21,13 +29,9 @@ const PhotographerListing = () => {
   const [
     filters,
     setFilters,
-  ] = useState({
-    search: "",
-    specialization: "",
-    location: "",
-    minRate: "",
-    maxRate: "",
-  });
+  ] = useState(
+    emptyFilters
+  );
 
   const [
     loading,
@@ -71,8 +75,10 @@ const PhotographerListing = () => {
             value !== null &&
             String(value).trim() !== ""
           ) {
+
             params[key] =
               String(value).trim();
+
           }
 
         }
@@ -108,10 +114,11 @@ const PhotographerListing = () => {
 
       setError(
         err.response?.data?.message ||
-        "Failed to load photographers."
+          "Failed to load photographers."
       );
 
     }
+
   };
 
 
@@ -162,7 +169,7 @@ const PhotographerListing = () => {
             setError(
               err.response?.data
                 ?.message ||
-              "Failed to load photographers."
+                "Failed to load photographers."
             );
 
           }
@@ -174,6 +181,7 @@ const PhotographerListing = () => {
           }
 
         }
+
       };
 
 
@@ -188,7 +196,7 @@ const PhotographerListing = () => {
 
 
   // ==========================================
-  // HANDLE FILTER CHANGE
+  // FILTER CHANGE
   // ==========================================
 
   const handleChange = (
@@ -208,7 +216,64 @@ const PhotographerListing = () => {
       })
     );
 
+
     setError("");
+
+  };
+
+
+  // ==========================================
+  // VALIDATE RATE FILTERS
+  // ==========================================
+
+  const validateRates = () => {
+
+    if (
+      filters.minRate !== "" &&
+      Number(filters.minRate) < 0
+    ) {
+
+      setError(
+        "Minimum rate cannot be negative."
+      );
+
+      return false;
+
+    }
+
+
+    if (
+      filters.maxRate !== "" &&
+      Number(filters.maxRate) < 0
+    ) {
+
+      setError(
+        "Maximum rate cannot be negative."
+      );
+
+      return false;
+
+    }
+
+
+    if (
+      filters.minRate !== "" &&
+      filters.maxRate !== "" &&
+      Number(filters.minRate) >
+        Number(filters.maxRate)
+    ) {
+
+      setError(
+        "Minimum rate cannot be greater than maximum rate."
+      );
+
+      return false;
+
+    }
+
+
+    return true;
+
   };
 
 
@@ -222,40 +287,7 @@ const PhotographerListing = () => {
       event.preventDefault();
 
 
-      if (
-        filters.minRate !== "" &&
-        Number(filters.minRate) < 0
-      ) {
-        setError(
-          "Minimum rate cannot be negative."
-        );
-
-        return;
-      }
-
-
-      if (
-        filters.maxRate !== "" &&
-        Number(filters.maxRate) < 0
-      ) {
-        setError(
-          "Maximum rate cannot be negative."
-        );
-
-        return;
-      }
-
-
-      if (
-        filters.minRate !== "" &&
-        filters.maxRate !== "" &&
-        Number(filters.minRate) >
-          Number(filters.maxRate)
-      ) {
-        setError(
-          "Minimum rate cannot be greater than maximum rate."
-        );
-
+      if (!validateRates()) {
         return;
       }
 
@@ -269,8 +301,11 @@ const PhotographerListing = () => {
         );
 
       } finally {
+
         setSearching(false);
+
       }
+
     };
 
 
@@ -280,15 +315,6 @@ const PhotographerListing = () => {
 
   const clearFilters =
     async () => {
-
-      const emptyFilters = {
-        search: "",
-        specialization: "",
-        location: "",
-        minRate: "",
-        maxRate: "",
-      };
-
 
       setFilters(
         emptyFilters
@@ -304,51 +330,119 @@ const PhotographerListing = () => {
         );
 
       } finally {
+
         setSearching(false);
+
       }
+
     };
 
 
-  if (loading) {
-    return <Loading />;
-  }
-
-
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="
+      min-h-[calc(100vh-4rem)]
+      bg-gray-50
+      px-4
+      py-6
+      sm:px-6
+      lg:px-8
+      lg:py-8
+    ">
 
-      <div className="mx-auto max-w-7xl">
-
-
-        {/* HEADER */}
-
-        <div className="mb-8">
-
-          <Link
-            to="/customer"
-            className="text-sm font-medium text-gray-500 transition hover:text-gray-950"
-          >
-            ← Back to Dashboard
-          </Link>
-
-
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-950">
-            Find a Photographer
-          </h1>
+      <div className="
+        mx-auto
+        max-w-7xl
+      ">
 
 
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-            Browse photographer profiles,
-            portfolios, rates and availability
-            before making a booking.
-          </p>
+        {/* ==================================
+            PAGE HEADER
+        ================================== */}
+
+        <div className="
+          flex
+          flex-col
+          gap-4
+          sm:flex-row
+          sm:items-end
+          sm:justify-between
+        ">
+
+          <div>
+
+            <p className="
+              text-sm
+              font-semibold
+              text-orange-600
+            ">
+              Discover Professionals
+            </p>
+
+
+            <h1 className="
+              mt-1
+              text-2xl
+              font-bold
+              tracking-tight
+              text-gray-950
+              sm:text-3xl
+            ">
+              Find a Photographer
+            </h1>
+
+
+            <p className="
+              mt-2
+              max-w-2xl
+              text-sm
+              leading-6
+              text-gray-600
+            ">
+              Explore photographers,
+              compare their specialties and
+              rates, and find the right
+              professional for your event.
+            </p>
+
+          </div>
+
+
+          {!loading &&
+            !error && (
+
+            <p className="
+              text-sm
+              font-medium
+              text-gray-500
+            ">
+
+              {photographers.length}{" "}
+
+              {photographers.length === 1
+                ? "photographer"
+                : "photographers"}
+
+            </p>
+
+          )}
 
         </div>
 
 
-        {/* SEARCH / FILTER */}
+        {/* ==================================
+            SEARCH AND FILTERS
+        ================================== */}
 
-        <section className="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section className="
+          mt-6
+          rounded-2xl
+          border
+          border-gray-200
+          bg-white
+          p-5
+          shadow-sm
+          sm:p-6
+        ">
 
           <form
             onSubmit={
@@ -356,17 +450,51 @@ const PhotographerListing = () => {
             }
           >
 
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+            {/* Search */}
+
+            <div>
+
+              <label
+                htmlFor="search"
+                className="
+                  mb-2
+                  block
+                  text-sm
+                  font-medium
+                  text-gray-700
+                "
+              >
+                Search photographers
+              </label>
 
 
-              <div className="lg:col-span-2">
+              <div className="relative">
 
-                <label
-                  htmlFor="search"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                <svg
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-4
+                    top-1/2
+                    h-5
+                    w-5
+                    -translate-y-1/2
+                    text-gray-400
+                  "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
                 >
-                  Search
-                </label>
+                  <circle
+                    cx="11"
+                    cy="11"
+                    r="7"
+                  />
+
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
 
 
                 <input
@@ -379,18 +507,103 @@ const PhotographerListing = () => {
                   onChange={
                     handleChange
                   }
-                  placeholder="Name, specialization or location"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="Search by name, specialization or location"
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-gray-300
+                    bg-white
+                    py-3
+                    pl-11
+                    pr-4
+                    text-sm
+                    text-gray-950
+                    outline-none
+                    transition
+                    placeholder:text-gray-400
+                    focus:border-orange-500
+                    focus:ring-2
+                    focus:ring-orange-500/10
+                  "
+                />
+
+              </div>
+
+            </div>
+
+
+            {/* Filters */}
+
+            <div className="
+              mt-5
+              grid
+              gap-4
+              sm:grid-cols-2
+              lg:grid-cols-4
+            ">
+
+              {/* Specialization */}
+
+              <div>
+
+                <label
+                  htmlFor="specialization"
+                  className="
+                    mb-2
+                    block
+                    text-sm
+                    font-medium
+                    text-gray-700
+                  "
+                >
+                  Specialization
+                </label>
+
+
+                <input
+                  id="specialization"
+                  name="specialization"
+                  type="text"
+                  value={
+                    filters.specialization
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder="e.g. Wedding"
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-gray-300
+                    px-4
+                    py-3
+                    text-sm
+                    outline-none
+                    transition
+                    focus:border-orange-500
+                    focus:ring-2
+                    focus:ring-orange-500/10
+                  "
                 />
 
               </div>
 
 
+              {/* Location */}
+
               <div>
 
                 <label
                   htmlFor="location"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="
+                    mb-2
+                    block
+                    text-sm
+                    font-medium
+                    text-gray-700
+                  "
                 >
                   Location
                 </label>
@@ -407,19 +620,40 @@ const PhotographerListing = () => {
                     handleChange
                   }
                   placeholder="e.g. Matara"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-gray-300
+                    px-4
+                    py-3
+                    text-sm
+                    outline-none
+                    transition
+                    focus:border-orange-500
+                    focus:ring-2
+                    focus:ring-orange-500/10
+                  "
                 />
 
               </div>
 
 
+              {/* Minimum Rate */}
+
               <div>
 
                 <label
                   htmlFor="minRate"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="
+                    mb-2
+                    block
+                    text-sm
+                    font-medium
+                    text-gray-700
+                  "
                 >
-                  Min Rate
+                  Minimum Rate
                 </label>
 
 
@@ -434,20 +668,41 @@ const PhotographerListing = () => {
                   onChange={
                     handleChange
                   }
-                  placeholder="0"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="LKR"
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-gray-300
+                    px-4
+                    py-3
+                    text-sm
+                    outline-none
+                    transition
+                    focus:border-orange-500
+                    focus:ring-2
+                    focus:ring-orange-500/10
+                  "
                 />
 
               </div>
 
 
+              {/* Maximum Rate */}
+
               <div>
 
                 <label
                   htmlFor="maxRate"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="
+                    mb-2
+                    block
+                    text-sm
+                    font-medium
+                    text-gray-700
+                  "
                 >
-                  Max Rate
+                  Maximum Rate
                 </label>
 
 
@@ -463,7 +718,20 @@ const PhotographerListing = () => {
                     handleChange
                   }
                   placeholder="Any"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-gray-300
+                    px-4
+                    py-3
+                    text-sm
+                    outline-none
+                    transition
+                    focus:border-orange-500
+                    focus:ring-2
+                    focus:ring-orange-500/10
+                  "
                 />
 
               </div>
@@ -471,34 +739,70 @@ const PhotographerListing = () => {
             </div>
 
 
-            <div className="mt-5">
+            {/* Error */}
 
-              <label
-                htmlFor="specialization"
-                className="mb-2 block text-sm font-medium text-gray-700"
+            {error && (
+
+              <div className="
+                mt-4
+                rounded-xl
+                border
+                border-red-200
+                bg-red-50
+                px-4
+                py-3
+                text-sm
+                text-red-700
+              ">
+                {error}
+              </div>
+
+            )}
+
+
+            {/* Actions */}
+
+            <div className="
+              mt-5
+              flex
+              flex-col
+              gap-3
+              sm:flex-row
+              sm:items-center
+            ">
+
+              <button
+                type="submit"
+                disabled={
+                  searching
+                }
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-orange-600
+                  px-5
+                  py-3
+                  text-sm
+                  font-semibold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-orange-700
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                  focus:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-orange-500
+                  focus-visible:ring-offset-2
+                "
               >
-                Specialization
-              </label>
+                {searching
+                  ? "Searching..."
+                  : "Search Photographers"}
+              </button>
 
-
-              <input
-                id="specialization"
-                name="specialization"
-                type="text"
-                value={
-                  filters.specialization
-                }
-                onChange={
-                  handleChange
-                }
-                placeholder="e.g. Wedding Photography"
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 md:max-w-xl"
-              />
-
-            </div>
-
-
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
 
               <button
                 type="button"
@@ -508,22 +812,26 @@ const PhotographerListing = () => {
                 disabled={
                   searching
                 }
-                className="rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-gray-300
+                  bg-white
+                  px-5
+                  py-3
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  transition
+                  hover:bg-gray-50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
               >
-                Clear
-              </button>
-
-
-              <button
-                type="submit"
-                disabled={
-                  searching
-                }
-                className="rounded-xl bg-gray-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
-              >
-                {searching
-                  ? "Searching..."
-                  : "Search"}
+                Clear Filters
               </button>
 
             </div>
@@ -533,96 +841,268 @@ const PhotographerListing = () => {
         </section>
 
 
-        {/* ERROR */}
+        {/* ==================================
+            INITIAL LOADING SKELETONS
+        ================================== */}
 
-        {error && (
+        {loading ? (
 
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="
+            mt-7
+            grid
+            gap-5
+            md:grid-cols-2
+            xl:grid-cols-3
+          ">
 
-            {error}
+            {[1, 2, 3].map(
+              (item) => (
+
+                <div
+                  key={item}
+                  className="
+                    animate-pulse
+                    overflow-hidden
+                    rounded-2xl
+                    border
+                    border-gray-200
+                    bg-white
+                  "
+                >
+
+                  <div className="
+                    aspect-[4/3]
+                    bg-gray-200
+                  " />
+
+
+                  <div className="p-5">
+
+                    <div className="
+                      h-5
+                      w-2/3
+                      rounded
+                      bg-gray-200
+                    " />
+
+                    <div className="
+                      mt-3
+                      h-4
+                      w-1/2
+                      rounded
+                      bg-gray-100
+                    " />
+
+                    <div className="
+                      mt-5
+                      h-4
+                      w-1/3
+                      rounded
+                      bg-gray-100
+                    " />
+
+                    <div className="
+                      mt-5
+                      h-10
+                      rounded-xl
+                      bg-gray-100
+                    " />
+
+                  </div>
+
+                </div>
+
+              )
+            )}
 
           </div>
 
-        )}
+        ) : photographers.length === 0 ? (
 
+          /* ================================
+              EMPTY STATE
+          ================================ */
 
-        {/* RESULTS */}
+          <div className="
+            mt-7
+            rounded-2xl
+            border
+            border-dashed
+            border-gray-300
+            bg-white
+            px-6
+            py-12
+            text-center
+          ">
 
-        <section>
+            <div className="
+              mx-auto
+              flex
+              h-12
+              w-12
+              items-center
+              justify-center
+              rounded-xl
+              bg-orange-50
+              text-orange-600
+            ">
 
-          <div className="mb-5">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                />
 
-            <h2 className="text-xl font-semibold text-gray-950">
-              Photographers
-            </h2>
-
-
-            <p className="mt-1 text-sm text-gray-500">
-              {
-                photographers.length
-              }{" "}
-              {photographers.length ===
-              1
-                ? "photographer"
-                : "photographers"}{" "}
-              found
-            </p>
-
-          </div>
-
-
-          {photographers.length ===
-          0 ? (
-
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center">
-
-              <h3 className="text-base font-semibold text-gray-950">
-                No photographers found
-              </h3>
-
-
-              <p className="mt-2 text-sm text-gray-500">
-                Try changing your search
-                or filter criteria.
-              </p>
+                <path d="m20 20-3.5-3.5" />
+              </svg>
 
             </div>
 
-          ) : (
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <h2 className="
+              mt-4
+              text-lg
+              font-semibold
+              text-gray-950
+            ">
+              No photographers found
+            </h2>
 
-              {photographers.map(
-                (photographer) => (
 
-                  <article
-                    key={
-                      photographer._id
-                    }
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-                  >
+            <p className="
+              mx-auto
+              mt-2
+              max-w-md
+              text-sm
+              leading-6
+              text-gray-500
+            ">
+              No photographers match
+              your current search and
+              filter criteria.
+            </p>
 
-                    {/* PROFILE IMAGE */}
 
-                    <div className="flex h-52 items-center justify-center bg-gray-100">
+            <button
+              type="button"
+              onClick={
+                clearFilters
+              }
+              className="
+                mt-5
+                text-sm
+                font-semibold
+                text-orange-600
+                hover:text-orange-700
+              "
+            >
+              Clear filters
+            </button>
 
-                      {photographer.profileImage ? (
+          </div>
 
-                        <img
-                          src={
-                            photographer.profileImage
-                          }
-                          alt={
-                            photographer.user
-                              ?.name ||
-                            "Photographer"
-                          }
-                          className="h-full w-full object-cover"
-                        />
+        ) : (
 
-                      ) : (
+          /* ================================
+              PHOTOGRAPHER GRID
+          ================================ */
 
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 text-2xl font-bold text-orange-700">
+          <div className="
+            mt-7
+            grid
+            gap-5
+            md:grid-cols-2
+            xl:grid-cols-3
+          ">
+
+            {photographers.map(
+              (photographer) => (
+
+                <article
+                  key={
+                    photographer._id
+                  }
+                  className="
+                    group
+                    flex
+                    min-w-0
+                    flex-col
+                    overflow-hidden
+                    rounded-2xl
+                    border
+                    border-gray-200
+                    bg-white
+                    shadow-sm
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-md
+                  "
+                >
+
+                  {/* IMAGE */}
+
+                  <div className="
+                    relative
+                    aspect-[4/3]
+                    overflow-hidden
+                    bg-gray-100
+                  ">
+
+                    {photographer.profileImage ? (
+
+                      <img
+                        src={
+                          photographer.profileImage
+                        }
+                        alt={
+                          photographer.user
+                            ?.name ||
+                          "Photographer"
+                        }
+                        className="
+                          h-full
+                          w-full
+                          object-cover
+                          transition
+                          duration-300
+                          group-hover:scale-[1.02]
+                        "
+                      />
+
+                    ) : (
+
+                      <div className="
+                        flex
+                        h-full
+                        items-center
+                        justify-center
+                        bg-gradient-to-br
+                        from-orange-50
+                        to-gray-100
+                      ">
+
+                        <div className="
+                          flex
+                          h-20
+                          w-20
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-white
+                          text-2xl
+                          font-bold
+                          text-orange-700
+                          shadow-sm
+                        ">
 
                           {photographer.user
                             ?.name
@@ -632,66 +1112,139 @@ const PhotographerListing = () => {
 
                         </div>
 
-                      )}
+                      </div>
+
+                    )}
+
+
+                    {photographer.specialization && (
+
+                      <span className="
+                        absolute
+                        bottom-3
+                        left-3
+                        max-w-[calc(100%-1.5rem)]
+                        truncate
+                        rounded-full
+                        bg-white/95
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-gray-800
+                        shadow-sm
+                        backdrop-blur
+                      ">
+                        {
+                          photographer.specialization
+                        }
+                      </span>
+
+                    )}
+
+                  </div>
+
+
+                  {/* CARD CONTENT */}
+
+                  <div className="
+                    flex
+                    flex-1
+                    flex-col
+                    p-5
+                  ">
+
+                    <div>
+
+                      <h2 className="
+                        truncate
+                        text-lg
+                        font-semibold
+                        text-gray-950
+                      ">
+
+                        {photographer.user
+                          ?.name ||
+                          "Photographer"}
+
+                      </h2>
+
+
+                      <div className="
+                        mt-2
+                        flex
+                        min-h-5
+                        items-center
+                        gap-1.5
+                        text-sm
+                        text-gray-500
+                      ">
+
+                        <svg
+                          className="
+                            h-4
+                            w-4
+                            shrink-0
+                          "
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z" />
+                          <circle
+                            cx="12"
+                            cy="10"
+                            r="2"
+                          />
+                        </svg>
+
+
+                        <span className="truncate">
+
+                          {photographer.location ||
+                            "Location not specified"}
+
+                        </span>
+
+                      </div>
 
                     </div>
 
 
-                    <div className="p-6">
+                    <div className="
+                      mt-5
+                      flex
+                      items-end
+                      justify-between
+                      gap-4
+                    ">
 
-                      <h3 className="text-lg font-semibold text-gray-950">
-                        {
-                          photographer.user
-                            ?.name
-                        }
-                      </h3>
+                      <div>
 
-
-                      <p className="mt-1 text-sm font-medium text-orange-600">
-                        {photographer.specialization ||
-                          "Photography Services"}
-                      </p>
-
-
-                      {photographer.location && (
-
-                        <p className="mt-3 text-sm text-gray-500">
-                          {
-                            photographer.location
-                          }
-                        </p>
-
-                      )}
-
-
-                      {photographer.bio && (
-
-                        <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-600">
-                          {
-                            photographer.bio
-                          }
-                        </p>
-
-                      )}
-
-
-                      <div className="mt-5 border-t border-gray-100 pt-4">
-
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        <p className="
+                          text-xs
+                          text-gray-400
+                        ">
                           Hourly rate
                         </p>
 
 
-                        <p className="mt-1 font-semibold text-gray-950">
+                        <p className="
+                          mt-1
+                          font-semibold
+                          text-gray-950
+                        ">
 
                           {photographer.hourlyRate !==
-                          null &&
+                            null &&
                           photographer.hourlyRate !==
                             undefined
                             ? `LKR ${Number(
                                 photographer.hourlyRate
                               ).toLocaleString()}`
-                            : "Contact for pricing"}
+                            : "Contact"}
 
                         </p>
 
@@ -700,28 +1253,44 @@ const PhotographerListing = () => {
 
                       <Link
                         to={`/customer/photographers/${photographer._id}`}
-                        className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                        className="
+                          shrink-0
+                          rounded-xl
+                          bg-gray-950
+                          px-4
+                          py-2.5
+                          text-sm
+                          font-semibold
+                          text-white
+                          transition
+                          hover:bg-orange-600
+                          focus:outline-none
+                          focus-visible:ring-2
+                          focus-visible:ring-orange-500
+                          focus-visible:ring-offset-2
+                        "
                       >
-                        View Photographer
+                        View Profile
                       </Link>
 
                     </div>
 
-                  </article>
+                  </div>
 
-                )
-              )}
+                </article>
 
-            </div>
+              )
+            )}
 
-          )}
+          </div>
 
-        </section>
+        )}
 
       </div>
 
     </main>
   );
+
 };
 
 

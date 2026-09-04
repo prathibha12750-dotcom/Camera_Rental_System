@@ -5,11 +5,14 @@ import {
   Routes,
 } from "react-router-dom";
 
+import AppLayout from "../components/AppLayout";
 import Navbar from "../components/Navbar";
 
 import Home from "../pages/Home";
+
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+
 import Unauthorized from "../pages/Unauthorized";
 
 import CustomerHome from "../pages/customer/CustomerHome";
@@ -30,150 +33,320 @@ import AdminHome from "../pages/admin/AdminHome";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
+
+// ==========================================
+// 404 PAGE
+// ==========================================
+
 const NotFound = () => {
+
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 px-6 py-16">
-      <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-lg">
-        <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
+    <main className="
+      flex
+      min-h-[calc(100vh-4rem)]
+      items-center
+      justify-center
+      bg-gray-50
+      px-6
+      py-16
+    ">
+
+      <div className="
+        w-full
+        max-w-lg
+        rounded-3xl
+        border
+        border-gray-200
+        bg-white
+        p-10
+        text-center
+        shadow-lg
+      ">
+
+        <p className="
+          text-sm
+          font-semibold
+          uppercase
+          tracking-wider
+          text-orange-600
+        ">
           404 error
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-gray-950">Page not found</h1>
-        <p className="mt-4 leading-7 text-gray-600">
-          The page you are looking for does not exist or may have been moved.
+
+
+        <h1 className="
+          mt-2
+          text-3xl
+          font-bold
+          text-gray-950
+        ">
+          Page not found
+        </h1>
+
+
+        <p className="
+          mt-4
+          leading-7
+          text-gray-600
+        ">
+          The page you are looking for does not
+          exist or may have been moved.
         </p>
+
+
         <Link
           to="/"
-          className="mt-8 inline-flex rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white transition hover:bg-orange-700"
+          className="
+            mt-8
+            inline-flex
+            rounded-xl
+            bg-orange-600
+            px-6
+            py-3
+            font-semibold
+            text-white
+            transition
+            hover:bg-orange-700
+          "
         >
           Go to Home
         </Link>
+
       </div>
+
     </main>
   );
+
 };
 
+
+// ==========================================
+// APPLICATION ROUTES
+// ==========================================
+
 const AppRoutes = () => {
+
   return (
     <BrowserRouter>
+
+      {/* Public Navbar
+          Automatically hides for
+          authenticated users.
+      */}
+
       <Navbar />
 
+
       <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Home />} />
+
+        {/* ==================================
+            PUBLIC ROUTES
+        ================================== */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
 
         <Route
           path="/login"
           element={<Login />}
         />
 
+
         <Route
           path="/register"
           element={<Register />}
         />
+
 
         <Route
           path="/unauthorized"
           element={<Unauthorized />}
         />
 
-        {/* Protected Routes */}
+
+        {/* ==================================
+            PROTECTED ROUTES
+        ================================== */}
+
         <Route element={<ProtectedRoute />}>
 
-          {/* Customer Routes */}
-          <Route
-               element={
-              <RoleRoute
-                allowedRoles={["CUSTOMER"]}
+
+          {/* =================================
+              AUTHENTICATED APPLICATION SHELL
+          ================================= */}
+
+          <Route element={<AppLayout />}>
+
+
+            {/* ===============================
+                CUSTOMER ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "CUSTOMER",
+                  ]}
+                />
+              }
+            >
+
+              {/* prathibha routes start */}
+
+              <Route
+                path="/customer"
+                element={<CustomerHome />}
               />
-            }
-          >
-            {/* prathibha routes start */}
-            <Route
-              path="/customer"
-              element={<CustomerHome />}
-            />
-            <Route
-              path="/customer/profile"
-              element={<CustomerProfile />}
-            />
-            <Route
-              path="/customer/photographers"
-              element={<PhotographerListing />}
-            />
-            <Route
-              path="/customer/photographers/:id"
-              element={<PhotographerDetails />}
-            />
-            <Route
-              path="/customer/photographers/:id/book"
-              element={<PhotographerBooking />}
-            />
-            <Route
-              path="/customer/bookings"
-              element={<CustomerBookings />}
-            />
-            {/* prathibha routes end */}
 
-          </Route>
 
-          {/* Photographer Routes */}
-          <Route
-            element={
-              <RoleRoute
-                allowedRoles={["PHOTOGRAPHER"]}
+              <Route
+                path="/customer/profile"
+                element={<CustomerProfile />}
               />
-            }
-          >
 
-            {/* prathibha routes start */}
-            <Route
-              path="/photographer"
-              element={<PhotographerHome />}
-            />
-            <Route
-              path="/photographer/profile"
-              element={<PhotographerProfile />}
-            />
-            <Route
-              path="/photographer/portfolio"
-              element={<PhotographerPortfolio />}
-            />
-            <Route
-              path="/photographer/availability"
-              element={<PhotographerAvailability />}
-            />
-            <Route
-              path="/photographer/bookings"
-              element={<PhotographerBookings />}
-            />
-            {/* prathibha routes end */}
 
-          </Route>
-
-          {/* Staff Admin Routes */}
-          <Route
-            element={
-              <RoleRoute
-                allowedRoles={["STAFF_ADMIN"]}
+              <Route
+                path="/customer/photographers"
+                element={
+                  <PhotographerListing />
+                }
               />
-            }
-          >
+
+
+              <Route
+                path="/customer/photographers/:id"
+                element={
+                  <PhotographerDetails />
+                }
+              />
+
+
+              <Route
+                path="/customer/photographers/:id/book"
+                element={
+                  <PhotographerBooking />
+                }
+              />
+
+
+              <Route
+                path="/customer/bookings"
+                element={
+                  <CustomerBookings />
+                }
+              />
+
+              {/* prathibha routes end */}
+
+            </Route>
+
+
+            {/* ===============================
+                PHOTOGRAPHER ROUTES
+            =============================== */}
+
             <Route
-              path="/admin"
-              element={<AdminHome />}
-            />
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "PHOTOGRAPHER",
+                  ]}
+                />
+              }
+            >
+
+              {/* prathibha routes start */}
+
+              <Route
+                path="/photographer"
+                element={
+                  <PhotographerHome />
+                }
+              />
+
+
+              <Route
+                path="/photographer/profile"
+                element={
+                  <PhotographerProfile />
+                }
+              />
+
+
+              <Route
+                path="/photographer/portfolio"
+                element={
+                  <PhotographerPortfolio />
+                }
+              />
+
+
+              <Route
+                path="/photographer/availability"
+                element={
+                  <PhotographerAvailability />
+                }
+              />
+
+
+              <Route
+                path="/photographer/bookings"
+                element={
+                  <PhotographerBookings />
+                }
+              />
+
+              {/* prathibha routes end */}
+
+            </Route>
+
+
+            {/* ===============================
+                STAFF ADMIN ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "STAFF_ADMIN",
+                  ]}
+                />
+              }
+            >
+
+              <Route
+                path="/admin"
+                element={<AdminHome />}
+              />
+
+            </Route>
+
+
           </Route>
 
         </Route>
 
-        {/* 404 */}
+
+        {/* ==================================
+            404
+        ================================== */}
+
         <Route
           path="*"
           element={<NotFound />}
         />
+
       </Routes>
+
     </BrowserRouter>
   );
+
 };
+
 
 export default AppRoutes;
