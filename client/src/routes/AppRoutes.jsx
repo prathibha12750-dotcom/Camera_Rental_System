@@ -20,7 +20,11 @@ import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
 // import start by Abilash
+
 import AdminLayout from "../components/admin/AdminLayout";
+import Users from "../pages/admin/Users";
+
+
 // import end by Abilash
 
 const NotFound = () => {
@@ -108,6 +112,24 @@ const AppRoutes = () => {
               />
             }
           >
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             {/*Route adding starts by Abilash*/}
 
 
@@ -116,12 +138,40 @@ const AppRoutes = () => {
                 path="/admin"
                 element={<AdminHome />}
               />
+
+              <Route 
+                path="/admin/users"
+                element={<Users />}
+              />
             </Route>
 
             
             {/*Route adding ends by Abilash*/}
             
           </Route>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         </Route>
 
