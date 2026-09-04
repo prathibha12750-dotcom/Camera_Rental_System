@@ -1,4 +1,8 @@
+
+
 const Equipment = require("../models/Equipment");
+
+const Category = require("../models/Category");
 
 // ==========================================
 // CREATE EQUIPMENT
@@ -19,6 +23,18 @@ const createEquipment = async (req, res, next) => {
       description,
     } = req.body;
 
+    const categoryExists = await Category.findOne({
+      _id: category,
+      status: "ACTIVE",
+    });
+
+    if (!categoryExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or inactive equipment category",
+      });
+    }
+
     const equipment = await Equipment.create({
       name,
       category,
@@ -31,6 +47,11 @@ const createEquipment = async (req, res, next) => {
       status,
       description,
     });
+
+
+    // Populate category details
+    await equipment.populate("category", "name description status");
+
 
     return res.status(201).json({
       success: true,
@@ -52,16 +73,11 @@ const createEquipment = async (req, res, next) => {
 
 const getAllEquipment = async (req, res, next) => {
   try {
-    const {
-      search,
-      category,
-      brand,
-      condition,
-      status,
-    } = req.query;
+    const { search, category, brand, condition, status } = req.query;
 
     const filter = {};
 
+    // Search by equipment name, brand, or model
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -70,6 +86,7 @@ const getAllEquipment = async (req, res, next) => {
       ];
     }
 
+    // Category is now a Category ObjectId
     if (category) {
       filter.category = category;
     }
@@ -86,9 +103,9 @@ const getAllEquipment = async (req, res, next) => {
       filter.status = status;
     }
 
-    const equipment = await Equipment.find(filter).sort({
-      createdAt: -1,
-    });
+    const equipment = await Equipment.find(filter)
+      .populate("category", "name description status")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -112,7 +129,8 @@ const getAllEquipment = async (req, res, next) => {
 // ==========================================
 const getEquipmentById = async (req, res, next) => {
   try {
-    const equipment = await Equipment.findById(req.params.id);
+    const equipment = await Equipment.findById(req.params.id)
+      .populate("category", "name description status");
 
     if (!equipment) {
       return res.status(404).json({
@@ -139,14 +157,7 @@ const getEquipmentById = async (req, res, next) => {
 // ==========================================
 const updateEquipment = async (req, res, next) => {
   try {
-    const equipment = await Equipment.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const equipment = await Equipment.findById(req.params.id);
 
     if (!equipment) {
       return res.status(404).json({
@@ -154,6 +165,53 @@ const updateEquipment = async (req, res, next) => {
         message: "Equipment not found",
       });
     }
+
+    const {
+      name,
+      category,
+      brand,
+      model,
+      serialNumber,
+      rentalPricePerDay,
+      securityDeposit,
+      condition,
+      status,
+      description,
+    } = req.body;
+
+    if (category !== undefined) {
+      const categoryExists = await Category.findOne({
+        _id: category,
+        status: "ACTIVE",
+      });
+
+      if (!categoryExists) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or inactive equipment category",
+        });
+      }
+
+      equipment.category = category;
+    }
+
+    if (name !== undefined) equipment.name = name;
+    if (brand !== undefined) equipment.brand = brand;
+    if (model !== undefined) equipment.model = model;
+    if (serialNumber !== undefined) equipment.serialNumber = serialNumber;
+    if (rentalPricePerDay !== undefined) {
+      equipment.rentalPricePerDay = rentalPricePerDay;
+    }
+    if (securityDeposit !== undefined) {
+      equipment.securityDeposit = securityDeposit;
+    }
+    if (condition !== undefined) equipment.condition = condition;
+    if (status !== undefined) equipment.status = status;
+    if (description !== undefined) equipment.description = description;
+
+    await equipment.save();
+
+    await equipment.populate("category", "name description status");
 
     return res.status(200).json({
       success: true,
@@ -167,16 +225,9 @@ const updateEquipment = async (req, res, next) => {
   }
 };
 
-
-// ==========================================
-// DELETE EQUIPMENT
-// DELETE /api/equipment/:id
-// ==========================================
 const deleteEquipment = async (req, res, next) => {
   try {
-    const equipment = await Equipment.findByIdAndDelete(
-      req.params.id
-    );
+    const equipment = await Equipment.findById(req.params.id);
 
     if (!equipment) {
       return res.status(404).json({
@@ -184,6 +235,8 @@ const deleteEquipment = async (req, res, next) => {
         message: "Equipment not found",
       });
     }
+
+    await equipment.deleteOne();
 
     return res.status(200).json({
       success: true,
