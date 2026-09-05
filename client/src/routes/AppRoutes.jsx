@@ -25,6 +25,7 @@ import AdminLayout from "../components/admin/AdminLayout";
 import Users from "../pages/admin/Users";
 import Invoices from "../pages/admin/Invoices";
 import Payments from "../pages/admin/Payments";
+import Deposits from "../pages/admin/Deposits";
 
 // import end by Abilash
 
@@ -153,6 +154,11 @@ const AppRoutes = () => {
               <Route 
                 path="/admin/payments" 
                 element={<Payments />} 
+              />
+
+              <Route
+               path="/admin/deposits"
+               element={<Deposits />} 
               />
             </Route>
 
