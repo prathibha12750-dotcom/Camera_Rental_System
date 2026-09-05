@@ -24,6 +24,7 @@ import RoleRoute from "./RoleRoute";
 import AdminLayout from "../components/admin/AdminLayout";
 import Users from "../pages/admin/Users";
 import Invoices from "../pages/admin/Invoices";
+import Payments from "../pages/admin/Payments";
 
 // import end by Abilash
 
@@ -147,6 +148,11 @@ const AppRoutes = () => {
               <Route 
                 path="/admin/invoices" 
                 element={<Invoices />} 
+              />
+
+              <Route 
+                path="/admin/payments" 
+                element={<Payments />} 
               />
             </Route>
 
