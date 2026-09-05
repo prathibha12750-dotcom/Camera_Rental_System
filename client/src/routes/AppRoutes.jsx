@@ -23,7 +23,7 @@ import RoleRoute from "./RoleRoute";
 
 import AdminLayout from "../components/admin/AdminLayout";
 import Users from "../pages/admin/Users";
-
+import Invoices from "../pages/admin/Invoices";
 
 // import end by Abilash
 
@@ -142,6 +142,11 @@ const AppRoutes = () => {
               <Route 
                 path="/admin/users"
                 element={<Users />}
+              />
+
+              <Route 
+                path="/admin/invoices" 
+                element={<Invoices />} 
               />
             </Route>
 
