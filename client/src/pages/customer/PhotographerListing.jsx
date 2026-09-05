@@ -5,6 +5,7 @@ import {
 
 import {
   Link,
+  useLocation,
 } from "react-router-dom";
 
 import api from "../../services/api";
@@ -20,6 +21,16 @@ const emptyFilters = {
 
 
 const PhotographerListing = () => {
+
+    const location = useLocation();
+
+    const photographerBasePath =
+      location.pathname.startsWith(
+        "/customer"
+      )
+        ? "/customer/photographers"
+        : "/photographers";
+
 
   const [
     photographers,
@@ -1252,7 +1263,7 @@ const PhotographerListing = () => {
 
 
                       <Link
-                        to={`/customer/photographers/${photographer._id}`}
+                        to={`${photographerBasePath}/${photographer._id}`}
                         className="
                           shrink-0
                           rounded-xl
@@ -1292,6 +1303,6 @@ const PhotographerListing = () => {
   );
 
 };
-
+     
 
 export default PhotographerListing;

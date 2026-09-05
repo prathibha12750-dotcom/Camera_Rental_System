@@ -226,7 +226,7 @@ const getPhotographers = async (
           },
 
           select:
-            "name email role status",
+            "name",
         })
         .sort({
           createdAt: -1,
@@ -312,7 +312,7 @@ const getPhotographerDetails = async (
         },
 
         select:
-          "name email role status",
+          "name",
       });
 
 

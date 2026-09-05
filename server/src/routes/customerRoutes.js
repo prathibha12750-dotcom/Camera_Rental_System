@@ -60,21 +60,17 @@ router.put(
 
 // ==========================================
 // PHOTOGRAPHER DISCOVERY
-// CUSTOMER ONLY
+// PUBLIC
 // ==========================================
 
+// Anyone can discover photographers
 router.get(
   "/photographers",
-  authenticate,
-  authorizeRoles("CUSTOMER"),
   getPhotographers
 );
 
-
 router.get(
   "/photographers/:id",
-  authenticate,
-  authorizeRoles("CUSTOMER"),
   getPhotographerDetails
 );
 

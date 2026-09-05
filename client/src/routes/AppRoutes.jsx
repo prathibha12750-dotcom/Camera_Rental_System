@@ -168,6 +168,21 @@ const AppRoutes = () => {
 
 
         {/* ==================================
+            PUBLIC PHOTOGRAPHER DISCOVERY
+        ================================== */}
+
+        <Route
+          path="/photographers"
+          element={<PhotographerListing />}
+        />
+
+        <Route
+          path="/photographers/:id"
+          element={<PhotographerDetails />}
+        />
+
+
+        {/* ==================================
             PROTECTED ROUTES
         ================================== */}
 

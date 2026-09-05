@@ -5,9 +5,11 @@ import {
 
 import {
   Link,
+  useLocation,
   useParams,
 } from "react-router-dom";
 
+import { useAuth } from "../../context/useAuth";
 import api from "../../services/api";
 
 
@@ -16,6 +18,50 @@ const PhotographerDetails = () => {
   const {
     id,
   } = useParams();
+
+
+  const location = useLocation();
+
+  const {
+    user,
+    isAuthenticated,
+  } = useAuth();
+
+  const photographerBasePath =
+    location.pathname.startsWith(
+      "/customer"
+    )
+      ? "/customer/photographers"
+      : "/photographers";
+
+  const dashboardRoutes = {
+    CUSTOMER: "/customer",
+    PHOTOGRAPHER: "/photographer",
+    STAFF_ADMIN: "/admin",
+  };
+
+  let bookingLink = "/login";
+  let bookingText = "Login to Book";
+
+  if (
+    isAuthenticated &&
+    user?.role === "CUSTOMER"
+  ) {
+    bookingLink =
+      `/customer/photographers/${id}/book`;
+
+    bookingText =
+      "Book Photographer";
+  } else if (
+    isAuthenticated &&
+    user?.role !== "CUSTOMER"
+  ) {
+    bookingLink =
+      dashboardRoutes[user?.role] || "/";
+
+    bookingText =
+      "Go to Dashboard";
+  }
 
 
   const [
@@ -327,7 +373,7 @@ const PhotographerDetails = () => {
 
 
           <Link
-            to="/customer/photographers"
+            to={photographerBasePath}
             className="
               mt-6
               inline-flex
@@ -342,7 +388,7 @@ const PhotographerDetails = () => {
               hover:bg-orange-600
             "
           >
-            Back to Photographers
+            //Back to Photographers
           </Link>
 
         </div>
@@ -375,7 +421,7 @@ const PhotographerDetails = () => {
         ================================== */}
 
         <Link
-          to="/customer/photographers"
+          to={photographerBasePath}
           className="
             inline-flex
             items-center
@@ -615,7 +661,7 @@ const PhotographerDetails = () => {
 
 
                 <Link
-                  to={`/customer/photographers/${photographer._id}/book`}
+                  to={bookingLink}
                   className="
                     inline-flex
                     items-center
@@ -636,7 +682,7 @@ const PhotographerDetails = () => {
                     focus-visible:ring-offset-2
                   "
                 >
-                  Book Photographer
+                  {bookingText}
                 </Link>
 
               </div>
@@ -1227,7 +1273,7 @@ const PhotographerDetails = () => {
 
 
           <Link
-            to={`/customer/photographers/${photographer._id}/book`}
+            to={bookingLink}
             className="
               mt-5
               inline-flex
@@ -1246,7 +1292,7 @@ const PhotographerDetails = () => {
               sm:mt-0
             "
           >
-            Book Photographer
+            {bookingText}
           </Link>
 
         </section>
