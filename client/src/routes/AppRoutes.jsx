@@ -11,6 +11,9 @@ import EquipmentDetails from "../pages/customer/EquipmentDetails";
 // connecting MyRental by thasindu ================================
 import MyRentals from "../pages/customer/MyRentals";
 
+// connecting EquipentManagement by thasindu =======================
+import EquipmentManagement from "../pages/admin/EquipmentManagement";
+
 // ========================================================================================================
 // End of the routes added by thasindu
 // ========================================================================================================
@@ -154,6 +157,19 @@ const AppRoutes = () => {
               path="/admin"
               element={<AdminHome />}
             />
+
+// ===================================================================================================
+// Routes added by thasindu
+// ===================================================================================================
+
+            <Route
+              path="/admin/equipment"
+              element={<EquipmentManagement />}
+            />
+// ===================================================================================================
+// End of the Routes added by thasindu
+// ===================================================================================================
+
           </Route>
 
         </Route>
