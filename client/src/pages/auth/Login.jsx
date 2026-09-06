@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 
 const dashboardRoutes = {
-  CUSTOMER: "/customer",
+  CUSTOMER: "/",
   PHOTOGRAPHER: "/photographer",
   STAFF_ADMIN: "/admin",
 };

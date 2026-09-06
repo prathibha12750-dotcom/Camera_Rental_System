@@ -21,6 +21,14 @@ const {
   "../controllers/bookingController"
 );
 
+const {
+  createReview,
+  getPhotographerReviews,
+  getCustomerReviews,
+} = require(
+  "../controllers/reviewController"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -74,6 +82,18 @@ router.get(
   getPhotographerDetails
 );
 
+
+// ==========================================
+// PHOTOGRAPHER REVIEWS
+// PUBLIC READ
+// ==========================================
+
+router.get(
+  "/photographers/:id/reviews",
+  getPhotographerReviews
+);
+
+
 // ==========================================
 // PHOTOGRAPHER BOOKINGS
 // CUSTOMER ONLY
@@ -100,6 +120,26 @@ router.patch(
   authenticate,
   authorizeRoles("CUSTOMER"),
   cancelCustomerBooking
+);
+
+
+// ==========================================
+// CUSTOMER REVIEW
+// CUSTOMER ONLY
+// ==========================================
+
+router.post(
+  "/bookings/:id/review",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  createReview
+);
+
+router.get(
+  "/reviews",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getCustomerReviews
 );
 
 module.exports = router;

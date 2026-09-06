@@ -39,6 +39,59 @@ const timeToMinutes = (value) => {
 
 
 // ==========================================
+// SRI LANKA CURRENT DATE / TIME
+// ==========================================
+
+const getSriLankaDateTime = () => {
+
+  const now = new Date();
+
+
+  const dateFormatter =
+    new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "Asia/Colombo",
+
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }
+    );
+
+
+  const timeFormatter =
+    new Intl.DateTimeFormat(
+      "en-GB",
+      {
+        timeZone:
+          "Asia/Colombo",
+
+        hour: "2-digit",
+        minute: "2-digit",
+
+        hourCycle: "h23",
+      }
+    );
+
+
+  return {
+    date:
+      dateFormatter.format(
+        now
+      ),
+
+    time:
+      timeFormatter.format(
+        now
+      ),
+  };
+
+};
+
+
+// ==========================================
 // CHECK BOOKING CONFLICT
 // ==========================================
 
@@ -787,6 +840,60 @@ const updatePhotographerBookingStatus =
           message:
             `Cannot change booking from ${booking.status} to ${status}`,
         });
+      }
+
+
+      // --------------------------------------
+      // COMPLETED STATUS VALIDATION
+      // --------------------------------------
+
+      if (
+        status === "COMPLETED"
+      ) {
+
+        const sriLankaNow =
+          getSriLankaDateTime();
+
+
+        const bookingDate =
+          booking.date
+            .toISOString()
+            .split("T")[0];
+
+
+        // Future date
+        if (
+          bookingDate >
+          sriLankaNow.date
+        ) {
+
+          return res.status(400).json({
+            success: false,
+
+            message:
+              "This booking cannot be marked as completed before the scheduled date.",
+          });
+
+        }
+
+
+        // Today, but service has not ended yet
+        if (
+          bookingDate ===
+            sriLankaNow.date &&
+          sriLankaNow.time <
+            booking.endTime
+        ) {
+
+          return res.status(400).json({
+            success: false,
+
+            message:
+              `This booking cannot be marked as completed before ${booking.endTime}.`,
+          });
+
+        }
+
       }
 
 

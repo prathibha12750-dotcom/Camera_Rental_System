@@ -23,12 +23,6 @@ const CustomerHome = () => {
 
 
   const [
-    photographers,
-    setPhotographers,
-  ] = useState([]);
-
-
-  const [
     loading,
     setLoading,
   ] = useState(true);
@@ -40,14 +34,8 @@ const CustomerHome = () => {
   ] = useState("");
 
 
-  const [
-    photographersError,
-    setPhotographersError,
-  ] = useState("");
-
-
   // ==========================================
-  // LOAD DASHBOARD DATA
+  // LOAD CUSTOMER BOOKING DATA
   // ==========================================
 
   useEffect(() => {
@@ -55,107 +43,51 @@ const CustomerHome = () => {
     let ignore = false;
 
 
-    const loadBookings =
-      async () => {
+    const loadBookings = async () => {
 
-        try {
+      try {
 
-          const response =
-            await api.get(
-              "/customer/bookings"
-            );
+        const response =
+          await api.get(
+            "/customer/bookings"
+          );
 
 
-          if (!ignore) {
+        if (!ignore) {
 
-            setBookings(
-              Array.isArray(
-                response.data?.data
-                  ?.bookings
-              )
-                ? response.data.data
-                    .bookings
-                : []
-            );
-
-          }
-
-        } catch (err) {
-
-          if (!ignore) {
-
-            setBookingsError(
-              err.response?.data
-                ?.message ||
-                "Unable to load booking information."
-            );
-
-          }
+          setBookings(
+            Array.isArray(
+              response.data?.data?.bookings
+            )
+              ? response.data.data.bookings
+              : []
+          );
 
         }
 
-      };
+      } catch (err) {
 
+        if (!ignore) {
 
-    const loadPhotographers =
-      async () => {
-
-        try {
-
-          const response =
-            await api.get(
-              "/customer/photographers"
-            );
-
-
-          if (!ignore) {
-
-            setPhotographers(
-              Array.isArray(
-                response.data?.data
-                  ?.photographers
-              )
-                ? response.data.data
-                    .photographers
-                : []
-            );
-
-          }
-
-        } catch (err) {
-
-          if (!ignore) {
-
-            setPhotographersError(
-              err.response?.data
-                ?.message ||
-                "Unable to load photographers."
-            );
-
-          }
+          setBookingsError(
+            err.response?.data?.message ||
+              "Unable to load booking information."
+          );
 
         }
 
-      };
-
-
-    const loadDashboard =
-      async () => {
-
-        await Promise.all([
-          loadBookings(),
-          loadPhotographers(),
-        ]);
-
+      } finally {
 
         if (!ignore) {
           setLoading(false);
         }
 
-      };
+      }
+
+    };
 
 
-    loadDashboard();
+    loadBookings();
 
 
     return () => {
@@ -171,8 +103,7 @@ const CustomerHome = () => {
 
   const getTodayString = () => {
 
-    const today =
-      new Date();
+    const today = new Date();
 
 
     const year =
@@ -198,6 +129,7 @@ const CustomerHome = () => {
 
 
     return `${year}-${month}-${day}`;
+
   };
 
 
@@ -213,6 +145,7 @@ const CustomerHome = () => {
     return String(
       value
     ).split("T")[0];
+
   };
 
 
@@ -236,6 +169,7 @@ const CustomerHome = () => {
         year: "numeric",
       }
     );
+
   };
 
 
@@ -304,47 +238,22 @@ const CustomerHome = () => {
       );
 
 
-  const bookingHistory =
+  const pendingBookings =
     bookings.filter(
-      (booking) => {
-
-        const bookingDate =
-          getBookingDateString(
-            booking.date
-          );
+      (booking) =>
+        booking.status === "REQUESTED"
+    );
 
 
-        const activeStatus =
-          [
-            "REQUESTED",
-            "CONFIRMED",
-          ].includes(
-            booking.status
-          );
-
-
-        return !(
-          bookingDate >= today &&
-          activeStatus
-        );
-
-      }
+  const completedBookings =
+    bookings.filter(
+      (booking) =>
+        booking.status === "COMPLETED"
     );
 
 
   const nextBooking =
     upcomingBookings[0];
-
-
-  // ==========================================
-  // PHOTOGRAPHER PREVIEWS
-  // ==========================================
-
-  const featuredPhotographers =
-    photographers.slice(
-      0,
-      3
-    );
 
 
   // ==========================================
@@ -381,137 +290,484 @@ const CustomerHome = () => {
 
 
   return (
-    <main className="
-      min-h-[calc(100vh-4rem)]
-      bg-gray-50
-      px-4
-      py-6
-      sm:px-6
-      lg:px-8
-      lg:py-8
-    ">
 
-      <div className="
-        mx-auto
-        max-w-7xl
-      ">
+    <main
+      className="
+        min-h-[calc(100vh-4rem)]
+        bg-gray-50
+        px-4
+        py-6
+        sm:px-6
+        lg:px-8
+        lg:py-8
+      "
+    >
+
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+        "
+      >
 
 
         {/* ==================================
             WELCOME AREA
         ================================== */}
 
-        <section className="
-          overflow-hidden
-          rounded-3xl
-          border
-          border-gray-200
-          bg-white
-          shadow-sm
-        ">
+        <section
+          className="
+            overflow-hidden
+            rounded-3xl
+            border
+            border-gray-200
+            bg-white
+            
+          "
+        >
 
-          <div className="
-            flex
-            flex-col
-            gap-6
-            px-6
-            py-7
-            sm:px-8
-            sm:py-8
-            lg:flex-row
-            lg:items-center
-            lg:justify-between
-          ">
+          <div
+            className="
+              flex
+              flex-col
+              gap-6
+              px-6
+              py-7
+              sm:px-8
+              sm:py-8
+              lg:flex-row
+              lg:items-center
+              lg:justify-between
+            "
+          >
 
             <div className="max-w-2xl">
 
-              <p className="
-                text-sm
-                font-semibold
-                text-orange-600
-              ">
+              <p
+                className="
+                  text-sm
+                  font-semibold
+                  text-orange-600
+                "
+              >
                 Customer Dashboard
               </p>
 
 
-              <h1 className="
-                mt-2
-                text-2xl
-                font-bold
-                tracking-tight
-                text-gray-950
-                sm:text-3xl
-              ">
-
+              <h1
+                className="
+                  mt-2
+                  text-2xl
+                  font-bold
+                  tracking-tight
+                  text-gray-950
+                  sm:text-3xl
+                "
+              >
                 Welcome back,{" "}
                 {user?.name?.split(
                   " "
                 )[0] || "Customer"}
-
               </h1>
 
 
-              <p className="
-                mt-2
-                text-sm
-                leading-6
-                text-gray-600
-                sm:text-base
-              ">
-                Find the right photographer
-                and keep track of your
-                upcoming bookings in one
+              <p
+                className="
+                  mt-2
+                  text-sm
+                  leading-6
+                  text-gray-600
+                  sm:text-base
+                "
+              >
+                Manage your bookings,
+                account activity and
+                upcoming services in one
                 place.
               </p>
 
             </div>
 
+          </div>
 
-            <Link
-              to="/customer/photographers"
+        </section>
+
+
+        {/* ==================================
+            BOOKING STATISTICS
+        ================================== */}
+
+        <section
+          className="
+            mt-6
+            grid
+            gap-4
+            sm:grid-cols-2
+            lg:grid-cols-3
+          "
+        >
+
+
+          {/* UPCOMING */}
+
+          <div
+            className="
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-5
+              shadow-sm
+            "
+          >
+
+            <div
               className="
-                inline-flex
-                shrink-0
+                flex
                 items-center
-                justify-center
-                gap-2
-                rounded-xl
-                bg-orange-600
-                px-5
-                py-3
-                text-sm
-                font-semibold
-                text-white
-                shadow-sm
-                transition
-                hover:bg-orange-700
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-orange-500
-                focus-visible:ring-offset-2
+                justify-between
+                gap-4
               "
             >
 
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                aria-hidden="true"
+              <div>
+
+                <p
+                  className="
+                    text-sm
+                    font-medium
+                    text-gray-500
+                  "
+                >
+                  Upcoming
+                </p>
+
+
+                {loading ? (
+
+                  <div
+                    className="
+                      mt-2
+                      h-8
+                      w-12
+                      animate-pulse
+                      rounded
+                      bg-gray-200
+                    "
+                  />
+
+                ) : (
+
+                  <p
+                    className="
+                      mt-1
+                      text-3xl
+                      font-bold
+                      text-gray-950
+                    "
+                  >
+                    {
+                      upcomingBookings.length
+                    }
+                  </p>
+
+                )}
+
+              </div>
+
+
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-orange-50
+                  text-orange-600
+                "
               >
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="7"
-                />
 
-                <path d="m20 20-3.5-3.5" />
-              </svg>
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
 
-              Find a Photographer
+                  <path d="M7 3v3M17 3v3" />
 
-            </Link>
+                  <rect
+                    x="3"
+                    y="5"
+                    width="18"
+                    height="16"
+                    rx="2"
+                  />
+
+                  <path d="M3 10h18" />
+
+                </svg>
+
+              </div>
+
+            </div>
+
+
+            <p
+              className="
+                mt-3
+                text-xs
+                leading-5
+                text-gray-500
+              "
+            >
+              Requested or confirmed
+              future bookings.
+            </p>
+
+          </div>
+
+
+          {/* PENDING */}
+
+          <div
+            className="
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-5
+              shadow-sm
+            "
+          >
+
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                gap-4
+              "
+            >
+
+              <div>
+
+                <p
+                  className="
+                    text-sm
+                    font-medium
+                    text-gray-500
+                  "
+                >
+                  Pending Requests
+                </p>
+
+
+                {loading ? (
+
+                  <div
+                    className="
+                      mt-2
+                      h-8
+                      w-12
+                      animate-pulse
+                      rounded
+                      bg-gray-200
+                    "
+                  />
+
+                ) : (
+
+                  <p
+                    className="
+                      mt-1
+                      text-3xl
+                      font-bold
+                      text-gray-950
+                    "
+                  >
+                    {
+                      pendingBookings.length
+                    }
+                  </p>
+
+                )}
+
+              </div>
+
+
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-amber-50
+                  text-amber-600
+                "
+              >
+
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                  />
+
+                  <path d="M12 7v5l3 2" />
+
+                </svg>
+
+              </div>
+
+            </div>
+
+
+            <p
+              className="
+                mt-3
+                text-xs
+                leading-5
+                text-gray-500
+              "
+            >
+              Requests waiting for
+              photographer confirmation.
+            </p>
+
+          </div>
+
+
+          {/* COMPLETED */}
+
+          <div
+            className="
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-5
+              shadow-sm
+            "
+          >
+
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                gap-4
+              "
+            >
+
+              <div>
+
+                <p
+                  className="
+                    text-sm
+                    font-medium
+                    text-gray-500
+                  "
+                >
+                  Completed
+                </p>
+
+
+                {loading ? (
+
+                  <div
+                    className="
+                      mt-2
+                      h-8
+                      w-12
+                      animate-pulse
+                      rounded
+                      bg-gray-200
+                    "
+                  />
+
+                ) : (
+
+                  <p
+                    className="
+                      mt-1
+                      text-3xl
+                      font-bold
+                      text-gray-950
+                    "
+                  >
+                    {
+                      completedBookings.length
+                    }
+                  </p>
+
+                )}
+
+              </div>
+
+
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-blue-50
+                  text-blue-600
+                "
+              >
+
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                  />
+
+                  <path d="m8 12 2.5 2.5L16 9" />
+
+                </svg>
+
+              </div>
+
+            </div>
+
+
+            <p
+              className="
+                mt-3
+                text-xs
+                leading-5
+                text-gray-500
+              "
+            >
+              Completed photography
+              services.
+            </p>
 
           </div>
 
@@ -522,53 +778,63 @@ const CustomerHome = () => {
             MAIN DASHBOARD AREA
         ================================== */}
 
-        <div className="
-          mt-6
-          grid
-          gap-6
-          xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]
-        ">
+        <div
+          className="
+            mt-6
+            grid
+            gap-6
+            xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)]
+          "
+        >
 
 
-          {/* ================================
+          {/* =================================
               NEXT BOOKING
-          ================================ */}
+          ================================= */}
 
-          <section className="
-            rounded-2xl
-            border
-            border-gray-200
-            bg-white
-            p-6
-            shadow-sm
-          ">
+          <section
+            className="
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-6
+              shadow-sm
+            "
+          >
 
-            <div className="
-              flex
-              items-start
-              justify-between
-              gap-4
-            ">
+            <div
+              className="
+                flex
+                items-start
+                justify-between
+                gap-4
+              "
+            >
 
               <div>
 
-                <p className="
-                  text-xs
-                  font-semibold
-                  uppercase
-                  tracking-wider
-                  text-gray-400
-                ">
-                  Next booking
+                <p
+                  className="
+                    text-xs
+                    font-semibold
+                    uppercase
+                    tracking-wider
+                    text-gray-400
+                  "
+                >
+                  Next Booking
                 </p>
 
 
-                <h2 className="
-                  mt-1
-                  text-xl
-                  font-semibold
-                  text-gray-950
-                ">
+                <h2
+                  className="
+                    mt-1
+                    text-xl
+                    font-semibold
+                    text-gray-950
+                  "
+                >
                   Upcoming Photography
                 </h2>
 
@@ -583,8 +849,6 @@ const CustomerHome = () => {
                   text-orange-600
                   transition
                   hover:text-orange-700
-                  focus:outline-none
-                  focus-visible:underline
                 "
               >
                 View all
@@ -595,104 +859,118 @@ const CustomerHome = () => {
 
             {loading ? (
 
-              /* ============================
-                  BOOKING SKELETON
-              ============================ */
+              <div
+                className="
+                  mt-6
+                  animate-pulse
+                  rounded-2xl
+                  border
+                  border-gray-100
+                  bg-gray-50
+                  p-5
+                "
+              >
 
-              <div className="
-                mt-6
-                animate-pulse
-                rounded-2xl
-                border
-                border-gray-100
-                bg-gray-50
-                p-5
-              ">
-
-                <div className="
-                  h-5
-                  w-48
-                  rounded
-                  bg-gray-200
-                " />
-
-
-                <div className="
-                  mt-4
-                  h-4
-                  w-64
-                  max-w-full
-                  rounded
-                  bg-gray-200
-                " />
+                <div
+                  className="
+                    h-5
+                    w-48
+                    rounded
+                    bg-gray-200
+                  "
+                />
 
 
-                <div className="
-                  mt-3
-                  h-4
-                  w-40
-                  rounded
-                  bg-gray-200
-                " />
+                <div
+                  className="
+                    mt-4
+                    h-4
+                    w-64
+                    max-w-full
+                    rounded
+                    bg-gray-200
+                  "
+                />
+
+
+                <div
+                  className="
+                    mt-3
+                    h-4
+                    w-40
+                    rounded
+                    bg-gray-200
+                  "
+                />
 
               </div>
 
             ) : bookingsError ? (
 
-              <div className="
-                mt-6
-                rounded-xl
-                border
-                border-red-200
-                bg-red-50
-                px-4
-                py-4
-                text-sm
-                text-red-700
-              ">
+              <div
+                className="
+                  mt-6
+                  rounded-xl
+                  border
+                  border-red-200
+                  bg-red-50
+                  px-4
+                  py-4
+                  text-sm
+                  text-red-700
+                "
+              >
                 {bookingsError}
               </div>
 
             ) : nextBooking ? (
 
-              <div className="
-                mt-6
-                rounded-2xl
-                border
-                border-gray-200
-                bg-gray-50/70
-                p-5
-              ">
+              <div
+                className="
+                  mt-6
+                  rounded-2xl
+                  border
+                  border-gray-200
+                  bg-gray-50/70
+                  p-5
+                "
+              >
 
-                <div className="
-                  flex
-                  flex-col
-                  gap-5
-                  sm:flex-row
-                  sm:items-start
-                  sm:justify-between
-                ">
+                <div
+                  className="
+                    flex
+                    flex-col
+                    gap-5
+                    sm:flex-row
+                    sm:items-start
+                    sm:justify-between
+                  "
+                >
 
                   <div>
 
-                    <div className="
-                      flex
-                      items-center
-                      gap-3
-                    ">
-
-                      <div className="
+                    <div
+                      className="
                         flex
-                        h-11
-                        w-11
-                        shrink-0
                         items-center
-                        justify-center
-                        rounded-full
-                        bg-orange-100
-                        font-bold
-                        text-orange-700
-                      ">
+                        gap-3
+                      "
+                    >
+
+                      <div
+                        className="
+                          flex
+                          h-11
+                          w-11
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-orange-100
+                          font-bold
+                          text-orange-700
+                        "
+                      >
 
                         {nextBooking
                           .photographer
@@ -707,10 +985,12 @@ const CustomerHome = () => {
 
                       <div>
 
-                        <h3 className="
-                          font-semibold
-                          text-gray-950
-                        ">
+                        <h3
+                          className="
+                            font-semibold
+                            text-gray-950
+                          "
+                        >
 
                           {nextBooking
                             .photographer
@@ -721,11 +1001,13 @@ const CustomerHome = () => {
                         </h3>
 
 
-                        <p className="
-                          mt-0.5
-                          text-sm
-                          text-gray-500
-                        ">
+                        <p
+                          className="
+                            mt-0.5
+                            text-sm
+                            text-gray-500
+                          "
+                        >
                           Photography booking
                         </p>
 
@@ -734,21 +1016,25 @@ const CustomerHome = () => {
                     </div>
 
 
-                    <div className="
-                      mt-5
-                      flex
-                      flex-wrap
-                      gap-x-6
-                      gap-y-3
-                      text-sm
-                      text-gray-600
-                    ">
-
-                      <div className="
+                    <div
+                      className="
+                        mt-5
                         flex
-                        items-center
-                        gap-2
-                      ">
+                        flex-wrap
+                        gap-x-6
+                        gap-y-3
+                        text-sm
+                        text-gray-600
+                      "
+                    >
+
+                      <div
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
 
                         <svg
                           className="
@@ -762,6 +1048,7 @@ const CustomerHome = () => {
                           strokeWidth="1.8"
                           aria-hidden="true"
                         >
+
                           <path d="M7 3v3M17 3v3" />
 
                           <rect
@@ -773,6 +1060,7 @@ const CustomerHome = () => {
                           />
 
                           <path d="M3 10h18" />
+
                         </svg>
 
                         {formatDate(
@@ -782,11 +1070,13 @@ const CustomerHome = () => {
                       </div>
 
 
-                      <div className="
-                        flex
-                        items-center
-                        gap-2
-                      ">
+                      <div
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
 
                         <svg
                           className="
@@ -843,12 +1133,14 @@ const CustomerHome = () => {
                 </div>
 
 
-                <div className="
-                  mt-5
-                  border-t
-                  border-gray-200
-                  pt-4
-                ">
+                <div
+                  className="
+                    mt-5
+                    border-t
+                    border-gray-200
+                    pt-4
+                  "
+                >
 
                   <Link
                     to="/customer/bookings"
@@ -877,33 +1169,33 @@ const CustomerHome = () => {
 
             ) : (
 
-              /* ============================
-                  EMPTY BOOKING STATE
-              ============================ */
+              <div
+                className="
+                  mt-6
+                  rounded-2xl
+                  border
+                  border-dashed
+                  border-gray-300
+                  bg-gray-50
+                  px-6
+                  py-8
+                  text-center
+                "
+              >
 
-              <div className="
-                mt-6
-                rounded-2xl
-                border
-                border-dashed
-                border-gray-300
-                bg-gray-50
-                px-6
-                py-8
-                text-center
-              ">
-
-                <div className="
-                  mx-auto
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-orange-50
-                  text-orange-600
-                ">
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    h-11
+                    w-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-orange-50
+                    text-orange-600
+                  "
+                >
 
                   <svg
                     className="h-5 w-5"
@@ -931,30 +1223,34 @@ const CustomerHome = () => {
                 </div>
 
 
-                <h3 className="
-                  mt-4
-                  font-semibold
-                  text-gray-950
-                ">
+                <h3
+                  className="
+                    mt-4
+                    font-semibold
+                    text-gray-950
+                  "
+                >
                   No upcoming bookings
                 </h3>
 
 
-                <p className="
-                  mx-auto
-                  mt-2
-                  max-w-sm
-                  text-sm
-                  leading-6
-                  text-gray-500
-                ">
+                <p
+                  className="
+                    mx-auto
+                    mt-2
+                    max-w-sm
+                    text-sm
+                    leading-6
+                    text-gray-500
+                  "
+                >
                   Your upcoming photography
                   bookings will appear here.
                 </p>
 
 
                 <Link
-                  to="/customer/photographers"
+                  to="/photographers"
                   className="
                     mt-4
                     inline-flex
@@ -974,167 +1270,240 @@ const CustomerHome = () => {
           </section>
 
 
-          {/* ================================
-              BOOKING OVERVIEW
-          ================================ */}
+          {/* =================================
+              QUICK ACTIONS
+          ================================= */}
 
-          <section className="
-            rounded-2xl
-            border
-            border-gray-200
-            bg-white
-            p-6
-            shadow-sm
-          ">
+          <section
+            className="
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-6
+              shadow-sm
+            "
+          >
 
-            <p className="
-              text-xs
-              font-semibold
-              uppercase
-              tracking-wider
-              text-gray-400
-            ">
-              Booking overview
+            <p
+              className="
+                text-xs
+                font-semibold
+                uppercase
+                tracking-wider
+                text-gray-400
+              "
+            >
+              Quick Actions
             </p>
 
 
-            <h2 className="
-              mt-1
-              text-xl
-              font-semibold
-              text-gray-950
-            ">
-              Your activity
+            <h2
+              className="
+                mt-1
+                text-xl
+                font-semibold
+                text-gray-950
+              "
+            >
+              Manage your account
             </h2>
 
 
-            {loading ? (
-
-              <div className="
-                mt-6
-                space-y-4
-                animate-pulse
-              ">
-
-                <div className="
-                  h-20
-                  rounded-xl
-                  bg-gray-100
-                " />
-
-                <div className="
-                  h-20
-                  rounded-xl
-                  bg-gray-100
-                " />
-
-              </div>
-
-            ) : bookingsError ? (
-
-              <p className="
-                mt-6
-                text-sm
-                leading-6
-                text-gray-500
-              ">
-                Booking summary is currently
-                unavailable.
-              </p>
-
-            ) : (
-
-              <div className="
-                mt-6
-                grid
-                gap-3
-                sm:grid-cols-2
-                xl:grid-cols-1
-              ">
-
-                <div className="
-                  rounded-xl
-                  border
-                  border-gray-200
-                  bg-gray-50
-                  p-4
-                ">
-
-                  <p className="
-                    text-2xl
-                    font-bold
-                    text-gray-950
-                  ">
-                    {
-                      upcomingBookings.length
-                    }
-                  </p>
-
-                  <p className="
-                    mt-1
-                    text-sm
-                    text-gray-500
-                  ">
-                    Upcoming bookings
-                  </p>
-
-                </div>
-
-
-                <div className="
-                  rounded-xl
-                  border
-                  border-gray-200
-                  bg-gray-50
-                  p-4
-                ">
-
-                  <p className="
-                    text-2xl
-                    font-bold
-                    text-gray-950
-                  ">
-                    {
-                      bookingHistory.length
-                    }
-                  </p>
-
-                  <p className="
-                    mt-1
-                    text-sm
-                    text-gray-500
-                  ">
-                    Booking history
-                  </p>
-
-                </div>
-
-              </div>
-
-            )}
-
-
-            <Link
-              to="/customer/bookings"
+            <div
               className="
-                mt-5
-                inline-flex
-                items-center
-                gap-1
-                text-sm
-                font-semibold
-                text-orange-600
-                transition
-                hover:text-orange-700
+                mt-6
+                space-y-3
               "
             >
-              Manage bookings
 
-              <span aria-hidden="true">
-                →
-              </span>
 
-            </Link>
+              <Link
+                to="/photographers"
+                className="
+                  group
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                  rounded-xl
+                  border
+                  border-gray-200
+                  px-4
+                  py-4
+                  transition
+                  hover:border-orange-200
+                  hover:bg-orange-50/50
+                "
+              >
+
+                <div>
+
+                  <p
+                    className="
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                      transition
+                      group-hover:text-orange-700
+                    "
+                  >
+                    Find Photographers
+                  </p>
+
+                  <p
+                    className="
+                      mt-1
+                      text-xs
+                      text-gray-500
+                    "
+                  >
+                    Browse profiles and
+                    portfolios.
+                  </p>
+
+                </div>
+
+
+                <span
+                  className="
+                    text-lg
+                    text-gray-400
+                    transition
+                    group-hover:text-orange-600
+                  "
+                  aria-hidden="true"
+                >
+                  →
+                </span>
+
+              </Link>
+
+
+              <Link
+                to="/customer/bookings"
+                className="
+                  group
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                  rounded-xl
+                  border
+                  border-gray-200
+                  px-4
+                  py-4
+                  transition
+                  hover:border-orange-200
+                  hover:bg-orange-50/50
+                "
+              >
+
+                <div>
+
+                  <p
+                    className="
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                      transition
+                      group-hover:text-orange-700
+                    "
+                  >
+                    My Bookings
+                  </p>
+
+                  <p
+                    className="
+                      mt-1
+                      text-xs
+                      text-gray-500
+                    "
+                  >
+                    View requests, upcoming
+                    jobs and history.
+                  </p>
+
+                </div>
+
+
+                <span
+                  className="
+                    text-lg
+                    text-gray-400
+                    transition
+                    group-hover:text-orange-600
+                  "
+                  aria-hidden="true"
+                >
+                  →
+                </span>
+
+              </Link>
+
+
+              <Link
+                to="/customer/profile"
+                className="
+                  group
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                  rounded-xl
+                  border
+                  border-gray-200
+                  px-4
+                  py-4
+                  transition
+                  hover:border-orange-200
+                  hover:bg-orange-50/50
+                "
+              >
+
+                <div>
+
+                  <p
+                    className="
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                      transition
+                      group-hover:text-orange-700
+                    "
+                  >
+                    My Profile
+                  </p>
+
+                  <p
+                    className="
+                      mt-1
+                      text-xs
+                      text-gray-500
+                    "
+                  >
+                    Update your personal
+                    information.
+                  </p>
+
+                </div>
+
+
+                <span
+                  className="
+                    text-lg
+                    text-gray-400
+                    transition
+                    group-hover:text-orange-600
+                  "
+                  aria-hidden="true"
+                >
+                  →
+                </span>
+
+              </Link>
+
+            </div>
 
           </section>
 
@@ -1142,414 +1511,119 @@ const CustomerHome = () => {
 
 
         {/* ==================================
-            PHOTOGRAPHER DISCOVERY
+            EQUIPMENT RENTAL INTEGRATION
         ================================== */}
 
-        <section className="mt-8">
+        <section
+          className="
+            mt-6
+            rounded-2xl
+            border
+            border-gray-200
+            bg-white
+            p-6
+            shadow-sm
+          "
+        >
 
-          <div className="
-            flex
-            flex-col
-            gap-3
-            sm:flex-row
-            sm:items-end
-            sm:justify-between
-          ">
+          <div
+            className="
+              flex
+              flex-col
+              gap-5
+              sm:flex-row
+              sm:items-center
+              sm:justify-between
+            "
+          >
 
-            <div>
-
-              <p className="
-                text-xs
-                font-semibold
-                uppercase
-                tracking-wider
-                text-orange-600
-              ">
-                Discover
-              </p>
-
-
-              <h2 className="
-                mt-1
-                text-2xl
-                font-bold
-                tracking-tight
-                text-gray-950
-              ">
-                Find your photographer
-              </h2>
-
-
-              <p className="
-                mt-2
-                text-sm
-                leading-6
-                text-gray-500
-              ">
-                Browse professionals and
-                explore their portfolios,
-                rates and services.
-              </p>
-
-            </div>
-
-
-            <Link
-              to="/customer/photographers"
+            <div
               className="
-                inline-flex
-                items-center
-                gap-1
-                text-sm
-                font-semibold
-                text-orange-600
-                transition
-                hover:text-orange-700
+                flex
+                items-start
+                gap-4
               "
             >
-              View all photographers
 
-              <span aria-hidden="true">
-                →
-              </span>
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-gray-100
+                  text-gray-600
+                "
+              >
 
-            </Link>
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+
+                  <path d="M4 8h16v10H4z" />
+
+                  <path d="M8 8l1.5-3h5L16 8" />
+
+                  <circle
+                    cx="12"
+                    cy="13"
+                    r="3"
+                  />
+
+                </svg>
+
+              </div>
+
+
+              <div>
+
+                <p
+                  className="
+                    text-xs
+                    font-semibold
+                    uppercase
+                    tracking-wider
+                    text-gray-400
+                  "
+                >
+                  Equipment Rentals
+                </p>
+
+
+                <h2
+                  className="
+                    mt-1
+                    text-lg
+                    font-semibold
+                    text-gray-950
+                  "
+                >
+                  Rental activity
+                </h2>
+
+              </div>
+
+            </div>
 
           </div>
 
-
-          {/* ================================
-              PHOTOGRAPHER CONTENT
-          ================================ */}
-
-          {loading ? (
-
-            <div className="
-              mt-5
-              grid
-              gap-5
-              md:grid-cols-2
-              xl:grid-cols-3
-            ">
-
-              {[1, 2, 3].map(
-                (item) => (
-
-                  <div
-                    key={item}
-                    className="
-                      animate-pulse
-                      overflow-hidden
-                      rounded-2xl
-                      border
-                      border-gray-200
-                      bg-white
-                    "
-                  >
-
-                    <div className="
-                      h-48
-                      bg-gray-200
-                    " />
-
-
-                    <div className="p-5">
-
-                      <div className="
-                        h-5
-                        w-2/3
-                        rounded
-                        bg-gray-200
-                      " />
-
-                      <div className="
-                        mt-3
-                        h-4
-                        w-1/2
-                        rounded
-                        bg-gray-100
-                      " />
-
-                      <div className="
-                        mt-5
-                        h-4
-                        w-1/3
-                        rounded
-                        bg-gray-100
-                      " />
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          ) : photographersError ? (
-
-            <div className="
-              mt-5
-              rounded-xl
-              border
-              border-red-200
-              bg-red-50
-              px-4
-              py-4
-              text-sm
-              text-red-700
-            ">
-              {photographersError}
-            </div>
-
-          ) : featuredPhotographers.length ===
-            0 ? (
-
-            <div className="
-              mt-5
-              rounded-2xl
-              border
-              border-dashed
-              border-gray-300
-              bg-white
-              px-6
-              py-10
-              text-center
-            ">
-
-              <h3 className="
-                font-semibold
-                text-gray-950
-              ">
-                No photographers available
-              </h3>
-
-
-              <p className="
-                mt-2
-                text-sm
-                text-gray-500
-              ">
-                Photographer profiles will
-                appear here when they become
-                available.
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="
-              mt-5
-              grid
-              gap-5
-              md:grid-cols-2
-              xl:grid-cols-3
-            ">
-
-              {featuredPhotographers.map(
-                (photographer) => (
-
-                  <article
-                    key={photographer._id}
-                    className="
-                      group
-                      overflow-hidden
-                      rounded-2xl
-                      border
-                      border-gray-200
-                      bg-white
-                      shadow-sm
-                      transition
-                      duration-200
-                      hover:-translate-y-0.5
-                      hover:shadow-md
-                    "
-                  >
-
-                    {/* PROFILE IMAGE */}
-
-                    <div className="
-                      relative
-                      flex
-                      h-48
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      bg-gray-100
-                    ">
-
-                      {photographer.profileImage ? (
-
-                        <img
-                          src={
-                            photographer.profileImage
-                          }
-                          alt={
-                            photographer.user
-                              ?.name ||
-                            "Photographer"
-                          }
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                            transition
-                            duration-300
-                            group-hover:scale-[1.02]
-                          "
-                        />
-
-                      ) : (
-
-                        <div className="
-                          flex
-                          h-20
-                          w-20
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-orange-100
-                          text-2xl
-                          font-bold
-                          text-orange-700
-                        ">
-
-                          {photographer.user
-                            ?.name
-                            ?.charAt(0)
-                            ?.toUpperCase() ||
-                            "P"}
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-
-                    {/* CONTENT */}
-
-                    <div className="p-5">
-
-                      <h3 className="
-                        truncate
-                        text-lg
-                        font-semibold
-                        text-gray-950
-                      ">
-
-                        {photographer.user
-                          ?.name ||
-                          "Photographer"}
-
-                      </h3>
-
-
-                      <p className="
-                        mt-1
-                        truncate
-                        text-sm
-                        font-medium
-                        text-orange-600
-                      ">
-
-                        {photographer.specialization ||
-                          "Photography Services"}
-
-                      </p>
-
-
-                      <div className="
-                        mt-4
-                        flex
-                        items-end
-                        justify-between
-                        gap-4
-                      ">
-
-                        <div className="min-w-0">
-
-                          {photographer.location && (
-
-                            <p className="
-                              truncate
-                              text-xs
-                              text-gray-500
-                            ">
-                              {
-                                photographer.location
-                              }
-                            </p>
-
-                          )}
-
-
-                          <p className="
-                            mt-1
-                            text-sm
-                            font-semibold
-                            text-gray-950
-                          ">
-
-                            {photographer.hourlyRate !==
-                              null &&
-                            photographer.hourlyRate !==
-                              undefined
-                              ? `LKR ${Number(
-                                  photographer.hourlyRate
-                                ).toLocaleString()} / hr`
-                              : "Contact for pricing"}
-
-                          </p>
-
-                        </div>
-
-
-                        <Link
-                          to={`/customer/photographers/${photographer._id}`}
-                          className="
-                            shrink-0
-                            rounded-lg
-                            border
-                            border-gray-200
-                            px-3
-                            py-2
-                            text-xs
-                            font-semibold
-                            text-gray-700
-                            transition
-                            hover:border-orange-200
-                            hover:bg-orange-50
-                            hover:text-orange-700
-                            focus:outline-none
-                            focus-visible:ring-2
-                            focus-visible:ring-orange-500
-                          "
-                        >
-                          View Profile
-                        </Link>
-
-                      </div>
-
-                    </div>
-
-                  </article>
-
-                )
-              )}
-
-            </div>
-
-          )}
-
         </section>
+
 
       </div>
 
     </main>
+
   );
+
 };
 
 

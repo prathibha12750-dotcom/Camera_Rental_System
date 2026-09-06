@@ -152,6 +152,15 @@ const AppLayout = () => {
   }, [mobileMenuOpen]);
 
 
+  // ==========================================
+  // CUSTOMER USES PUBLIC-STYLE TOP NAVBAR
+  // ==========================================
+
+  if (user?.role === "CUSTOMER") {
+    return <Outlet />;
+  }
+
+
   return (
     <div className="min-h-screen bg-gray-50">
 

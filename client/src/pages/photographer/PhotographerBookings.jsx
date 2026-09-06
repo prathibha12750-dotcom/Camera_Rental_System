@@ -500,6 +500,106 @@ const PhotographerBookings = () => {
     };
 
 
+    // ==========================================
+    // CHECK IF BOOKING CAN BE COMPLETED
+    // SRI LANKA TIME
+    // ==========================================
+
+    const canCompleteBooking = (
+      booking
+    ) => {
+
+      if (
+        booking.status !==
+        "CONFIRMED"
+      ) {
+        return false;
+      }
+
+
+      if (
+        !booking.date ||
+        !booking.endTime
+      ) {
+        return false;
+      }
+
+
+      const now =
+        new Date();
+
+
+      const dateFormatter =
+        new Intl.DateTimeFormat(
+          "en-CA",
+          {
+            timeZone:
+              "Asia/Colombo",
+
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }
+        );
+
+
+      const timeFormatter =
+        new Intl.DateTimeFormat(
+          "en-GB",
+          {
+            timeZone:
+              "Asia/Colombo",
+
+            hour: "2-digit",
+            minute: "2-digit",
+
+            hourCycle: "h23",
+          }
+        );
+
+
+      const today =
+        dateFormatter.format(
+          now
+        );
+
+
+      const currentTime =
+        timeFormatter.format(
+          now
+        );
+
+
+      const bookingDate =
+        String(
+          booking.date
+        ).split("T")[0];
+
+
+      if (
+        bookingDate <
+        today
+      ) {
+        return true;
+      }
+
+
+      if (
+        bookingDate >
+        today
+      ) {
+        return false;
+      }
+
+
+      return (
+        currentTime >=
+        booking.endTime
+      );
+
+    };
+
+
   // ==========================================
   // BOOKING CARD
   // ==========================================
@@ -532,6 +632,12 @@ const PhotographerBookings = () => {
     const isUpdating =
       updatingId ===
       booking._id;
+
+
+    const completionAllowed =
+      canCompleteBooking(
+        booking
+      );
 
 
     return (
@@ -873,7 +979,8 @@ const PhotographerBookings = () => {
                     <button
                       type="button"
                       disabled={
-                        isUpdating
+                        isUpdating ||
+                        !completionAllowed
                       }
                       onClick={() =>
                         updateStatus(
@@ -903,7 +1010,9 @@ const PhotographerBookings = () => {
                       updatingStatus ===
                         "COMPLETED"
                         ? "Updating..."
-                        : "Mark Completed"}
+                        : completionAllowed
+                          ? "Mark Completed"
+                          : "Complete After Job"}
                     </button>
 
 

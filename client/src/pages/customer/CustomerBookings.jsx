@@ -10,7 +10,7 @@ import {
 
 import api from "../../services/api";
 import ConfirmDialog from "../../components/ConfirmDialog";
-
+import ReviewForm from "../../components/ReviewForm";
 
 const CustomerBookings = () => {
 
@@ -58,8 +58,20 @@ const CustomerBookings = () => {
   ] = useState(null);
 
 
+  const [
+    reviews,
+    setReviews,
+  ] = useState([]);
+
+
+  const [
+    reviewBookingId,
+    setReviewBookingId,
+  ] = useState(null);
+
+
   // ==========================================
-  // LOAD BOOKINGS
+  // LOAD BOOKINGS + CUSTOMER REVIEWS
   // ==========================================
 
   useEffect(() => {
@@ -67,26 +79,48 @@ const CustomerBookings = () => {
     let ignore = false;
 
 
-    const loadBookings =
+    const loadData =
       async () => {
 
         try {
 
-          const response =
-            await api.get(
-              "/customer/bookings"
-            );
+          const [
+            bookingsResponse,
+            reviewsResponse,
+          ] =
+            await Promise.all([
+              api.get(
+                "/customer/bookings"
+              ),
+
+              api.get(
+                "/customer/reviews"
+              ),
+            ]);
 
 
           if (!ignore) {
 
             setBookings(
               Array.isArray(
-                response.data?.data
+                bookingsResponse
+                  .data?.data
                   ?.bookings
               )
-                ? response.data.data
-                    .bookings
+                ? bookingsResponse
+                    .data.data.bookings
+                : []
+            );
+
+
+            setReviews(
+              Array.isArray(
+                reviewsResponse
+                  .data?.data
+                  ?.reviews
+              )
+                ? reviewsResponse
+                    .data.data.reviews
                 : []
             );
 
@@ -121,7 +155,7 @@ const CustomerBookings = () => {
       };
 
 
-    loadBookings();
+    loadData();
 
 
     return () => {
@@ -562,6 +596,45 @@ const CustomerBookings = () => {
 
 
   // ==========================================
+  // REVIEW HELPERS
+  // ==========================================
+
+  const getBookingReview = (
+    bookingId
+  ) => {
+
+    return reviews.find(
+      (review) =>
+        String(review.booking) ===
+        String(bookingId)
+    );
+
+  };
+
+
+  const handleReviewSuccess = (
+    review
+  ) => {
+
+    setReviews(
+      (previous) => [
+        review,
+        ...previous,
+      ]
+    );
+
+
+    setReviewBookingId(null);
+
+
+    setSuccess(
+      "Thank you. Your review was submitted successfully."
+    );
+
+  };
+
+
+  // ==========================================
   // BOOKING CARD
   // ==========================================
 
@@ -595,6 +668,23 @@ const CustomerBookings = () => {
 
     const isCancelling =
       cancellingId ===
+      booking._id;
+
+
+    const existingReview =
+      getBookingReview(
+        booking._id
+      );
+
+
+    const canReview =
+      booking.status ===
+        "COMPLETED" &&
+      !existingReview;
+
+
+    const reviewOpen =
+      reviewBookingId ===
       booking._id;
 
 
@@ -1018,6 +1108,34 @@ const CustomerBookings = () => {
 
               )}
 
+              {canReview && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReviewBookingId(
+                      reviewOpen
+                        ? null
+                        : booking._id
+                    )
+                  }
+                  className="
+                    text-sm
+                    font-semibold
+                    text-orange-600
+                    transition
+                    hover:text-orange-700
+                    focus:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-orange-500
+                    focus-visible:ring-offset-2
+                  "
+                >
+                  {reviewOpen
+                    ? "Close Review"
+                    : "Leave Review"}
+                </button>
+              )}
+
             </div>
 
           </div>
@@ -1047,6 +1165,164 @@ const CustomerBookings = () => {
           </div>
 
         )}
+
+
+        {existingReview && (
+
+          <div
+            className="
+              border-t
+              border-gray-100
+              bg-gray-50/70
+              px-5
+              py-4
+              sm:px-6
+            "
+          >
+
+            <div
+              className="
+                flex
+                flex-col
+                gap-2
+                sm:flex-row
+                sm:items-start
+                sm:justify-between
+              "
+            >
+
+              <div>
+
+                <p
+                  className="
+                    text-xs
+                    font-semibold
+                    uppercase
+                    tracking-wide
+                    text-gray-400
+                  "
+                >
+                  Your Review
+                </p>
+
+
+                <div
+                  className="
+                    mt-1
+                    flex
+                    items-center
+                    gap-1
+                  "
+                >
+
+                  {[1, 2, 3, 4, 5].map(
+                    (value) => (
+
+                      <span
+                        key={value}
+                        className={
+                          value <=
+                          existingReview.rating
+                            ? "text-amber-400"
+                            : "text-gray-300"
+                        }
+                      >
+                        ★
+                      </span>
+
+                    )
+                  )}
+
+                  <span
+                    className="
+                      ml-1
+                      text-xs
+                      font-medium
+                      text-gray-500
+                    "
+                  >
+                    {
+                      existingReview.rating
+                    }/5
+                  </span>
+
+                </div>
+
+
+                {existingReview.comment && (
+
+                  <p
+                    className="
+                      mt-2
+                      max-w-2xl
+                      text-sm
+                      leading-6
+                      text-gray-600
+                    "
+                  >
+                    {existingReview.comment}
+                  </p>
+
+                )}
+
+              </div>
+
+
+              <span
+                className="
+                  w-fit
+                  rounded-full
+                  border
+                  border-green-200
+                  bg-green-50
+                  px-3
+                  py-1
+                  text-xs
+                  font-semibold
+                  text-green-700
+                "
+              >
+                Reviewed
+              </span>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {canReview &&
+          reviewOpen && (
+
+            <div
+              className="
+                border-t
+                border-gray-100
+                px-5
+                pb-5
+                sm:px-6
+                sm:pb-6
+              "
+            >
+
+              <ReviewForm
+                booking={booking}
+                photographerName={
+                  photographerName
+                }
+                onSuccess={
+                  handleReviewSuccess
+                }
+                onCancel={() =>
+                  setReviewBookingId(
+                    null
+                  )
+                }
+              />
+
+            </div>
+
+          )}
 
       </article>
 
@@ -1221,7 +1497,7 @@ const CustomerBookings = () => {
 
 
           <Link
-            to="/customer/photographers"
+            to="/photographers"
             className="
               inline-flex
               items-center
@@ -1678,7 +1954,7 @@ const CustomerBookings = () => {
 
 
               <Link
-                to="/customer/photographers"
+                to="/photographers"
                 className="
                   mt-5
                   inline-flex

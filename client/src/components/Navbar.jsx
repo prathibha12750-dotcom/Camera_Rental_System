@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import UserAvatar from "./UserAvatar";
 
 const Navbar = () => {
   const {
     user,
     isAuthenticated,
     loading,
+    logout,
   } = useAuth();
+
+  const navigate = useNavigate();
 
   const [accountOpen, setAccountOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -16,14 +20,6 @@ const Navbar = () => {
   const accountRef = useRef(null);
   const searchRef = useRef(null);
 
-  const dashboardRoutes = {
-    CUSTOMER: "/customer",
-    PHOTOGRAPHER: "/photographer",
-    STAFF_ADMIN: "/admin",
-  };
-
-  const dashboardPath =
-    dashboardRoutes[user?.role] || "/";
 
   // ==========================================
   // CLOSE PANELS WHEN CLICKING OUTSIDE
@@ -112,6 +108,28 @@ const Navbar = () => {
     setSearchOpen(false);
   };
 
+  // ==========================================
+  // HIDE PUBLIC NAVBAR FOR OPERATIONAL ROLES
+  // ==========================================
+
+  if (
+    !loading &&
+    isAuthenticated &&
+    user?.role !== "CUSTOMER"
+  ) {
+    return null;
+  }
+
+  const handleLogout = async () => {
+    await logout();
+
+    setAccountOpen(false);
+
+    navigate("/", {
+      replace: true,
+    });
+  };
+
   return (
     <>
       {/* ==========================================
@@ -184,31 +202,68 @@ const Navbar = () => {
           <div className="flex items-center gap-2 lg:gap-5">
 
 
-            {/* Desktop Navigation */}
-            <div className="hidden items-center gap-7 lg:flex">
+      {/* ==========================================
+          DESKTOP NAVIGATION
+      ========================================== */}
 
-              <a
-                href="/#discover"
-                className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-              >
-                Discover
-              </a>
+      <nav className="hidden items-center gap-7 lg:flex">
 
-              <a
-                href="/#equipment"
-                className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-              >
-                Equipment
-              </a>
+        {/* Home / Discover */}
+        {isAuthenticated &&
+        user?.role === "CUSTOMER" ? (
+          <Link
+            to="/"
+            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+          >
+            Home
+          </Link>
+        ) : (
+          <a
+            href="/#discover"
+            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+          >
+            Discover
+          </a>
+        )}
 
-              <Link
-                to="/photographers"
-                className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-              >
-                Photographers
-              </Link>
 
-            </div>
+        {/* Equipment */}
+        <a
+          href="/#equipment"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          Equipment
+        </a>
+
+
+        {/* Photographers */}
+        <Link
+          to="/photographers"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          Photographers
+        </Link>
+
+
+      {/* Customer / Guest specific link */}
+      {isAuthenticated &&
+      user?.role === "CUSTOMER" ? (
+        <Link
+          to="/customer/bookings"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          My Bookings
+        </Link>
+      ) : (
+        <a
+          href="/#how-it-works"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          How It Works
+        </a>
+      )}
+
+    </nav>
 
 
 
@@ -386,24 +441,30 @@ const Navbar = () => {
               >
 
                 {/* User SVG */}
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                >
+                  {isAuthenticated &&
+                  user?.role === "CUSTOMER" ? (
+                    <UserAvatar
+                      name={user?.name}
+                      size="md"
+                    />
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="12"
+                        cy="8"
+                        r="4"
+                      />
 
-                  <circle
-                    cx="12"
-                    cy="8"
-                    r="4"
-                  />
-
-                  <path d="M4.5 21c.8-4 3.3-6 7.5-6s6.7 2 7.5 6" />
-
-                </svg>
+                      <path d="M4 21a8 8 0 0 1 16 0" />
+                    </svg>
+                  )}
 
               </button>
 
@@ -423,49 +484,122 @@ const Navbar = () => {
 
                     </div>
 
-                  ) : isAuthenticated ? (
+                      ) : isAuthenticated &&
+                      user?.role === "CUSTOMER" ? (
 
-                    <>
-                      <div className="border-b border-gray-100 p-5">
+                        <div>
 
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          Signed in as
-                        </p>
+                          {/* ==================================
+                              CUSTOMER IDENTITY
+                          ================================== */}
 
-                        <p className="mt-1 truncate font-bold text-gray-950">
-                          {user?.name || "User"}
-                        </p>
+                          <div className="border-b border-gray-100 px-4 py-4">
 
-                        {user?.email && (
-                          <p className="mt-1 truncate text-xs text-gray-500">
-                            {user.email}
-                          </p>
-                        )}
+                            <div className="flex items-center gap-3">
 
-                      </div>
+                              <UserAvatar
+                                name={user?.name}
+                                size="md"
+                              />
+
+                              <div className="min-w-0">
+
+                                <p className="truncate text-sm font-semibold text-gray-950">
+                                  {user?.name || "Customer"}
+                                </p>
+
+                                <p className="truncate text-xs text-gray-500">
+                                  {user?.email || ""}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          </div>
 
 
-                      <div className="p-2">
+                          {/* ==================================
+                              CUSTOMER LINKS
+                          ================================== */}
 
-                        <Link
-                          to={dashboardPath}
-                          onClick={() =>
-                            setAccountOpen(false)
-                          }
-                          className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-orange-50 hover:text-orange-700"
-                        >
-                          Go to Dashboard
+                          <div className="p-2">
 
-                          <span>
-                            →
-                          </span>
-                        </Link>
+                            <Link
+                              to="/customer"
+                              onClick={() =>
+                                setAccountOpen(false)
+                              }
+                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
+                            >
+                              Dashboard
+                            </Link>
 
-                      </div>
 
-                    </>
+                            <Link
+                              to="/customer/profile"
+                              onClick={() =>
+                                setAccountOpen(false)
+                              }
+                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
+                            >
+                              My Profile
+                            </Link>
 
-                  ) : (
+
+                            <Link
+                              to="/customer/bookings"
+                              onClick={() =>
+                                setAccountOpen(false)
+                              }
+                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
+                            >
+                              My Bookings
+                            </Link>
+
+                          </div>
+
+
+                          {/* ==================================
+                              FUTURE AREA
+                          ================================== */}
+
+                          <div className="border-t border-gray-100 p-2">
+
+                            <div className="rounded-xl px-3 py-2.5">
+
+                              <p className="text-sm font-medium text-gray-500">
+                                Become a Photographer
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                Application feature coming next
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          {/* ==================================
+                              LOGOUT
+                          ================================== */}
+
+                          <div className="border-t border-gray-100 p-2">
+
+                            <button
+                              type="button"
+                              onClick={handleLogout}
+                              className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                            >
+                              Logout
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                      ) : (
 
                     <div className="p-5">
 

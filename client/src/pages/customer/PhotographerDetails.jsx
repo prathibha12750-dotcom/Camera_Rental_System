@@ -80,6 +80,29 @@ const PhotographerDetails = () => {
   ] = useState([]);
 
   const [
+    reviews,
+    setReviews,
+  ] = useState([]);
+
+
+  const [
+    reviewCount,
+    setReviewCount,
+  ] = useState(0);
+
+
+  const [
+    averageRating,
+    setAverageRating,
+  ] = useState(0);
+
+
+  const [
+    reviewsLoading,
+    setReviewsLoading,
+  ] = useState(true);
+
+  const [
     loading,
     setLoading,
   ] = useState(true);
@@ -172,6 +195,93 @@ const PhotographerDetails = () => {
 
 
     loadDetails();
+
+
+    return () => {
+      ignore = true;
+    };
+
+  }, [id]);
+
+
+  // ==========================================
+  // LOAD PUBLIC PHOTOGRAPHER REVIEWS
+  // ==========================================
+
+  useEffect(() => {
+
+    let ignore = false;
+
+
+    const loadReviews =
+      async () => {
+
+        try {
+
+          const response =
+            await api.get(
+              `/customer/photographers/${id}/reviews`
+            );
+
+
+          if (!ignore) {
+
+            const data =
+              response.data?.data;
+
+
+            setReviews(
+              Array.isArray(
+                data?.reviews
+              )
+                ? data.reviews
+                : []
+            );
+
+
+            setReviewCount(
+              Number(
+                data?.reviewCount
+              ) || 0
+            );
+
+
+            setAverageRating(
+              Number(
+                data?.averageRating
+              ) || 0
+            );
+
+          }
+
+        } catch (err) {
+
+          console.error(
+            "Failed to load reviews:",
+            err
+          );
+
+
+          if (!ignore) {
+
+            setReviews([]);
+            setReviewCount(0);
+            setAverageRating(0);
+
+          }
+
+        } finally {
+
+          if (!ignore) {
+            setReviewsLoading(false);
+          }
+
+        }
+
+      };
+
+
+    loadReviews();
 
 
     return () => {
@@ -614,6 +724,81 @@ const PhotographerDetails = () => {
                 </div>
 
               )}
+
+
+                <div
+                  className="
+                    mt-3
+                    flex
+                    flex-wrap
+                    items-center
+                    gap-2
+                  "
+                >
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-1
+                    "
+                  >
+
+                    {[1, 2, 3, 4, 5].map(
+                      (value) => (
+
+                        <span
+                          key={value}
+                          className={
+                            value <=
+                            Math.round(
+                              averageRating
+                            )
+                              ? "text-amber-400"
+                              : "text-gray-300"
+                          }
+                        >
+                          ★
+                        </span>
+
+                      )
+                    )}
+
+                  </div>
+
+
+                  {reviewCount > 0 ? (
+
+                    <span
+                      className="
+                        text-sm
+                        font-medium
+                        text-gray-600
+                      "
+                    >
+                      {averageRating.toFixed(1)}
+                      {" "}
+                      ({reviewCount}
+                      {" "}
+                      {reviewCount === 1
+                        ? "review"
+                        : "reviews"})
+                    </span>
+
+                  ) : (
+
+                    <span
+                      className="
+                        text-sm
+                        text-gray-500
+                      "
+                    >
+                      No reviews yet
+                    </span>
+
+                  )}
+
+                </div>
 
 
               <div className="
@@ -1216,6 +1401,444 @@ const PhotographerDetails = () => {
                   </div>
 
                 )
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+
+        {/* ==================================
+            CUSTOMER REVIEWS
+        ================================== */}
+
+        <section
+          className="
+            mt-8
+            rounded-2xl
+            border
+            border-gray-200
+            bg-white
+            p-6
+            shadow-sm
+            sm:p-7
+          "
+        >
+
+          <div
+            className="
+              flex
+              flex-col
+              gap-4
+              sm:flex-row
+              sm:items-end
+              sm:justify-between
+            "
+          >
+
+            <div>
+
+              <p
+                className="
+                  text-sm
+                  font-semibold
+                  text-orange-600
+                "
+              >
+                Verified Experiences
+              </p>
+
+
+              <h2
+                className="
+                  mt-1
+                  text-xl
+                  font-bold
+                  text-gray-950
+                  sm:text-2xl
+                "
+              >
+                Customer Reviews
+              </h2>
+
+
+              <p
+                className="
+                  mt-2
+                  text-sm
+                  leading-6
+                  text-gray-500
+                "
+              >
+                Reviews are submitted by
+                customers after completed
+                photography bookings.
+              </p>
+
+            </div>
+
+
+            {reviewCount > 0 && (
+
+              <div
+                className="
+                  rounded-xl
+                  bg-gray-50
+                  px-4
+                  py-3
+                "
+              >
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+
+                  <span
+                    className="
+                      text-2xl
+                      font-bold
+                      text-gray-950
+                    "
+                  >
+                    {averageRating.toFixed(1)}
+                  </span>
+
+
+                  <span
+                    className="
+                      text-xl
+                      text-amber-400
+                    "
+                  >
+                    ★
+                  </span>
+
+                </div>
+
+
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    text-gray-500
+                  "
+                >
+                  Based on {reviewCount}
+                  {" "}
+                  {reviewCount === 1
+                    ? "review"
+                    : "reviews"}
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {reviewsLoading ? (
+
+            <div
+              className="
+                mt-6
+                space-y-4
+              "
+            >
+
+              {[1, 2].map(
+                (item) => (
+
+                  <div
+                    key={item}
+                    className="
+                      animate-pulse
+                      rounded-xl
+                      border
+                      border-gray-100
+                      p-5
+                    "
+                  >
+
+                    <div
+                      className="
+                        h-4
+                        w-32
+                        rounded
+                        bg-gray-200
+                      "
+                    />
+
+                    <div
+                      className="
+                        mt-3
+                        h-3
+                        w-full
+                        rounded
+                        bg-gray-100
+                      "
+                    />
+
+                    <div
+                      className="
+                        mt-2
+                        h-3
+                        w-2/3
+                        rounded
+                        bg-gray-100
+                      "
+                    />
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          ) : reviews.length === 0 ? (
+
+            <div
+              className="
+                mt-6
+                rounded-xl
+                border
+                border-dashed
+                border-gray-300
+                bg-gray-50
+                px-6
+                py-8
+                text-center
+              "
+            >
+
+              <div
+                className="
+                  text-2xl
+                  text-gray-300
+                "
+              >
+                ★★★★★
+              </div>
+
+
+              <h3
+                className="
+                  mt-3
+                  font-semibold
+                  text-gray-900
+                "
+              >
+                No reviews yet
+              </h3>
+
+
+              <p
+                className="
+                  mt-1
+                  text-sm
+                  text-gray-500
+                "
+              >
+                This photographer has not
+                received any verified customer
+                reviews yet.
+              </p>
+
+            </div>
+
+          ) : (
+
+            <div
+              className="
+                mt-6
+                space-y-4
+              "
+            >
+
+              {reviews.map(
+                (review) => {
+
+                  const customerName =
+                    review.customer?.name ||
+                    "Customer";
+
+
+                  return (
+
+                    <article
+                      key={review._id}
+                      className="
+                        rounded-xl
+                        border
+                        border-gray-200
+                        p-5
+                      "
+                    >
+
+                      <div
+                        className="
+                          flex
+                          flex-col
+                          gap-3
+                          sm:flex-row
+                          sm:items-start
+                          sm:justify-between
+                        "
+                      >
+
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-3
+                          "
+                        >
+
+                          <div
+                            className="
+                              flex
+                              h-10
+                              w-10
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-full
+                              bg-orange-50
+                              text-sm
+                              font-bold
+                              text-orange-700
+                            "
+                          >
+                            {customerName
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+
+
+                          <div>
+
+                            <p
+                              className="
+                                text-sm
+                                font-semibold
+                                text-gray-900
+                              "
+                            >
+                              {customerName}
+                            </p>
+
+
+                            <span
+                              className="
+                                mt-1
+                                inline-flex
+                                rounded-full
+                                border
+                                border-green-200
+                                bg-green-50
+                                px-2
+                                py-0.5
+                                text-xs
+                                font-medium
+                                text-green-700
+                              "
+                            >
+                              Verified booking
+                            </span>
+
+                          </div>
+
+                        </div>
+
+
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-1
+                          "
+                        >
+
+                          {[1, 2, 3, 4, 5].map(
+                            (value) => (
+
+                              <span
+                                key={value}
+                                className={
+                                  value <=
+                                  review.rating
+                                    ? "text-amber-400"
+                                    : "text-gray-300"
+                                }
+                              >
+                                ★
+                              </span>
+
+                            )
+                          )}
+
+                        </div>
+
+                      </div>
+
+
+                      {review.comment && (
+
+                        <p
+                          className="
+                            mt-4
+                            whitespace-pre-line
+                            text-sm
+                            leading-6
+                            text-gray-600
+                          "
+                        >
+                          {review.comment}
+                        </p>
+
+                      )}
+
+
+                      {review.createdAt && (
+
+                        <p
+                          className="
+                            mt-4
+                            text-xs
+                            text-gray-400
+                          "
+                        >
+                          {new Date(
+                            review.createdAt
+                          ).toLocaleDateString(
+                            undefined,
+                            {
+                              year:
+                                "numeric",
+
+                              month:
+                                "short",
+
+                              day:
+                                "numeric",
+                            }
+                          )}
+                        </p>
+
+                      )}
+
+                    </article>
+
+                  );
+
+                }
               )}
 
             </div>
