@@ -196,7 +196,30 @@ const getPaymentsByInvoice = async (req, res, next) => {
     }
 }
 
+const getAllPayments = async (req, res, next) => {
+    try {
+        const payments = await Payment.find()
+            .populate("customer", "name email")
+            .populate(
+                "invoice",
+                "invoiceNumber serviceDetails serviceAmount securityDeposit totalAmount paymentStatus"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "All payments retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch(error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createPayment,
     getPaymentsByInvoice,
+    getAllPayments,
 };

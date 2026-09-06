@@ -15,8 +15,9 @@ const {
 } = require("../controllers/invoiceController");
 
 const {
-  createPayment,
-  getPaymentsByInvoice
+    createPayment,
+    getPaymentsByInvoice,
+    getAllPayments,
 } = require("../controllers/paymentController");
 
 const {
@@ -157,6 +158,8 @@ router.get(
   authorizeRoles("STAFF_ADMIN"),
   getPaymentsByInvoice
 );
+
+router.get("/payments", getAllPayments);
 
 // ==========================================
 // RECORD SECURITY DEPOSIT
