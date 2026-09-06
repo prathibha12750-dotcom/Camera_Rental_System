@@ -28,6 +28,7 @@ import Payments from "../pages/admin/Payments";
 import Deposits from "../pages/admin/Deposits";
 import Refunds from "../pages/admin/Refunds";
 import Reports from "../pages/admin/Reports";
+import Notifications from "../pages/admin/Notifications";
 
 // import end by Abilash
 
@@ -171,6 +172,11 @@ const AppRoutes = () => {
               <Route 
                path="/admin/reports" 
                element={<Reports />} 
+              />
+
+              <Route
+                path="/admin/notifications"
+                element={<Notifications />}
               />
             </Route>
 
