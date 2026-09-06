@@ -1,3 +1,20 @@
+// ======================================================================================================
+// Routes added by thasindu
+// ======================================================================================================
+
+// connecting equipment browser by thasindu ======================
+import EquipmentBrowse from "../pages/customer/EquipmentBrowse";
+
+// connecting equipment details by thasindu =======================
+import EquipmentDetails from "../pages/customer/EquipmentDetails";
+
+// connecting MyRental by thasindu ================================
+import MyRentals from "../pages/customer/MyRentals";
+
+// ========================================================================================================
+// End of the routes added by thasindu
+// ========================================================================================================
+
 import {
   BrowserRouter,
   Link,
@@ -80,6 +97,35 @@ const AppRoutes = () => {
               path="/customer"
               element={<CustomerHome />}
             />
+// ===================================================================================================
+// Routes added by thasindu
+// ===================================================================================================
+
+            // adding customer/equipment route by thasindu ====
+            <Route
+              path="/customer/equipment"
+              element={<EquipmentBrowse />}
+            />
+            // =================================================
+
+            // adding equipment details route by thasindu ======
+            <Route
+              path="/customer/equipment/:id"
+              element={<EquipmentDetails />}
+            />
+            // =================================================
+            
+            //adding MyRental route by thasindu ===============
+            <Route
+              path="/customer/rentals"
+              element={<MyRentals />}
+            />
+            // =================================================
+
+// ===================================================================================================
+// End of the Routes added by thasindu
+// ===================================================================================================
+
           </Route>
 
           {/* Photographer Routes */}
