@@ -33,22 +33,39 @@ const Login = () => {
 
   useEffect(() => {
     if (
-      !authLoading &&
-      isAuthenticated &&
-      user?.role
+      authLoading ||
+      !isAuthenticated ||
+      !user?.role
+    ) {
+      return;
+    }
+
+    if (
+      user.role === "PHOTOGRAPHER" &&
+      user.mustChangePassword
     ) {
       navigate(
-        dashboardRoutes[user.role] || "/",
+        "/photographer/change-password",
         {
           replace: true,
         }
       );
+
+      return;
     }
+
+    navigate(
+      dashboardRoutes[user.role] || "/",
+      {
+        replace: true,
+      }
+    );
   }, [
     authLoading,
     isAuthenticated,
     navigate,
     user?.role,
+    user?.mustChangePassword,
   ]);
 
   // ==========================================
@@ -85,6 +102,20 @@ const Login = () => {
 
       const loggedInUser =
         response.data.user;
+
+      if (
+        loggedInUser.role === "PHOTOGRAPHER" &&
+        loggedInUser.mustChangePassword
+      ) {
+        navigate(
+          "/photographer/change-password",
+          {
+            replace: true,
+          }
+        );
+
+        return;
+      }
 
       navigate(
         dashboardRoutes[

@@ -21,17 +21,21 @@ import PhotographerListing from "../pages/customer/PhotographerListing";
 import PhotographerDetails from "../pages/customer/PhotographerDetails";
 import PhotographerBooking from "../pages/customer/PhotographerBooking";
 import CustomerBookings from "../pages/customer/CustomerBookings";
+import PhotographerApplication from "../pages/customer/PhotographerApplication";
 
 import PhotographerHome from "../pages/photographer/PhotographerHome";
 import PhotographerProfile from "../pages/photographer/PhotographerProfile";
 import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
 import PhotographerAvailability from "../pages/photographer/PhotographerAvailability";
 import PhotographerBookings from "../pages/photographer/PhotographerBookings";
+import PhotographerChangePassword from "../pages/photographer/PhotographerChangePassword";
 
 import AdminHome from "../pages/admin/AdminHome";
+import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
+import PasswordChangeRoute from "./PasswordChangeRoute";
 
 
 // ==========================================
@@ -255,6 +259,13 @@ const AppRoutes = () => {
                 }
               />
 
+              <Route
+                path="/customer/photographer-application"
+                element={
+                  <PhotographerApplication />
+                }
+              />
+
               {/* prathibha routes end */}
 
             </Route>
@@ -267,56 +278,41 @@ const AppRoutes = () => {
             <Route
               element={
                 <RoleRoute
-                  allowedRoles={[
-                    "PHOTOGRAPHER",
-                  ]}
+                  allowedRoles={["PHOTOGRAPHER"]}
                 />
               }
             >
-
-              {/* prathibha routes start */}
-
               <Route
-                path="/photographer"
-                element={
-                  <PhotographerHome />
-                }
+                path="/photographer/change-password"
+                element={<PhotographerChangePassword />}
               />
 
+              <Route element={<PasswordChangeRoute />}>
+                <Route
+                  path="/photographer"
+                  element={<PhotographerHome />}
+                />
 
-              <Route
-                path="/photographer/profile"
-                element={
-                  <PhotographerProfile />
-                }
-              />
+                <Route
+                  path="/photographer/profile"
+                  element={<PhotographerProfile />}
+                />
 
+                <Route
+                  path="/photographer/portfolio"
+                  element={<PhotographerPortfolio />}
+                />
 
-              <Route
-                path="/photographer/portfolio"
-                element={
-                  <PhotographerPortfolio />
-                }
-              />
+                <Route
+                  path="/photographer/availability"
+                  element={<PhotographerAvailability />}
+                />
 
-
-              <Route
-                path="/photographer/availability"
-                element={
-                  <PhotographerAvailability />
-                }
-              />
-
-
-              <Route
-                path="/photographer/bookings"
-                element={
-                  <PhotographerBookings />
-                }
-              />
-
-              {/* prathibha routes end */}
-
+                <Route
+                  path="/photographer/bookings"
+                  element={<PhotographerBookings />}
+                />
+              </Route>
             </Route>
 
 
@@ -333,12 +329,20 @@ const AppRoutes = () => {
                 />
               }
             >
-
+              {/* prathibha routes start */}
               <Route
                 path="/admin"
                 element={<AdminHome />}
               />
 
+              <Route
+                path="/admin/photographer-applications"
+                element={
+                  <AdminPhotographerApplications />
+                }
+              />
+              {/* prathibha routes end */}
+              
             </Route>
 
 

@@ -1,5 +1,10 @@
 const express = require("express");
 
+const requirePasswordChangeComplete =
+  require(
+    "../middleware/requirePasswordChangeComplete"
+  );
+
 const {
   getMyProfile,
   updateMyProfile,
@@ -42,7 +47,8 @@ const router = express.Router();
 
 router.use(
   authenticate,
-  authorizeRoles("PHOTOGRAPHER")
+  authorizeRoles("PHOTOGRAPHER"),
+  requirePasswordChangeComplete
 );
 
 

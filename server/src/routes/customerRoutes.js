@@ -29,6 +29,20 @@ const {
   "../controllers/reviewController"
 );
 
+const {
+  submitPhotographerApplication,
+  getMyPhotographerApplication,
+} = require(
+  "../controllers/photographerApplicationController"
+);
+
+const {
+  getMyNotifications,
+  markNotificationAsRead,
+} = require(
+  "../controllers/notificationController"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -141,5 +155,50 @@ router.get(
   authorizeRoles("CUSTOMER"),
   getCustomerReviews
 );
+
+
+// ==========================================
+// PHOTOGRAPHER APPLICATION
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/photographer-application",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyPhotographerApplication
+);
+
+router.post(
+  "/photographer-application",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  submitPhotographerApplication
+);
+
+
+// ==========================================
+// CUSTOMER NOTIFICATIONS
+// ==========================================
+
+router.get(
+  "/notifications",
+  authenticate,
+  authorizeRoles(
+    "CUSTOMER"
+  ),
+  getMyNotifications
+);
+
+
+router.patch(
+  "/notifications/:id/read",
+  authenticate,
+  authorizeRoles(
+    "CUSTOMER"
+  ),
+  markNotificationAsRead
+);
+
 
 module.exports = router;

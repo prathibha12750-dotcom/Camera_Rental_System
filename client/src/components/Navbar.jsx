@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import UserAvatar from "./UserAvatar";
+import NotificationBell from "./NotificationBell";
 
 const Navbar = () => {
   const {
@@ -418,7 +419,14 @@ const Navbar = () => {
             {/* Divider */}
             <div className="hidden h-6 w-px bg-gray-200 sm:block" />
 
+            {/* ==========================================
+                CUSTOMER NOTIFICATIONS
+            ========================================== */}
 
+            {isAuthenticated &&
+            user?.role === "CUSTOMER" && (
+              <NotificationBell />
+            )}
 
             {/* ==========================================
                 ACCOUNT
@@ -559,26 +567,35 @@ const Navbar = () => {
 
                           </div>
 
+{/* ==================================
+    PHOTOGRAPHER APPLICATION
+================================== */}
 
-                          {/* ==================================
-                              FUTURE AREA
-                          ================================== */}
+<div className="border-t border-gray-100 p-2">
 
-                          <div className="border-t border-gray-100 p-2">
+  <Link
+    to="/customer/photographer-application"
+    onClick={() =>
+      setAccountOpen(false)
+    }
+    className="group flex rounded-xl px-3 py-2.5 transition hover:bg-orange-50"
+  >
 
-                            <div className="rounded-xl px-3 py-2.5">
+    <div>
 
-                              <p className="text-sm font-medium text-gray-500">
-                                Become a Photographer
-                              </p>
+      <p className="text-sm font-medium text-gray-700 transition group-hover:text-orange-700">
+        Become a Photographer
+      </p>
 
-                              <p className="mt-0.5 text-xs text-gray-400">
-                                Application feature coming next
-                              </p>
+      <p className="mt-0.5 text-xs text-gray-400">
+        Apply to join our photographer network
+      </p>
 
-                            </div>
+    </div>
 
-                          </div>
+  </Link>
+
+</div>
 
 
                           {/* ==================================
