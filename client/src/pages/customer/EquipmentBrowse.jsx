@@ -81,14 +81,48 @@ const EquipmentBrowse = () => {
     loadEquipment(filters);
   };
 
+
+
+  const handleCategorySelect = (categoryId) => {
+  setCategory(categoryId);
+
+  const filters = {};
+
+  if (search.trim()) {
+    filters.search = search.trim();
+  }
+
+  if (categoryId) {
+    filters.category = categoryId;
+  }
+
+  if (condition) {
+    filters.condition = condition;
+  }
+
+  if (status) {
+    filters.status = status;
+  }
+
+  loadEquipment(filters);
+};
+
+
+
   const handleClear = () => {
   setSearch("");
-  setCategory("");
   setCondition("");
   setStatus("");
 
-  loadEquipment();
-  };
+  const filters = {};
+
+  // Keep the currently selected category
+  if (category) {
+    filters.category = category;
+  }
+
+  loadEquipment(filters);
+};
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
@@ -109,12 +143,52 @@ const EquipmentBrowse = () => {
           </p>
         </div>
 
+
+
+        {/* Category Navigation */}
+        <div className="mt-8">
+          <div className="flex flex-wrap gap-3">
+
+            <button
+              type="button"
+              onClick={() => handleCategorySelect("")}
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                category === ""
+                  ? "bg-gray-950 text-white"
+                  : "border border-gray-300 bg-white text-gray-700 hover:border-orange-400 hover:text-orange-600"
+              }`}
+            >
+              All Equipment
+            </button>
+
+            {categories.map((item) => (
+              <button
+                key={item._id}
+                type="button"
+                onClick={() => handleCategorySelect(item._id)}
+                className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                  category === item._id
+                    ? "bg-orange-600 text-white"
+                    : "border border-gray-300 bg-white text-gray-700 hover:border-orange-400 hover:text-orange-600"
+                }`}
+              >
+                {item.name}
+              </button>
+            ))}
+
+          </div>
+        </div>
+        
+
+
+
+
         {/* Search and Filters */}
         <form
           onSubmit={handleSearch}
           className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
         >
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 
             <input
               type="text"
@@ -124,21 +198,6 @@ const EquipmentBrowse = () => {
               className="rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
             />
 
-            {/* Category dropdown */}
-            <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-            >
-
-                <option value="">All Categories</option>
-
-                {categories.map((item) => (
-                    <option key={item._id} value={item._id}>
-                        {item.name}
-                    </option>
-                ))}
-            </select>
 
             <select
               value={condition}
