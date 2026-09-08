@@ -1,7 +1,12 @@
+//Navigated Equipment route by thasindu =====
+import { useNavigate } from "react-router-dom";
+// ========================================
+
 import { useAuth } from "../../context/useAuth";
 
 const AdminHome = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
@@ -24,7 +29,19 @@ const AdminHome = () => {
             ["Photographers", "Create and manage photographer accounts."],
             ["Equipment", "Manage camera equipment and rental inventory."],
           ].map(([title, description]) => (
-            <div key={title} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div
+                key={title}
+                onClick={() => {
+                  if (title === "Equipment") {
+                    navigate("/admin/equipment");
+                  }
+                }}
+                className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ${
+                  title === "Equipment"
+                    ? "cursor-pointer transition hover:border-orange-300 hover:shadow-md"
+                    : ""
+                }`}
+            >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
                 {title.charAt(0)}
               </div>
