@@ -31,6 +31,13 @@ const {
   "../controllers/bookingController"
 );
 
+const {
+  getMyNotifications,
+  markNotificationAsRead,
+} = require(
+  "../controllers/notificationController"
+);
+
 const authenticate =
   require("../middleware/authenticate");
 
@@ -136,6 +143,20 @@ router.get(
 router.patch(
   "/bookings/:id/status",
   updatePhotographerBookingStatus
+);
+
+// ==========================================
+// PHOTOGRAPHER NOTIFICATIONS
+// ==========================================
+
+router.get(
+  "/notifications",
+  getMyNotifications
+);
+
+router.patch(
+  "/notifications/:id/read",
+  markNotificationAsRead
 );
 
 

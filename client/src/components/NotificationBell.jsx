@@ -4,11 +4,14 @@ import {
   useState,
 } from "react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate, } from "react-router-dom";
 
 import api from "../services/api";
+import { useAuth } from "../context/useAuth";
 
 const NotificationBell = () => {
+  const { user } = useAuth();
+
   const [notifications, setNotifications] =
     useState([]);
 
@@ -23,6 +26,17 @@ const NotificationBell = () => {
 
   const panelRef = useRef(null);
 
+  const notificationBasePath =
+    user?.role === "PHOTOGRAPHER"
+      ? "/photographer"
+      : "/customer";
+
+  const dashboardPath =
+    user?.role === "PHOTOGRAPHER"
+      ? "/photographer"
+      : "/customer";
+
+  const navigate = useNavigate();
 
   // ==========================================
   // LOAD NOTIFICATIONS
@@ -36,7 +50,7 @@ const NotificationBell = () => {
         try {
           const response =
             await api.get(
-              "/customer/notifications"
+              `${notificationBasePath}/notifications`
             );
 
           if (!ignore) {
@@ -74,7 +88,7 @@ const NotificationBell = () => {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [notificationBasePath]);
 
 
   // ==========================================
@@ -121,7 +135,7 @@ const NotificationBell = () => {
 
       try {
         await api.patch(
-          `/customer/notifications/${notification._id}/read`
+          `${notificationBasePath}/notifications/${notification._id}/read`
         );
 
         setNotifications(
@@ -151,6 +165,74 @@ const NotificationBell = () => {
         );
       }
     };
+
+
+  const visibleNotifications =
+    notifications.slice(0, 5);
+
+  const getNotificationStyle = (
+    type
+  ) => {
+    switch (type) {
+      case "PHOTOGRAPHER_APPLICATION_APPROVED":
+      case "BOOKING_CONFIRMED":
+      case "BOOKING_COMPLETED":
+        return {
+          classes:
+            "bg-emerald-50 text-emerald-700",
+          icon: "✓",
+        };
+
+      case "PHOTOGRAPHER_APPLICATION_REJECTED":
+      case "BOOKING_REJECTED":
+      case "BOOKING_CANCELLED":
+        return {
+          classes:
+            "bg-red-50 text-red-700",
+          icon: "!",
+        };
+
+      case "BOOKING_REQUESTED":
+        return {
+          classes:
+            "bg-orange-50 text-orange-700",
+          icon: "B",
+        };
+
+      default:
+        return {
+          classes:
+            "bg-gray-100 text-gray-600",
+          icon: "i",
+        };
+    }
+  };
+
+const handleNotificationClick =
+  async (notification) => {
+    await markAsRead(notification);
+
+    if (!notification.relatedBooking) {
+      return;
+    }
+
+    setOpen(false);
+
+    const bookingId =
+      typeof notification.relatedBooking ===
+      "object"
+        ? notification.relatedBooking._id
+        : notification.relatedBooking;
+
+    const bookingPath =
+      user?.role === "PHOTOGRAPHER"
+        ? "/photographer/bookings"
+        : "/customer/bookings";
+
+    navigate(
+      `${bookingPath}?booking=${bookingId}`
+    );
+  };
 
 
   return (
@@ -258,9 +340,9 @@ const NotificationBell = () => {
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-gray-500">
-                  Application updates and
-                  important account messages
-                  will appear here.
+                  Booking updates and important
+                  account messages will appear
+                  here.
                 </p>
 
               </div>
@@ -269,7 +351,7 @@ const NotificationBell = () => {
 
               <div className="divide-y divide-gray-100">
 
-                {notifications.map(
+                {visibleNotifications.map(
                   (notification) => (
                     <button
                       key={
@@ -277,7 +359,7 @@ const NotificationBell = () => {
                       }
                       type="button"
                       onClick={() =>
-                        markAsRead(
+                        handleNotificationClick(
                           notification
                         )
                       }
@@ -291,23 +373,17 @@ const NotificationBell = () => {
                       <div className="flex gap-3">
 
                         <div
-                          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm ${
-                            notification.type ===
-                            "PHOTOGRAPHER_APPLICATION_APPROVED"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : notification.type ===
-                                  "PHOTOGRAPHER_APPLICATION_REJECTED"
-                                ? "bg-red-50 text-red-700"
-                                : "bg-gray-100 text-gray-600"
+                          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                            getNotificationStyle(
+                              notification.type
+                            ).classes
                           }`}
                         >
-                          {notification.type ===
-                          "PHOTOGRAPHER_APPLICATION_APPROVED"
-                            ? "✓"
-                            : notification.type ===
-                                "PHOTOGRAPHER_APPLICATION_REJECTED"
-                              ? "!"
-                              : "i"}
+                          {
+                            getNotificationStyle(
+                              notification.type
+                            ).icon
+                          }
                         </div>
 
 
@@ -358,13 +434,13 @@ const NotificationBell = () => {
           <div className="border-t border-gray-100 p-3">
 
             <Link
-              to="/customer/photographer-application"
+              to={dashboardPath}
               onClick={() =>
                 setOpen(false)
               }
               className="flex justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-orange-600 transition hover:bg-orange-50"
             >
-              View Photographer Application
+              Go to Dashboard
             </Link>
 
           </div>

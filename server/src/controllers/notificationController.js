@@ -4,8 +4,7 @@ const Notification =
 
 // ==========================================
 // GET MY NOTIFICATIONS
-// GET /api/customer/notifications
-// CUSTOMER ONLY
+// CUSTOMER OR PHOTOGRAPHER
 // ==========================================
 
 const getMyNotifications =
@@ -47,8 +46,7 @@ const getMyNotifications =
 
 // ==========================================
 // MARK NOTIFICATION AS READ
-// PATCH /api/customer/notifications/:id/read
-// CUSTOMER ONLY
+// CUSTOMER OR PHOTOGRAPHER
 // ==========================================
 
 const markNotificationAsRead =

@@ -103,6 +103,16 @@ const PhotographerDetails = () => {
   ] = useState(true);
 
   const [
+    visiblePortfolioCount,
+    setVisiblePortfolioCount,
+  ] = useState(6);
+
+  const [
+    visibleReviewCount,
+    setVisibleReviewCount,
+  ] = useState(3);
+
+  const [
     loading,
     setLoading,
   ] = useState(true);
@@ -317,6 +327,19 @@ const PhotographerDetails = () => {
     );
 
   };
+
+
+  const visiblePortfolio =
+    portfolio.slice(
+      0,
+      visiblePortfolioCount
+    );
+
+  const visibleReviews =
+    reviews.slice(
+      0,
+      visibleReviewCount
+    );
 
 
   // ==========================================
@@ -1127,6 +1150,47 @@ const PhotographerDetails = () => {
           </div>
 
 
+          {portfolio.length >
+            visiblePortfolioCount && (
+
+            <div className="
+              mt-6
+              flex
+              justify-center
+            ">
+
+              <button
+                type="button"
+                onClick={() =>
+                  setVisiblePortfolioCount(
+                    (previous) =>
+                      previous + 6
+                  )
+                }
+                className="
+                  rounded-xl
+                  border
+                  border-gray-200
+                  bg-white
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-semibold
+                  text-gray-700
+                  transition
+                  hover:border-orange-300
+                  hover:bg-orange-50
+                  hover:text-orange-700
+                "
+              >
+                Show More
+              </button>
+
+            </div>
+
+          )}
+
+
           {portfolio.length ===
           0 ? (
 
@@ -1162,7 +1226,7 @@ const PhotographerDetails = () => {
               xl:grid-cols-3
             ">
 
-              {portfolio.map(
+              {visiblePortfolio.map(
                 (item) => (
 
                   <article
@@ -1662,7 +1726,7 @@ const PhotographerDetails = () => {
               "
             >
 
-              {reviews.map(
+              {visibleReviews.map(
                 (review) => {
 
                   const customerName =
@@ -1787,6 +1851,47 @@ const PhotographerDetails = () => {
                         </div>
 
                       </div>
+
+
+                      {reviews.length >
+                        visibleReviewCount && (
+
+                        <div className="
+                          mt-6
+                          flex
+                          justify-center
+                        ">
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setVisibleReviewCount(
+                                (previous) =>
+                                  previous + 3
+                              )
+                            }
+                            className="
+                              rounded-xl
+                              border
+                              border-gray-200
+                              bg-white
+                              px-5
+                              py-2.5
+                              text-sm
+                              font-semibold
+                              text-gray-700
+                              transition
+                              hover:border-orange-300
+                              hover:bg-orange-50
+                              hover:text-orange-700
+                            "
+                          >
+                            Show More Reviews
+                          </button>
+
+                        </div>
+
+                      )}
 
 
                       {review.comment && (

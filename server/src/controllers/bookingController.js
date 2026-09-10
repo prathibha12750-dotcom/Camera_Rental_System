@@ -4,11 +4,35 @@ const User = require("../models/User");
 const Photographer = require("../models/Photographer");
 const Availability = require("../models/Availability");
 const Booking = require("../models/Booking");
-
+const Notification = require("../models/Notification");
 
 // ==========================================
 // HELPERS
 // ==========================================
+
+const createNotification =
+  async ({
+    user,
+    type,
+    title,
+    message,
+    relatedBooking = null,
+  }) => {
+    try {
+      await Notification.create({
+        user,
+        type,
+        title,
+        message,
+        relatedBooking,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to create notification:",
+        error
+      );
+    }
+  };
 
 const normalizeDate = (value) => {
   const date = new Date(value);
@@ -513,6 +537,26 @@ const createBooking = async (
       });
 
 
+      await createNotification({
+        user:
+          photographer.user._id,
+
+        type:
+          "BOOKING_REQUESTED",
+
+        title:
+          "New Booking Request",
+
+        message:
+          `${customer.name} sent you a photography booking request for ${normalizedDate
+            .toISOString()
+            .split("T")[0]} from ${startTime} to ${endTime}.`,
+
+        relatedBooking:
+          booking._id,
+      });
+
+
     return res.status(201).json({
       success: true,
 
@@ -607,6 +651,14 @@ const cancelCustomerBooking = async (
 
         customer:
           req.user.userId,
+      }).populate({
+        path: "photographer",
+
+        populate: {
+          path: "user",
+          select:
+            "_id name email",
+        },
       });
 
 
@@ -641,6 +693,29 @@ const cancelCustomerBooking = async (
 
     await booking.save();
 
+    if (
+      booking.photographer?.user?._id
+    ) {
+      await createNotification({
+        user:
+          booking.photographer
+            .user._id,
+
+        type:
+          "BOOKING_CANCELLED",
+
+        title:
+          "Booking Cancelled",
+
+        message:
+          `A customer cancelled the photography booking scheduled for ${booking.date
+            .toISOString()
+            .split("T")[0]} from ${booking.startTime} to ${booking.endTime}.`,
+
+        relatedBooking:
+          booking._id,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -967,6 +1042,83 @@ const updatePhotographerBookingStatus =
 
       await booking.save();
 
+      const bookingDate =
+        booking.date
+          .toISOString()
+          .split("T")[0];
+
+
+      const notificationDetails = {
+        CONFIRMED: {
+          type:
+            "BOOKING_CONFIRMED",
+
+          title:
+            "Booking Confirmed",
+
+          message:
+            `Your photography booking for ${bookingDate} from ${booking.startTime} to ${booking.endTime} has been confirmed.`,
+        },
+
+        REJECTED: {
+          type:
+            "BOOKING_REJECTED",
+
+          title:
+            "Booking Rejected",
+
+          message:
+            `Your photography booking request for ${bookingDate} from ${booking.startTime} to ${booking.endTime} was not accepted.`,
+        },
+
+        CANCELLED: {
+          type:
+            "BOOKING_CANCELLED",
+
+          title:
+            "Booking Cancelled",
+
+          message:
+            `Your photography booking for ${bookingDate} from ${booking.startTime} to ${booking.endTime} has been cancelled by the photographer.`,
+        },
+
+        COMPLETED: {
+          type:
+            "BOOKING_COMPLETED",
+
+          title:
+            "Booking Completed",
+
+          message:
+            `Your photography booking for ${bookingDate} has been marked as completed.`,
+        },
+      };
+
+
+      const notification =
+        notificationDetails[
+          status
+        ];
+
+
+      if (notification) {
+        await createNotification({
+          user:
+            booking.customer,
+
+          type:
+            notification.type,
+
+          title:
+            notification.title,
+
+          message:
+            notification.message,
+
+          relatedBooking:
+            booking._id,
+        });
+      }
 
       const updatedBooking =
         await Booking.findById(

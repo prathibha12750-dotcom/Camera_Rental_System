@@ -62,6 +62,13 @@ const PhotographerAvailability = () => {
     setSuccess,
   ] = useState("");
 
+  const AVAILABILITY_PER_PAGE = 6;
+
+  const [
+    availabilityPage,
+    setAvailabilityPage,
+  ] = useState(1);
+
   const now = new Date();
 
   const [
@@ -296,6 +303,31 @@ const PhotographerAvailability = () => {
     );
 
 
+    const availabilityTotalPages =
+      Math.ceil(
+        sortedAvailability.length /
+          AVAILABILITY_PER_PAGE
+      );
+
+    const safeAvailabilityPage =
+      Math.min(
+        availabilityPage,
+        Math.max(
+          availabilityTotalPages,
+          1
+        )
+      );
+
+    const paginatedAvailability =
+      sortedAvailability.slice(
+        (safeAvailabilityPage - 1) *
+          AVAILABILITY_PER_PAGE,
+
+        safeAvailabilityPage *
+          AVAILABILITY_PER_PAGE
+      );
+
+    
   // ==========================================
   // AVAILABILITY BY DATE
   // ==========================================
@@ -2135,197 +2167,294 @@ const PhotographerAvailability = () => {
 
                 </div>
 
-              ) : (
+                ) : (
 
-                <div className="
-                  space-y-3
-                ">
+                  <>
 
-                  {sortedAvailability.map(
-                    (item) => {
+                    <div className="
+                      space-y-3
+                    ">
 
-                      const itemDate =
-                        getDateKey(
-                          item.date
-                        );
+                      {paginatedAvailability.map(
+                        (item) => {
 
-                      const isPast =
-                        itemDate < today;
+                          const itemDate =
+                            getDateKey(
+                              item.date
+                            );
+
+                          const isPast =
+                            itemDate < today;
 
 
-                      return (
+                          return (
 
-                        <article
-                          key={
-                            item._id
+                            <article
+                              key={item._id}
+                              className="
+                                flex
+                                flex-col
+                                gap-4
+                                rounded-2xl
+                                border
+                                border-gray-200
+                                bg-white
+                                p-5
+                                shadow-sm
+                                sm:flex-row
+                                sm:items-center
+                                sm:justify-between
+                              "
+                            >
+
+                              <div className="
+                                min-w-0
+                              ">
+
+                                <div className="
+                                  flex
+                                  flex-wrap
+                                  items-center
+                                  gap-2
+                                ">
+
+                                  <p className="
+                                    font-semibold
+                                    text-gray-950
+                                  ">
+                                    {formatDisplayDate(
+                                      item.date
+                                    )}
+                                  </p>
+
+
+                                  {isPast && (
+
+                                    <span className="
+                                      rounded-full
+                                      bg-gray-100
+                                      px-2.5
+                                      py-1
+                                      text-xs
+                                      font-semibold
+                                      text-gray-500
+                                    ">
+                                      Past
+                                    </span>
+
+                                  )}
+
+                                </div>
+
+
+                                <p className="
+                                  mt-1
+                                  text-sm
+                                  text-gray-500
+                                ">
+                                  {item.startTime}
+                                  {" — "}
+                                  {item.endTime}
+                                </p>
+
+                              </div>
+
+
+                              <div className="
+                                flex
+                                flex-wrap
+                                gap-2
+                              ">
+
+                                {!isPast && (
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      startEditing(
+                                        item
+                                      )
+                                    }
+                                    disabled={
+                                      saving ||
+                                      Boolean(
+                                        deletingId
+                                      )
+                                    }
+                                    className="
+                                      rounded-xl
+                                      border
+                                      border-gray-300
+                                      bg-white
+                                      px-4
+                                      py-2.5
+                                      text-sm
+                                      font-semibold
+                                      text-gray-700
+                                      transition
+                                      hover:bg-gray-50
+                                      focus:outline-none
+                                      focus-visible:ring-2
+                                      focus-visible:ring-gray-500
+                                      focus-visible:ring-offset-2
+                                      disabled:cursor-not-allowed
+                                      disabled:opacity-50
+                                    "
+                                  >
+                                    Edit
+                                  </button>
+
+                                )}
+
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setAvailabilityToDelete(
+                                      item
+                                    )
+                                  }
+                                  disabled={
+                                    saving ||
+                                    Boolean(
+                                      deletingId
+                                    )
+                                  }
+                                  className="
+                                    rounded-xl
+                                    border
+                                    border-red-200
+                                    bg-red-50
+                                    px-4
+                                    py-2.5
+                                    text-sm
+                                    font-semibold
+                                    text-red-600
+                                    transition
+                                    hover:bg-red-100
+                                    focus:outline-none
+                                    focus-visible:ring-2
+                                    focus-visible:ring-red-500
+                                    focus-visible:ring-offset-2
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-50
+                                  "
+                                >
+                                  {deletingId ===
+                                  item._id
+                                    ? "Deleting..."
+                                    : "Delete"}
+                                </button>
+
+                              </div>
+
+                            </article>
+
+                          );
+
+                        }
+                      )}
+
+                    </div>
+
+
+                    {availabilityTotalPages > 1 && (
+
+                      <div className="
+                        mt-5
+                        flex
+                        items-center
+                        justify-between
+                        gap-4
+                      ">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAvailabilityPage(
+                              Math.max(
+                                safeAvailabilityPage - 1,
+                                1
+                              )
+                            )
+                          }
+                          disabled={
+                            safeAvailabilityPage === 1
                           }
                           className="
-                            flex
-                            flex-col
-                            gap-4
-                            rounded-2xl
+                            rounded-xl
                             border
                             border-gray-200
                             bg-white
-                            p-5
-                            shadow-sm
-                            sm:flex-row
-                            sm:items-center
-                            sm:justify-between
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:border-orange-300
+                            hover:bg-orange-50
+                            hover:text-orange-700
+                            disabled:cursor-not-allowed
+                            disabled:opacity-40
                           "
                         >
-
-                          <div className="
-                            min-w-0
-                          ">
-
-                            <div className="
-                              flex
-                              flex-wrap
-                              items-center
-                              gap-2
-                            ">
-
-                              <p className="
-                                font-semibold
-                                text-gray-950
-                              ">
-                                {formatDisplayDate(
-                                  item.date
-                                )}
-                              </p>
+                          Previous
+                        </button>
 
 
-                              {isPast && (
-
-                                <span className="
-                                  rounded-full
-                                  bg-gray-100
-                                  px-2.5
-                                  py-1
-                                  text-xs
-                                  font-semibold
-                                  text-gray-500
-                                ">
-                                  Past
-                                </span>
-
-                              )}
-
-                            </div>
+                        <p className="
+                          text-sm
+                          text-gray-500
+                        ">
+                          Page {safeAvailabilityPage}
+                          {" "}of{" "}
+                          {availabilityTotalPages}
+                        </p>
 
 
-                            <p className="
-                              mt-1
-                              text-sm
-                              text-gray-500
-                            ">
-                              {item.startTime}
-                              {" — "}
-                              {item.endTime}
-                            </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAvailabilityPage(
+                              Math.min(
+                                safeAvailabilityPage + 1,
+                                availabilityTotalPages
+                              )
+                            )
+                          }
+                          disabled={
+                            safeAvailabilityPage ===
+                            availabilityTotalPages
+                          }
+                          className="
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-white
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:border-orange-300
+                            hover:bg-orange-50
+                            hover:text-orange-700
+                            disabled:cursor-not-allowed
+                            disabled:opacity-40
+                          "
+                        >
+                          Next
+                        </button>
 
-                          </div>
+                      </div>
 
+                    )}
 
-                          <div className="
-                            flex
-                            flex-wrap
-                            gap-2
-                          ">
+                  </>
 
-                            {!isPast && (
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  startEditing(
-                                    item
-                                  )
-                                }
-                                disabled={
-                                  saving ||
-                                  Boolean(
-                                    deletingId
-                                  )
-                                }
-                                className="
-                                  rounded-xl
-                                  border
-                                  border-gray-300
-                                  bg-white
-                                  px-4
-                                  py-2.5
-                                  text-sm
-                                  font-semibold
-                                  text-gray-700
-                                  transition
-                                  hover:bg-gray-50
-                                  focus:outline-none
-                                  focus-visible:ring-2
-                                  focus-visible:ring-gray-500
-                                  focus-visible:ring-offset-2
-                                  disabled:cursor-not-allowed
-                                  disabled:opacity-50
-                                "
-                              >
-                                Edit
-                              </button>
-
-                            )}
-
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAvailabilityToDelete(
-                                  item
-                                )
-                              }
-                              disabled={
-                                saving ||
-                                Boolean(
-                                  deletingId
-                                )
-                              }
-                              className="
-                                rounded-xl
-                                border
-                                border-red-200
-                                bg-red-50
-                                px-4
-                                py-2.5
-                                text-sm
-                                font-semibold
-                                text-red-600
-                                transition
-                                hover:bg-red-100
-                                focus:outline-none
-                                focus-visible:ring-2
-                                focus-visible:ring-red-500
-                                focus-visible:ring-offset-2
-                                disabled:cursor-not-allowed
-                                disabled:opacity-50
-                              "
-                            >
-                              {deletingId ===
-                              item._id
-                                ? "Deleting..."
-                                : "Delete"}
-                            </button>
-
-                          </div>
-
-                        </article>
-
-                      );
-
-                    }
-                  )}
-
-                </div>
-
-              )}
+                )}
 
             </section>
 

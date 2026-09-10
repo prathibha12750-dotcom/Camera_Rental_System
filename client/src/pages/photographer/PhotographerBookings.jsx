@@ -1,12 +1,24 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
+
+import {
+  useSearchParams,
+} from "react-router-dom";
 
 import api from "../../services/api";
 
 
 const PhotographerBookings = () => {
+
+  const [searchParams] =
+    useSearchParams();
+
+  const highlightedBookingId =
+    searchParams.get("booking");
+
 
   const [
     bookings,
@@ -38,6 +50,50 @@ const PhotographerBookings = () => {
     setSuccess,
   ] = useState("");
 
+  const [
+    selectedDate,
+    setSelectedDate,
+  ] = useState("");
+
+  const [
+    selectedStatus,
+    setSelectedStatus,
+  ] = useState("ALL");
+
+
+  const BOOKINGS_PER_PAGE = 3;
+
+
+  const [
+    pendingPage,
+    setPendingPage,
+  ] = useState(1);
+
+  const [
+    upcomingPage,
+    setUpcomingPage,
+  ] = useState(1);
+
+  const [
+    historyPage,
+    setHistoryPage,
+  ] = useState(1);
+
+  const [
+    filteredPage,
+    setFilteredPage,
+  ] = useState(1);
+
+
+  const pendingSectionRef =
+    useRef(null);
+
+  const upcomingSectionRef =
+    useRef(null);
+
+  const historySectionRef =
+    useRef(null);
+
 
   // ==========================================
   // LOAD BOOKINGS
@@ -46,7 +102,6 @@ const PhotographerBookings = () => {
   useEffect(() => {
 
     let ignore = false;
-
 
     const loadBookings =
       async () => {
@@ -57,7 +112,6 @@ const PhotographerBookings = () => {
             await api.get(
               "/photographer/bookings"
             );
-
 
           if (!ignore) {
 
@@ -80,7 +134,6 @@ const PhotographerBookings = () => {
             err
           );
 
-
           if (!ignore) {
 
             setError(
@@ -101,9 +154,7 @@ const PhotographerBookings = () => {
 
       };
 
-
     loadBookings();
-
 
     return () => {
       ignore = true;
@@ -120,7 +171,6 @@ const PhotographerBookings = () => {
 
     const today =
       new Date();
-
 
     const year =
       today.getFullYear();
@@ -141,6 +191,37 @@ const PhotographerBookings = () => {
         "0"
       );
 
+    return `${year}-${month}-${day}`;
+  };
+
+
+  const getTomorrowString = () => {
+
+    const tomorrow =
+      new Date();
+
+    tomorrow.setDate(
+      tomorrow.getDate() + 1
+    );
+
+    const year =
+      tomorrow.getFullYear();
+
+    const month =
+      String(
+        tomorrow.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const day =
+      String(
+        tomorrow.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
 
     return `${year}-${month}-${day}`;
   };
@@ -153,7 +234,6 @@ const PhotographerBookings = () => {
     if (!value) {
       return "";
     }
-
 
     return String(
       value
@@ -169,12 +249,10 @@ const PhotographerBookings = () => {
       return "";
     }
 
-
     const dateKey =
       getBookingDateString(
         value
       );
-
 
     return new Date(
       `${dateKey}T00:00:00`
@@ -197,6 +275,9 @@ const PhotographerBookings = () => {
   const today =
     getTodayString();
 
+  const tomorrow =
+    getTomorrowString();
+
 
   const sortUpcoming = (
     items
@@ -213,13 +294,11 @@ const PhotographerBookings = () => {
             )
           );
 
-
         if (
           dateDifference !== 0
         ) {
           return dateDifference;
         }
-
 
         return (
           a.startTime || ""
@@ -246,13 +325,11 @@ const PhotographerBookings = () => {
             )
           );
 
-
         if (
           dateDifference !== 0
         ) {
           return dateDifference;
         }
-
 
         return (
           b.startTime || ""
@@ -290,6 +367,24 @@ const PhotographerBookings = () => {
     );
 
 
+  const todayBookings =
+    upcomingBookings.filter(
+      (booking) =>
+        getBookingDateString(
+          booking.date
+        ) === today
+    );
+
+
+  const tomorrowBookings =
+    upcomingBookings.filter(
+      (booking) =>
+        getBookingDateString(
+          booking.date
+        ) === tomorrow
+    );
+
+
   const bookingHistory =
     sortHistory(
       bookings.filter(
@@ -309,12 +404,267 @@ const PhotographerBookings = () => {
               booking.status
             );
 
-
           return !activeFuture;
 
         }
       )
     );
+
+
+  const filteredBookings =
+    bookings.filter(
+      (booking) => {
+
+        const bookingDate =
+          getBookingDateString(
+            booking.date
+          );
+
+        const matchesDate =
+          !selectedDate ||
+          bookingDate ===
+            selectedDate;
+
+        const matchesStatus =
+          selectedStatus === "ALL" ||
+          booking.status ===
+            selectedStatus;
+
+        return (
+          matchesDate &&
+          matchesStatus
+        );
+
+      }
+    );
+
+
+  // ==========================================
+  // FILTERED SORT
+  // ==========================================
+
+  const sortedFilteredBookings =
+    selectedStatus === "COMPLETED" ||
+    selectedStatus === "REJECTED" ||
+    selectedStatus === "CANCELLED"
+      ? sortHistory(
+          filteredBookings
+        )
+      : sortUpcoming(
+          filteredBookings
+        );
+
+
+  // ==========================================
+  // PAGINATION
+  // ==========================================
+
+  const pendingTotalPages =
+    Math.ceil(
+      pendingBookings.length /
+        BOOKINGS_PER_PAGE
+    );
+
+  const upcomingTotalPages =
+    Math.ceil(
+      upcomingBookings.length /
+        BOOKINGS_PER_PAGE
+    );
+
+  const historyTotalPages =
+    Math.ceil(
+      bookingHistory.length /
+        BOOKINGS_PER_PAGE
+    );
+
+  const filteredTotalPages =
+    Math.ceil(
+      sortedFilteredBookings.length /
+        BOOKINGS_PER_PAGE
+    );
+
+
+  // ==========================================
+  // NOTIFICATION BOOKING LOCATION
+  // ==========================================
+
+  const highlightedPendingIndex =
+    pendingBookings.findIndex(
+      (booking) =>
+        booking._id ===
+        highlightedBookingId
+    );
+
+
+  const highlightedUpcomingIndex =
+    upcomingBookings.findIndex(
+      (booking) =>
+        booking._id ===
+        highlightedBookingId
+    );
+
+
+  const highlightedHistoryIndex =
+    bookingHistory.findIndex(
+      (booking) =>
+        booking._id ===
+        highlightedBookingId
+    );
+
+
+  const highlightedPendingPage =
+    highlightedPendingIndex >= 0
+      ? Math.floor(
+          highlightedPendingIndex /
+            BOOKINGS_PER_PAGE
+        ) + 1
+      : null;
+
+
+  const highlightedUpcomingPage =
+    highlightedUpcomingIndex >= 0
+      ? Math.floor(
+          highlightedUpcomingIndex /
+            BOOKINGS_PER_PAGE
+        ) + 1
+      : null;
+
+
+  const highlightedHistoryPage =
+    highlightedHistoryIndex >= 0
+      ? Math.floor(
+          highlightedHistoryIndex /
+            BOOKINGS_PER_PAGE
+        ) + 1
+      : null;
+
+
+  // ==========================================
+  // SAFE PAGE NUMBERS
+  // ==========================================
+
+  const safePendingPage =
+    highlightedPendingPage ??
+    Math.min(
+      pendingPage,
+      Math.max(
+        pendingTotalPages,
+        1
+      )
+    );
+
+
+  const safeUpcomingPage =
+    highlightedUpcomingPage ??
+    Math.min(
+      upcomingPage,
+      Math.max(
+        upcomingTotalPages,
+        1
+      )
+    );
+
+
+  const safeHistoryPage =
+    highlightedHistoryPage ??
+    Math.min(
+      historyPage,
+      Math.max(
+        historyTotalPages,
+        1
+      )
+    );
+
+
+  const safeFilteredPage =
+    Math.min(
+      filteredPage,
+      Math.max(
+        filteredTotalPages,
+        1
+      )
+    );
+
+
+  const paginatedPendingBookings =
+    pendingBookings.slice(
+      (safePendingPage - 1) *
+        BOOKINGS_PER_PAGE,
+
+      safePendingPage *
+        BOOKINGS_PER_PAGE
+    );
+
+
+  const paginatedUpcomingBookings =
+    upcomingBookings.slice(
+      (safeUpcomingPage - 1) *
+        BOOKINGS_PER_PAGE,
+
+      safeUpcomingPage *
+        BOOKINGS_PER_PAGE
+    );
+
+
+  const paginatedBookingHistory =
+    bookingHistory.slice(
+      (safeHistoryPage - 1) *
+        BOOKINGS_PER_PAGE,
+
+      safeHistoryPage *
+        BOOKINGS_PER_PAGE
+    );
+
+
+  const paginatedFilteredBookings =
+    sortedFilteredBookings.slice(
+      (safeFilteredPage - 1) *
+        BOOKINGS_PER_PAGE,
+
+      safeFilteredPage *
+        BOOKINGS_PER_PAGE
+    );
+
+
+  // ==========================================
+  // SCROLL TO NOTIFICATION BOOKING
+  // ==========================================
+
+  useEffect(() => {
+
+    if (
+      !highlightedBookingId ||
+      loading
+    ) {
+      return;
+    }
+
+
+    const timer =
+      setTimeout(() => {
+
+        document
+          .getElementById(
+            `booking-${highlightedBookingId}`
+          )
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+      }, 150);
+
+
+    return () =>
+      clearTimeout(timer);
+
+  }, [
+    highlightedBookingId,
+    loading,
+    safePendingPage,
+    safeUpcomingPage,
+    safeHistoryPage,
+  ]);
 
 
   // ==========================================
@@ -420,7 +770,6 @@ const PhotographerBookings = () => {
         setError("");
         setSuccess("");
 
-
         const response =
           await api.patch(
             `/photographer/bookings/${id}/status`,
@@ -429,11 +778,9 @@ const PhotographerBookings = () => {
             }
           );
 
-
         const updated =
           response.data?.data
             ?.booking;
-
 
         if (!updated) {
 
@@ -442,7 +789,6 @@ const PhotographerBookings = () => {
           );
 
         }
-
 
         setBookings(
           (previous) =>
@@ -457,18 +803,19 @@ const PhotographerBookings = () => {
             )
         );
 
-
         const messages = {
           CONFIRMED:
             "Booking confirmed successfully.",
+
           REJECTED:
             "Booking rejected successfully.",
+
           CANCELLED:
             "Booking cancelled successfully.",
+
           COMPLETED:
             "Booking marked as completed.",
         };
-
 
         setSuccess(
           messages[status] ||
@@ -481,7 +828,6 @@ const PhotographerBookings = () => {
           "Failed to update booking:",
           err
         );
-
 
         setError(
           err.response?.data
@@ -500,104 +846,96 @@ const PhotographerBookings = () => {
     };
 
 
-    // ==========================================
-    // CHECK IF BOOKING CAN BE COMPLETED
-    // SRI LANKA TIME
-    // ==========================================
+  // ==========================================
+  // CHECK IF BOOKING CAN BE COMPLETED
+  // ==========================================
 
-    const canCompleteBooking = (
-      booking
-    ) => {
+  const canCompleteBooking = (
+    booking
+  ) => {
 
-      if (
-        booking.status !==
-        "CONFIRMED"
-      ) {
-        return false;
-      }
+    if (
+      booking.status !==
+      "CONFIRMED"
+    ) {
+      return false;
+    }
 
+    if (
+      !booking.date ||
+      !booking.endTime
+    ) {
+      return false;
+    }
 
-      if (
-        !booking.date ||
-        !booking.endTime
-      ) {
-        return false;
-      }
+    const now =
+      new Date();
 
+    const dateFormatter =
+      new Intl.DateTimeFormat(
+        "en-CA",
+        {
+          timeZone:
+            "Asia/Colombo",
 
-      const now =
-        new Date();
+          year: "numeric",
 
+          month: "2-digit",
 
-      const dateFormatter =
-        new Intl.DateTimeFormat(
-          "en-CA",
-          {
-            timeZone:
-              "Asia/Colombo",
-
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          }
-        );
-
-
-      const timeFormatter =
-        new Intl.DateTimeFormat(
-          "en-GB",
-          {
-            timeZone:
-              "Asia/Colombo",
-
-            hour: "2-digit",
-            minute: "2-digit",
-
-            hourCycle: "h23",
-          }
-        );
-
-
-      const today =
-        dateFormatter.format(
-          now
-        );
-
-
-      const currentTime =
-        timeFormatter.format(
-          now
-        );
-
-
-      const bookingDate =
-        String(
-          booking.date
-        ).split("T")[0];
-
-
-      if (
-        bookingDate <
-        today
-      ) {
-        return true;
-      }
-
-
-      if (
-        bookingDate >
-        today
-      ) {
-        return false;
-      }
-
-
-      return (
-        currentTime >=
-        booking.endTime
+          day: "2-digit",
+        }
       );
 
-    };
+    const timeFormatter =
+      new Intl.DateTimeFormat(
+        "en-GB",
+        {
+          timeZone:
+            "Asia/Colombo",
+
+          hour: "2-digit",
+
+          minute: "2-digit",
+
+          hourCycle: "h23",
+        }
+      );
+
+    const todayInSriLanka =
+      dateFormatter.format(
+        now
+      );
+
+    const currentTime =
+      timeFormatter.format(
+        now
+      );
+
+    const bookingDate =
+      String(
+        booking.date
+      ).split("T")[0];
+
+    if (
+      bookingDate <
+      todayInSriLanka
+    ) {
+      return true;
+    }
+
+    if (
+      bookingDate >
+      todayInSriLanka
+    ) {
+      return false;
+    }
+
+    return (
+      currentTime >=
+      booking.endTime
+    );
+
+  };
 
 
   // ==========================================
@@ -633,7 +971,6 @@ const PhotographerBookings = () => {
       updatingId ===
       booking._id;
 
-
     const completionAllowed =
       canCompleteBooking(
         booking
@@ -644,14 +981,22 @@ const PhotographerBookings = () => {
 
       <article
         key={booking._id}
-        className="
+        id={`booking-${booking._id}`}
+        className={`
           overflow-hidden
           rounded-2xl
           border
           border-gray-200
           bg-white
           shadow-sm
-        "
+          transition
+          ${
+            highlightedBookingId ===
+            booking._id
+              ? "ring-2 ring-orange-500 ring-offset-2"
+              : ""
+          }
+        `}
       >
 
         <div className="
@@ -907,10 +1252,6 @@ const PhotographerBookings = () => {
                         text-white
                         transition
                         hover:bg-gray-800
-                        focus:outline-none
-                        focus-visible:ring-2
-                        focus-visible:ring-gray-900
-                        focus-visible:ring-offset-2
                         disabled:cursor-not-allowed
                         disabled:opacity-50
                       "
@@ -946,10 +1287,6 @@ const PhotographerBookings = () => {
                         text-red-600
                         transition
                         hover:bg-red-100
-                        focus:outline-none
-                        focus-visible:ring-2
-                        focus-visible:ring-red-500
-                        focus-visible:ring-offset-2
                         disabled:cursor-not-allowed
                         disabled:opacity-50
                       "
@@ -998,10 +1335,6 @@ const PhotographerBookings = () => {
                         text-white
                         transition
                         hover:bg-gray-800
-                        focus:outline-none
-                        focus-visible:ring-2
-                        focus-visible:ring-gray-900
-                        focus-visible:ring-offset-2
                         disabled:cursor-not-allowed
                         disabled:opacity-50
                       "
@@ -1039,10 +1372,6 @@ const PhotographerBookings = () => {
                         text-red-600
                         transition
                         hover:bg-red-100
-                        focus:outline-none
-                        focus-visible:ring-2
-                        focus-visible:ring-red-500
-                        focus-visible:ring-offset-2
                         disabled:cursor-not-allowed
                         disabled:opacity-50
                       "
@@ -1065,6 +1394,117 @@ const PhotographerBookings = () => {
         </div>
 
       </article>
+
+    );
+
+  };
+
+
+  // ==========================================
+  // PAGINATION CONTROLS
+  // ==========================================
+
+  const renderPagination = (
+    currentPage,
+    totalPages,
+    setPage
+  ) => {
+
+    if (totalPages <= 1) {
+      return null;
+    }
+
+    return (
+
+      <div className="
+        mt-5
+        flex
+        items-center
+        justify-between
+        gap-4
+      ">
+
+        <button
+          type="button"
+          onClick={() =>
+            setPage(
+              Math.max(
+                currentPage - 1,
+                1
+              )
+            )
+          }
+          disabled={
+            currentPage === 1
+          }
+          className="
+            rounded-xl
+            border
+            border-gray-200
+            bg-white
+            px-4
+            py-2
+            text-sm
+            font-semibold
+            text-gray-700
+            transition
+            hover:border-orange-300
+            hover:bg-orange-50
+            hover:text-orange-700
+            disabled:cursor-not-allowed
+            disabled:opacity-40
+          "
+        >
+          Previous
+        </button>
+
+
+        <p className="
+          text-sm
+          text-gray-500
+        ">
+          Page {currentPage}
+          {" "}of{" "}
+          {totalPages}
+        </p>
+
+
+        <button
+          type="button"
+          onClick={() =>
+            setPage(
+              Math.min(
+                currentPage + 1,
+                totalPages
+              )
+            )
+          }
+          disabled={
+            currentPage ===
+            totalPages
+          }
+          className="
+            rounded-xl
+            border
+            border-gray-200
+            bg-white
+            px-4
+            py-2
+            text-sm
+            font-semibold
+            text-gray-700
+            transition
+            hover:border-orange-300
+            hover:bg-orange-50
+            hover:text-orange-700
+            disabled:cursor-not-allowed
+            disabled:opacity-40
+          "
+        >
+          Next
+        </button>
+
+      </div>
 
     );
 
@@ -1117,7 +1557,8 @@ const PhotographerBookings = () => {
               w-11
               rounded-full
               bg-gray-200
-            " />
+            "
+            />
 
             <div>
 
@@ -1126,7 +1567,8 @@ const PhotographerBookings = () => {
                 w-36
                 rounded
                 bg-gray-200
-              " />
+              "
+              />
 
               <div className="
                 mt-2
@@ -1134,43 +1576,14 @@ const PhotographerBookings = () => {
                 w-44
                 rounded
                 bg-gray-100
-              " />
+              "
+              />
 
             </div>
 
           </div>
 
-
-          <div className="
-            mt-5
-            grid
-            gap-3
-            sm:grid-cols-2
-          ">
-
-            <div className="
-              h-16
-              rounded-xl
-              bg-gray-100
-            " />
-
-            <div className="
-              h-16
-              rounded-xl
-              bg-gray-100
-            " />
-
-          </div>
-
         </div>
-
-
-        <div className="
-          h-7
-          w-24
-          rounded-full
-          bg-gray-100
-        " />
 
       </div>
 
@@ -1180,6 +1593,7 @@ const PhotographerBookings = () => {
 
 
   return (
+
     <main className="
       min-h-[calc(100vh-4rem)]
       bg-gray-50
@@ -1195,9 +1609,8 @@ const PhotographerBookings = () => {
         max-w-6xl
       ">
 
-        {/* ==================================
-            PAGE HEADER
-        ================================== */}
+
+        {/* PAGE HEADER */}
 
         <div>
 
@@ -1209,7 +1622,6 @@ const PhotographerBookings = () => {
             Booking Management
           </p>
 
-
           <h1 className="
             mt-1
             text-2xl
@@ -1220,7 +1632,6 @@ const PhotographerBookings = () => {
           ">
             Photographer Bookings
           </h1>
-
 
           <p className="
             mt-2
@@ -1237,9 +1648,7 @@ const PhotographerBookings = () => {
         </div>
 
 
-        {/* ==================================
-            FEEDBACK
-        ================================== */}
+        {/* FEEDBACK */}
 
         {error && (
 
@@ -1266,18 +1675,14 @@ const PhotographerBookings = () => {
               {error}
             </span>
 
-
             <button
               type="button"
               onClick={() =>
                 setError("")
               }
-              aria-label="Dismiss error"
               className="
-                shrink-0
                 font-semibold
                 text-red-500
-                hover:text-red-700
               "
             >
               ×
@@ -1313,18 +1718,14 @@ const PhotographerBookings = () => {
               {success}
             </span>
 
-
             <button
               type="button"
               onClick={() =>
                 setSuccess("")
               }
-              aria-label="Dismiss success message"
               className="
-                shrink-0
                 font-semibold
                 text-green-600
-                hover:text-green-800
               "
             >
               ×
@@ -1337,69 +1738,16 @@ const PhotographerBookings = () => {
 
         {loading ? (
 
-          <div
-            className="
-              mt-8
-              space-y-10
-            "
-            aria-label="Loading photographer bookings"
-          >
+          <div className="
+            mt-8
+            space-y-4
+          ">
 
             {[1, 2, 3].map(
-              (section) => (
-
-                <section
-                  key={section}
-                >
-
-                  <div className="
-                    mb-5
-                  ">
-
-                    <div className="
-                      h-6
-                      w-44
-                      animate-pulse
-                      rounded
-                      bg-gray-200
-                    " />
-
-                    <div className="
-                      mt-2
-                      h-3
-                      w-64
-                      max-w-full
-                      animate-pulse
-                      rounded
-                      bg-gray-100
-                    " />
-
-                  </div>
-
-
-                  <div className="
-                    space-y-4
-                  ">
-
-                    {[
-                      1,
-                      section === 1
-                        ? 2
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .map(
-                        (item) =>
-                          renderBookingSkeleton(
-                            `${section}-${item}`
-                          )
-                      )}
-
-                  </div>
-
-                </section>
-
-              )
+              (item) =>
+                renderBookingSkeleton(
+                  item
+                )
             )}
 
           </div>
@@ -1408,9 +1756,8 @@ const PhotographerBookings = () => {
 
           <>
 
-            {/* ==================================
-                QUICK OVERVIEW
-            ================================== */}
+
+            {/* QUICK OVERVIEW */}
 
             <div className="
               mt-7
@@ -1419,17 +1766,30 @@ const PhotographerBookings = () => {
               gap-3
             ">
 
-              <div className="
-                rounded-full
-                border
-                border-gray-200
-                bg-white
-                px-4
-                py-2
-                text-sm
-                text-gray-600
-                shadow-sm
-              ">
+              <button
+                type="button"
+                onClick={() =>
+                  pendingSectionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                className="
+                  rounded-full
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  text-gray-600
+                  shadow-sm
+                  transition
+                  hover:border-orange-300
+                  hover:bg-orange-50
+                  hover:text-orange-700
+                "
+              >
                 <span className="
                   font-semibold
                   text-gray-950
@@ -1437,20 +1797,33 @@ const PhotographerBookings = () => {
                   {pendingBookings.length}
                 </span>
                 {" "}Pending
-              </div>
+              </button>
 
 
-              <div className="
-                rounded-full
-                border
-                border-gray-200
-                bg-white
-                px-4
-                py-2
-                text-sm
-                text-gray-600
-                shadow-sm
-              ">
+              <button
+                type="button"
+                onClick={() =>
+                  upcomingSectionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                className="
+                  rounded-full
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  text-gray-600
+                  shadow-sm
+                  transition
+                  hover:border-orange-300
+                  hover:bg-orange-50
+                  hover:text-orange-700
+                "
+              >
                 <span className="
                   font-semibold
                   text-gray-950
@@ -1458,20 +1831,33 @@ const PhotographerBookings = () => {
                   {upcomingBookings.length}
                 </span>
                 {" "}Upcoming
-              </div>
+              </button>
 
 
-              <div className="
-                rounded-full
-                border
-                border-gray-200
-                bg-white
-                px-4
-                py-2
-                text-sm
-                text-gray-600
-                shadow-sm
-              ">
+              <button
+                type="button"
+                onClick={() =>
+                  historySectionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                className="
+                  rounded-full
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  text-gray-600
+                  shadow-sm
+                  transition
+                  hover:border-orange-300
+                  hover:bg-orange-50
+                  hover:text-orange-700
+                "
+              >
                 <span className="
                   font-semibold
                   text-gray-950
@@ -1479,22 +1865,598 @@ const PhotographerBookings = () => {
                   {bookingHistory.length}
                 </span>
                 {" "}History
-              </div>
+              </button>
 
             </div>
 
 
-            {/* ==================================
-                PENDING REQUESTS
-            ================================== */}
+            {/* FILTERS */}
 
             <section className="
-              mt-9
+              mt-6
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-4
+              shadow-sm
+              sm:p-5
             ">
 
               <div className="
-                mb-5
+                flex
+                flex-col
+                gap-4
+                md:flex-row
+                md:items-end
               ">
+
+                <div className="flex-1">
+
+                  <label
+                    htmlFor="booking-date"
+                    className="
+                      text-sm
+                      font-semibold
+                      text-gray-700
+                    "
+                  >
+                    Find jobs by date
+                  </label>
+
+                  <input
+                    id="booking-date"
+                    type="date"
+                    value={
+                      selectedDate
+                    }
+                    onChange={(
+                      event
+                    ) => {
+
+                      setSelectedDate(
+                        event.target.value
+                      );
+
+                      setFilteredPage(
+                        1
+                      );
+
+                    }}
+                    className="
+                      mt-2
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-orange-400
+                      focus:ring-2
+                      focus:ring-orange-100
+                    "
+                  />
+
+                </div>
+
+
+                <div className="flex-1">
+
+                  <label
+                    htmlFor="booking-status"
+                    className="
+                      text-sm
+                      font-semibold
+                      text-gray-700
+                    "
+                  >
+                    Booking status
+                  </label>
+
+                  <select
+                    id="booking-status"
+                    value={
+                      selectedStatus
+                    }
+                    onChange={(
+                      event
+                    ) => {
+
+                      setSelectedStatus(
+                        event.target.value
+                      );
+
+                      setFilteredPage(
+                        1
+                      );
+
+                    }}
+                    className="
+                      mt-2
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      px-4
+                      py-2.5
+                      text-sm
+                      outline-none
+                      focus:border-orange-400
+                      focus:ring-2
+                      focus:ring-orange-100
+                    "
+                  >
+                    <option value="ALL">
+                      All statuses
+                    </option>
+
+                    <option value="REQUESTED">
+                      Requested
+                    </option>
+
+                    <option value="CONFIRMED">
+                      Confirmed
+                    </option>
+
+                    <option value="COMPLETED">
+                      Completed
+                    </option>
+
+                    <option value="REJECTED">
+                      Rejected
+                    </option>
+
+                    <option value="CANCELLED">
+                      Cancelled
+                    </option>
+
+                  </select>
+
+                </div>
+
+
+                <button
+                  type="button"
+                  onClick={() => {
+
+                    setSelectedDate(
+                      ""
+                    );
+
+                    setSelectedStatus(
+                      "ALL"
+                    );
+
+                    setFilteredPage(
+                      1
+                    );
+
+                  }}
+                  className="
+                    rounded-xl
+                    border
+                    border-gray-300
+                    bg-white
+                    px-4
+                    py-2.5
+                    text-sm
+                    font-semibold
+                    text-gray-700
+                    transition
+                    hover:border-orange-300
+                    hover:bg-orange-50
+                    hover:text-orange-700
+                  "
+                >
+                  Clear
+                </button>
+
+              </div>
+
+            </section>
+
+
+            {/* FILTERED JOBS */}
+
+            {(
+              selectedDate ||
+              selectedStatus !==
+                "ALL"
+            ) && (
+
+              <section className="mt-6">
+
+                <div className="mb-4">
+
+                  <h2 className="
+                    text-lg
+                    font-semibold
+                    text-gray-950
+                  ">
+                    Filtered Jobs
+                  </h2>
+
+                  <p className="
+                    mt-1
+                    text-sm
+                    text-gray-500
+                  ">
+                    {
+                      filteredBookings.length
+                    }
+                    {" "}
+                    booking
+                    {
+                      filteredBookings.length ===
+                      1
+                        ? ""
+                        : "s"
+                    }
+                    {" "}
+                    found.
+                  </p>
+
+                </div>
+
+
+                {filteredBookings.length ===
+                0 ? (
+
+                  <div className="
+                    rounded-2xl
+                    border
+                    border-dashed
+                    border-gray-300
+                    bg-white
+                    px-6
+                    py-8
+                    text-center
+                  ">
+                    <p className="
+                      font-semibold
+                      text-gray-800
+                    ">
+                      No bookings found.
+                    </p>
+
+                    <p className="
+                      mt-1
+                      text-sm
+                      text-gray-500
+                    ">
+                      Try another date or
+                      booking status.
+                    </p>
+                  </div>
+
+                ) : (
+
+                  <>
+
+                    <div className="
+                      space-y-4
+                    ">
+
+                      {
+                        paginatedFilteredBookings.map(
+                          (booking) =>
+                            renderBooking(
+                              booking,
+                              [
+                                "REQUESTED",
+                                "CONFIRMED",
+                              ].includes(
+                                booking.status
+                              )
+                            )
+                        )
+                      }
+
+                    </div>
+
+
+                    {renderPagination(
+                      safeFilteredPage,
+                      filteredTotalPages,
+                      setFilteredPage
+                    )}
+
+                  </>
+
+                )}
+
+              </section>
+
+            )}
+
+
+            {/* TODAY / TOMORROW */}
+
+            <section className="mt-8">
+
+              <div className="
+                grid
+                gap-5
+                lg:grid-cols-2
+              ">
+
+                <div className="
+                  rounded-2xl
+                  border
+                  border-orange-200
+                  bg-orange-50
+                  p-5
+                  sm:p-6
+                ">
+
+                  <div className="
+                    flex
+                    justify-between
+                    gap-4
+                  ">
+
+                    <div>
+
+                      <p className="
+                        text-xs
+                        font-semibold
+                        uppercase
+                        text-orange-600
+                      ">
+                        Today
+                      </p>
+
+                      <h2 className="
+                        mt-1
+                        text-lg
+                        font-bold
+                        text-gray-950
+                      ">
+                        Today's Jobs
+                      </h2>
+
+                    </div>
+
+
+                    <span className="
+                      flex
+                      h-9
+                      min-w-9
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-orange-600
+                      px-2
+                      text-sm
+                      font-bold
+                      text-white
+                    ">
+                      {todayBookings.length}
+                    </span>
+
+                  </div>
+
+
+                  {todayBookings.length ===
+                  0 ? (
+
+                    <p className="
+                      mt-5
+                      rounded-xl
+                      bg-white
+                      p-5
+                      text-center
+                      text-sm
+                      text-gray-600
+                    ">
+                      No jobs scheduled
+                      for today.
+                    </p>
+
+                  ) : (
+
+                    <div className="
+                      mt-5
+                      space-y-3
+                    ">
+
+                      {todayBookings.map(
+                        (booking) => (
+
+                          <div
+                            key={
+                              booking._id
+                            }
+                            className="
+                              rounded-xl
+                              bg-white
+                              p-4
+                              shadow-sm
+                            "
+                          >
+
+                            <p className="
+                              font-semibold
+                              text-gray-950
+                            ">
+                              {
+                                booking.customer
+                                  ?.name ||
+                                "Customer"
+                              }
+                            </p>
+
+                            <p className="
+                              mt-1
+                              text-sm
+                              font-medium
+                              text-orange-700
+                            ">
+                              {booking.startTime}
+                              {" — "}
+                              {booking.endTime}
+                            </p>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  )}
+
+                </div>
+
+
+                <div className="
+                  rounded-2xl
+                  border
+                  border-amber-200
+                  bg-amber-50
+                  p-5
+                  sm:p-6
+                ">
+
+                  <div className="
+                    flex
+                    justify-between
+                    gap-4
+                  ">
+
+                    <div>
+
+                      <p className="
+                        text-xs
+                        font-semibold
+                        uppercase
+                        text-amber-700
+                      ">
+                        Tomorrow
+                      </p>
+
+                      <h2 className="
+                        mt-1
+                        text-lg
+                        font-bold
+                        text-gray-950
+                      ">
+                        Tomorrow's Jobs
+                      </h2>
+
+                    </div>
+
+
+                    <span className="
+                      flex
+                      h-9
+                      min-w-9
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-amber-500
+                      px-2
+                      text-sm
+                      font-bold
+                      text-white
+                    ">
+                      {
+                        tomorrowBookings.length
+                      }
+                    </span>
+
+                  </div>
+
+
+                  {tomorrowBookings.length ===
+                  0 ? (
+
+                    <p className="
+                      mt-5
+                      rounded-xl
+                      bg-white
+                      p-5
+                      text-center
+                      text-sm
+                      text-gray-600
+                    ">
+                      No jobs scheduled
+                      for tomorrow.
+                    </p>
+
+                  ) : (
+
+                    <div className="
+                      mt-5
+                      space-y-3
+                    ">
+
+                      {tomorrowBookings.map(
+                        (booking) => (
+
+                          <div
+                            key={
+                              booking._id
+                            }
+                            className="
+                              rounded-xl
+                              bg-white
+                              p-4
+                              shadow-sm
+                            "
+                          >
+
+                            <p className="
+                              font-semibold
+                              text-gray-950
+                            ">
+                              {
+                                booking.customer
+                                  ?.name ||
+                                "Customer"
+                              }
+                            </p>
+
+                            <p className="
+                              mt-1
+                              text-sm
+                              font-medium
+                              text-amber-700
+                            ">
+                              {booking.startTime}
+                              {" — "}
+                              {booking.endTime}
+                            </p>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              </div>
+
+            </section>
+
+
+            {/* PENDING REQUESTS */}
+
+            <section
+              ref={pendingSectionRef}
+              className="
+                mt-9
+                scroll-mt-24
+              "
+            >
+
+              <div className="mb-5">
 
                 <h2 className="
                   text-xl
@@ -1504,15 +2466,14 @@ const PhotographerBookings = () => {
                   Pending Requests
                 </h2>
 
-
                 <p className="
                   mt-1
                   text-sm
                   text-gray-500
                 ">
                   New customer requests
-                  waiting for confirmation or
-                  rejection.
+                  waiting for confirmation
+                  or rejection.
                 </p>
 
               </div>
@@ -1531,97 +2492,57 @@ const PhotographerBookings = () => {
                   py-9
                   text-center
                 ">
-
-                  <div className="
-                    mx-auto
-                    flex
-                    h-11
-                    w-11
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-orange-50
-                    text-orange-600
-                  ">
-
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 6v6l4 2" />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="9"
-                      />
-                    </svg>
-
-                  </div>
-
-
-                  <h3 className="
-                    mt-4
-                    font-semibold
-                    text-gray-950
-                  ">
-                    No pending requests
-                  </h3>
-
-
-                  <p className="
-                    mx-auto
-                    mt-2
-                    max-w-md
-                    text-sm
-                    leading-6
-                    text-gray-500
-                  ">
-                    New photography booking
-                    requests will appear here
-                    when customers submit them.
-                  </p>
-
+                  No pending requests.
                 </div>
 
               ) : (
 
-                <div className="
-                  space-y-4
-                ">
+                <>
 
-                  {pendingBookings.map(
-                    (booking) =>
-                      renderBooking(
-                        booking,
-                        true
+                  <div className="
+                    space-y-4
+                  ">
+
+                    {
+                      paginatedPendingBookings.map(
+                        (booking) =>
+                          renderBooking(
+                            booking,
+                            true
+                          )
                       )
+                    }
+
+                  </div>
+
+
+                  {renderPagination(
+                    safePendingPage,
+                    pendingTotalPages,
+                    setPendingPage
                   )}
 
-                </div>
+                </>
 
               )}
 
             </section>
 
 
-            {/* ==================================
-                UPCOMING BOOKINGS
-            ================================== */}
+            {/* UPCOMING BOOKINGS */}
 
-            <section className="
-              mt-12
-              border-t
-              border-gray-200
-              pt-9
-            ">
+            <section
+              ref={upcomingSectionRef}
+              className="
+                mt-12
+                scroll-mt-24
+                border-t
+                border-gray-200
+                pt-9
+              "
+            >
 
-              <div className="
-                mb-5
-              ">
+              <div className="mb-5">
 
                 <h2 className="
                   text-xl
@@ -1630,7 +2551,6 @@ const PhotographerBookings = () => {
                 ">
                   Upcoming Bookings
                 </h2>
-
 
                 <p className="
                   mt-1
@@ -1658,100 +2578,57 @@ const PhotographerBookings = () => {
                   py-9
                   text-center
                 ">
-
-                  <div className="
-                    mx-auto
-                    flex
-                    h-11
-                    w-11
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-green-50
-                    text-green-600
-                  ">
-
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden="true"
-                    >
-                      <path d="M7 3v3M17 3v3" />
-                      <rect
-                        x="3"
-                        y="5"
-                        width="18"
-                        height="16"
-                        rx="2"
-                      />
-                      <path d="M3 10h18" />
-                      <path d="m9 15 2 2 4-4" />
-                    </svg>
-
-                  </div>
-
-
-                  <h3 className="
-                    mt-4
-                    font-semibold
-                    text-gray-950
-                  ">
-                    No upcoming bookings
-                  </h3>
-
-
-                  <p className="
-                    mx-auto
-                    mt-2
-                    max-w-md
-                    text-sm
-                    leading-6
-                    text-gray-500
-                  ">
-                    Confirmed future sessions
-                    will appear here.
-                  </p>
-
+                  No upcoming bookings.
                 </div>
 
               ) : (
 
-                <div className="
-                  space-y-4
-                ">
+                <>
 
-                  {upcomingBookings.map(
-                    (booking) =>
-                      renderBooking(
-                        booking,
-                        true
+                  <div className="
+                    space-y-4
+                  ">
+
+                    {
+                      paginatedUpcomingBookings.map(
+                        (booking) =>
+                          renderBooking(
+                            booking,
+                            true
+                          )
                       )
+                    }
+
+                  </div>
+
+
+                  {renderPagination(
+                    safeUpcomingPage,
+                    upcomingTotalPages,
+                    setUpcomingPage
                   )}
 
-                </div>
+                </>
 
               )}
 
             </section>
 
 
-            {/* ==================================
-                BOOKING HISTORY
-            ================================== */}
+            {/* BOOKING HISTORY */}
 
-            <section className="
-              mt-12
-              border-t
-              border-gray-200
-              pt-9
-            ">
+            <section
+              ref={historySectionRef}
+              className="
+                mt-12
+                scroll-mt-24
+                border-t
+                border-gray-200
+                pt-9
+              "
+            >
 
-              <div className="
-                mb-5
-              ">
+              <div className="mb-5">
 
                 <h2 className="
                   text-xl
@@ -1760,7 +2637,6 @@ const PhotographerBookings = () => {
                 ">
                   Booking History
                 </h2>
-
 
                 <p className="
                   mt-1
@@ -1788,73 +2664,37 @@ const PhotographerBookings = () => {
                   py-9
                   text-center
                 ">
-
-                  <div className="
-                    mx-auto
-                    flex
-                    h-11
-                    w-11
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-gray-100
-                    text-gray-500
-                  ">
-
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 8v4l3 2" />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="9"
-                      />
-                    </svg>
-
-                  </div>
-
-
-                  <h3 className="
-                    mt-4
-                    font-semibold
-                    text-gray-950
-                  ">
-                    No booking history yet
-                  </h3>
-
-
-                  <p className="
-                    mt-2
-                    text-sm
-                    text-gray-500
-                  ">
-                    Previous booking records
-                    will appear here over time.
-                  </p>
-
+                  No booking history yet.
                 </div>
 
               ) : (
 
-                <div className="
-                  space-y-4
-                ">
+                <>
 
-                  {bookingHistory.map(
-                    (booking) =>
-                      renderBooking(
-                        booking,
-                        false
+                  <div className="
+                    space-y-4
+                  ">
+
+                    {
+                      paginatedBookingHistory.map(
+                        (booking) =>
+                          renderBooking(
+                            booking,
+                            false
+                          )
                       )
+                    }
+
+                  </div>
+
+
+                  {renderPagination(
+                    safeHistoryPage,
+                    historyTotalPages,
+                    setHistoryPage
                   )}
 
-                </div>
+                </>
 
               )}
 
@@ -1867,7 +2707,9 @@ const PhotographerBookings = () => {
       </div>
 
     </main>
+
   );
+
 };
 
 

@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/useAuth";
 import UserAvatar from "./UserAvatar";
-
+import NotificationBell from "./NotificationBell";
 
 const profileRoutes = {
   CUSTOMER: "/customer/profile",
@@ -149,43 +149,49 @@ const AppHeader = ({
 
 
       {/* ======================================
-          PROFILE AVATAR
-      ====================================== */}
+              RIGHT SIDE
+          ====================================== */}
 
-      {profilePath ? (
+          <div className="flex items-center gap-2">
 
-        <button
-          type="button"
-          onClick={handleProfileClick}
-          className="
-            rounded-full
-            focus:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-orange-500
-            focus-visible:ring-offset-2
-          "
-          aria-label="Open profile"
-        >
+            <NotificationBell />
 
-          <UserAvatar
-            name={user?.name}
-            imageUrl={
-              photographerIdentity?.profileImage ||
-              ""
-            }
-            size="sm"
-          />
+            {profilePath ? (
 
-        </button>
+              <button
+                type="button"
+                onClick={handleProfileClick}
+                className="
+                  rounded-full
+                  focus:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-orange-500
+                  focus-visible:ring-offset-2
+                "
+                aria-label="Open profile"
+              >
 
-      ) : (
+                <UserAvatar
+                  name={user?.name}
+                  imageUrl={
+                    photographerIdentity?.profileImage ||
+                    ""
+                  }
+                  size="sm"
+                />
 
-        <UserAvatar
-          name={user?.name}
-          size="sm"
-        />
+              </button>
 
-      )}
+            ) : (
+
+              <UserAvatar
+                name={user?.name}
+                size="sm"
+              />
+
+            )}
+
+          </div>
 
     </header>
   );

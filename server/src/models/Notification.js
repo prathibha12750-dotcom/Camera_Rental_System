@@ -17,6 +17,13 @@ const notificationSchema =
         enum: [
           "PHOTOGRAPHER_APPLICATION_APPROVED",
           "PHOTOGRAPHER_APPLICATION_REJECTED",
+
+          "BOOKING_REQUESTED",
+          "BOOKING_CONFIRMED",
+          "BOOKING_REJECTED",
+          "BOOKING_CANCELLED",
+          "BOOKING_COMPLETED",
+
           "GENERAL",
         ],
         default: "GENERAL",
@@ -43,9 +50,15 @@ const notificationSchema =
 
       relatedApplication: {
         type:
-          mongoose.Schema.Types
-            .ObjectId,
+          mongoose.Schema.Types.ObjectId,
         ref: "PhotographerApplication",
+        default: null,
+      },
+
+      relatedBooking: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "Booking",
         default: null,
       },
     },

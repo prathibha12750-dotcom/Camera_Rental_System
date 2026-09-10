@@ -1,11 +1,13 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
 import {
   Link,
   useLocation,
+  useSearchParams,
 } from "react-router-dom";
 
 import api from "../../services/api";
@@ -16,6 +18,12 @@ const CustomerBookings = () => {
 
   const location =
     useLocation();
+
+  const upcomingSectionRef =
+    useRef(null);
+
+  const historySectionRef =
+    useRef(null);
 
 
   const [
@@ -68,6 +76,25 @@ const CustomerBookings = () => {
     reviewBookingId,
     setReviewBookingId,
   ] = useState(null);
+
+
+  const BOOKINGS_PER_PAGE = 2;
+
+  const [
+    upcomingPage,
+    setUpcomingPage,
+  ] = useState(1);
+
+  const [
+    historyPage,
+    setHistoryPage,
+  ] = useState(1);
+
+  const [searchParams] =
+    useSearchParams();
+
+  const highlightedBookingId =
+    searchParams.get("booking");
 
 
   // ==========================================
@@ -368,6 +395,146 @@ const CustomerBookings = () => {
 
         }
       );
+
+
+      // ==========================================
+      // PAGINATION
+      // ==========================================
+
+      const upcomingTotalPages =
+        Math.ceil(
+          upcomingBookings.length /
+            BOOKINGS_PER_PAGE
+        );
+
+      const historyTotalPages =
+        Math.ceil(
+          bookingHistory.length /
+            BOOKINGS_PER_PAGE
+        );
+
+
+    // ==========================================
+// NOTIFICATION-LINKED BOOKING PAGE
+// ==========================================
+
+const highlightedUpcomingIndex =
+  upcomingBookings.findIndex(
+    (booking) =>
+      booking._id ===
+      highlightedBookingId
+  );
+
+const highlightedHistoryIndex =
+  bookingHistory.findIndex(
+    (booking) =>
+      booking._id ===
+      highlightedBookingId
+  );
+
+
+const highlightedUpcomingPage =
+  highlightedUpcomingIndex >= 0
+    ? Math.floor(
+        highlightedUpcomingIndex /
+          BOOKINGS_PER_PAGE
+      ) + 1
+    : null;
+
+
+const highlightedHistoryPage =
+  highlightedHistoryIndex >= 0
+    ? Math.floor(
+        highlightedHistoryIndex /
+          BOOKINGS_PER_PAGE
+      ) + 1
+    : null;
+
+
+// ==========================================
+// SAFE PAGINATION
+// ==========================================
+
+const normalUpcomingPage =
+  Math.min(
+    upcomingPage,
+    Math.max(
+      upcomingTotalPages,
+      1
+    )
+  );
+
+const normalHistoryPage =
+  Math.min(
+    historyPage,
+    Math.max(
+      historyTotalPages,
+      1
+    )
+  );
+
+
+const safeUpcomingPage =
+  highlightedUpcomingPage ??
+  normalUpcomingPage;
+
+
+const safeHistoryPage =
+  highlightedHistoryPage ??
+  normalHistoryPage;
+
+
+const paginatedUpcomingBookings =
+  upcomingBookings.slice(
+    (safeUpcomingPage - 1) *
+      BOOKINGS_PER_PAGE,
+
+    safeUpcomingPage *
+      BOOKINGS_PER_PAGE
+  );
+
+
+const paginatedBookingHistory =
+  bookingHistory.slice(
+    (safeHistoryPage - 1) *
+      BOOKINGS_PER_PAGE,
+
+    safeHistoryPage *
+      BOOKINGS_PER_PAGE
+  );
+
+
+// ==========================================
+// SCROLL TO NOTIFICATION BOOKING
+// ==========================================
+
+useEffect(() => {
+  if (
+    !highlightedBookingId ||
+    loading
+  ) {
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    document
+      .getElementById(
+        `booking-${highlightedBookingId}`
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+  }, 150);
+
+  return () =>
+    clearTimeout(timer);
+}, [
+  highlightedBookingId,
+  loading,
+  safeUpcomingPage,
+  safeHistoryPage,
+]);
 
 
   // ==========================================
@@ -692,14 +859,22 @@ const CustomerBookings = () => {
 
       <article
         key={booking._id}
-        className="
+        id={`booking-${booking._id}`}
+        className={`
           overflow-hidden
           rounded-2xl
           border
           border-gray-200
           bg-white
           shadow-sm
-        "
+          transition
+          ${
+            highlightedBookingId ===
+            booking._id
+              ? "ring-2 ring-orange-500 ring-offset-2"
+              : ""
+          }
+        `}
       >
 
         <div className="
@@ -1757,17 +1932,31 @@ const CustomerBookings = () => {
           gap-3
         ">
 
-          <div className="
-            rounded-full
-            border
-            border-gray-200
-            bg-white
-            px-4
-            py-2
-            text-sm
-            text-gray-600
-            shadow-sm
-          ">
+          <button
+            type="button"
+            onClick={() =>
+              upcomingSectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })
+            }
+            className="
+              cursor-pointer
+              rounded-full
+              border
+              border-gray-200
+              bg-white
+              px-4
+              py-2
+              text-sm
+              text-gray-600
+              shadow-sm
+              transition
+              hover:border-orange-300
+              hover:bg-orange-50
+              hover:text-orange-700
+            "
+          >
 
             <span className="
               font-semibold
@@ -1778,20 +1967,34 @@ const CustomerBookings = () => {
 
             {" "}Upcoming
 
-          </div>
+          </button>
 
 
-          <div className="
-            rounded-full
-            border
-            border-gray-200
-            bg-white
-            px-4
-            py-2
-            text-sm
-            text-gray-600
-            shadow-sm
-          ">
+          <button
+            type="button"
+            onClick={() =>
+              historySectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })
+            }
+            className="
+              cursor-pointer
+              rounded-full
+              border
+              border-gray-200
+              bg-white
+              px-4
+              py-2
+              text-sm
+              text-gray-600
+              shadow-sm
+              transition
+              hover:border-orange-300
+              hover:bg-orange-50
+              hover:text-orange-700
+            "
+          >
 
             <span className="
               font-semibold
@@ -1802,7 +2005,7 @@ const CustomerBookings = () => {
 
             {" "}History
 
-          </div>
+          </button>
 
 
           <div className="
@@ -1835,9 +2038,13 @@ const CustomerBookings = () => {
             UPCOMING BOOKINGS
         ================================== */}
 
-        <section className="
-          mt-9
-        ">
+        <section
+          ref={upcomingSectionRef}
+          className="
+            mt-9
+            scroll-mt-24
+          "
+        >
 
           <div className="
             mb-5
@@ -1975,13 +2182,105 @@ const CustomerBookings = () => {
               space-y-4
             ">
 
-              {upcomingBookings.map(
-                (booking) =>
-                  renderBooking(
-                    booking,
-                    true
+            {paginatedUpcomingBookings.map(
+              (booking) =>
+                renderBooking(
+                  booking,
+                  true
+                )
+            )}
+
+            {upcomingTotalPages > 1 && (
+            <div className="
+              flex
+              items-center
+              justify-center
+              gap-3
+              pt-4
+            ">
+
+              <button
+                type="button"
+                onClick={() =>
+                  setUpcomingPage(
+                    Math.max(
+                      safeUpcomingPage - 1,
+                      1
+                    )
                   )
-              )}
+                }
+                disabled={
+                  safeUpcomingPage === 1
+                }
+                className="
+                  rounded-lg 
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  font-medium
+                  text-gray-700
+                  transition
+                  hover:bg-gray-50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-40
+                "
+              >
+                Previous
+              </button>
+
+              <span className="
+                text-sm
+                text-gray-500
+              ">
+                Page{" "}
+                <span className="
+                  font-semibold
+                  text-gray-900
+                ">
+                  {safeUpcomingPage}
+                </span>
+                {" "}of{" "}
+                {upcomingTotalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setUpcomingPage(
+                    Math.min(
+                      safeUpcomingPage + 1,
+                      upcomingTotalPages
+                    )
+                  )
+                }
+                disabled={
+                  safeUpcomingPage ===
+                  upcomingTotalPages
+                }
+                className="
+                  rounded-lg
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  font-medium
+                  text-gray-700
+                  transition
+                  hover:bg-gray-50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-40
+                "
+              >
+                Next
+              </button>
+
+            </div>
+          )}
 
             </div>
 
@@ -1994,12 +2293,16 @@ const CustomerBookings = () => {
             BOOKING HISTORY
         ================================== */}
 
-        <section className="
-          mt-12
-          border-t
-          border-gray-200
-          pt-9
-        ">
+        <section
+          ref={historySectionRef}
+          className="
+            mt-12
+            scroll-mt-24
+            border-t
+            border-gray-200
+            pt-9
+          "
+        >
 
           <div className="
             mb-5
@@ -2099,13 +2402,105 @@ const CustomerBookings = () => {
               space-y-4
             ">
 
-              {bookingHistory.map(
-                (booking) =>
-                  renderBooking(
-                    booking,
-                    false
+            {paginatedBookingHistory.map(
+              (booking) =>
+                renderBooking(
+                  booking,
+                  false
+                )
+            )}
+
+            {historyTotalPages > 1 && (
+            <div className="
+              flex
+              items-center
+              justify-center
+              gap-3
+              pt-4
+            ">
+
+              <button
+                type="button"
+                onClick={() =>
+                  setHistoryPage(
+                    Math.max(
+                      safeHistoryPage - 1,
+                      1
+                    )
                   )
-              )}
+                }
+                disabled={
+                  safeHistoryPage === 1
+                }
+                className="
+                  rounded-lg
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  font-medium
+                  text-gray-700
+                  transition
+                  hover:bg-gray-50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-40
+                "
+              >
+                Previous
+              </button>
+
+              <span className="
+                text-sm
+                text-gray-500
+              ">
+                Page{" "}
+                <span className="
+                  font-semibold
+                  text-gray-900
+                ">
+                  {safeHistoryPage}
+                </span>
+                {" "}of{" "}
+                {historyTotalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setHistoryPage(
+                    Math.min(
+                      safeHistoryPage + 1,
+                      historyTotalPages
+                    )
+                  )
+                }
+                disabled={
+                  safeHistoryPage ===
+                  historyTotalPages
+                }
+                className="
+                  rounded-lg
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2
+                  text-sm
+                  font-medium
+                  text-gray-700
+                  transition
+                  hover:bg-gray-50
+                  disabled:cursor-not-allowed
+                  disabled:opacity-40
+                "
+              >
+                Next
+              </button>
+
+            </div>
+          )}
 
             </div>
 

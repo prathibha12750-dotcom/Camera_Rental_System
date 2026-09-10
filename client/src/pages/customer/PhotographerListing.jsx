@@ -13,10 +13,6 @@ import api from "../../services/api";
 
 const emptyFilters = {
   search: "",
-  specialization: "",
-  location: "",
-  minRate: "",
-  maxRate: "",
 };
 
 
@@ -58,6 +54,13 @@ const PhotographerListing = () => {
     error,
     setError,
   ] = useState("");
+
+  const PHOTOGRAPHERS_PER_PAGE = 6;
+
+  const [
+    currentPage,
+    setCurrentPage,
+  ] = useState(1);
 
 
   // ==========================================
@@ -234,119 +237,44 @@ const PhotographerListing = () => {
 
 
   // ==========================================
-  // VALIDATE RATE FILTERS
-  // ==========================================
-
-  const validateRates = () => {
-
-    if (
-      filters.minRate !== "" &&
-      Number(filters.minRate) < 0
-    ) {
-
-      setError(
-        "Minimum rate cannot be negative."
-      );
-
-      return false;
-
-    }
-
-
-    if (
-      filters.maxRate !== "" &&
-      Number(filters.maxRate) < 0
-    ) {
-
-      setError(
-        "Maximum rate cannot be negative."
-      );
-
-      return false;
-
-    }
-
-
-    if (
-      filters.minRate !== "" &&
-      filters.maxRate !== "" &&
-      Number(filters.minRate) >
-        Number(filters.maxRate)
-    ) {
-
-      setError(
-        "Minimum rate cannot be greater than maximum rate."
-      );
-
-      return false;
-
-    }
-
-
-    return true;
-
-  };
-
-
-  // ==========================================
   // SEARCH
   // ==========================================
 
-  const handleSearch =
-    async (event) => {
+  const handleSearch = async (event) => {
+    event.preventDefault();
 
-      event.preventDefault();
+    try {
+      setSearching(true);
 
+      setCurrentPage(1);
 
-      if (!validateRates()) {
-        return;
-      }
-
-
-      try {
-
-        setSearching(true);
-
-        await fetchPhotographers(
-          filters
-        );
-
-      } finally {
-
-        setSearching(false);
-
-      }
-
-    };
+      await fetchPhotographers(filters);
+    } finally {
+      setSearching(false);
+    }
+  };
 
 
-  // ==========================================
-  // CLEAR FILTERS
-  // ==========================================
+  const totalPages =
+    Math.ceil(
+      photographers.length /
+        PHOTOGRAPHERS_PER_PAGE
+    );
 
-  const clearFilters =
-    async () => {
+  const safeCurrentPage =
+    Math.min(
+      currentPage,
+      Math.max(totalPages, 1)
+    );
 
-      setFilters(
-        emptyFilters
-      );
+  const paginatedPhotographers =
+    photographers.slice(
+      (safeCurrentPage - 1) *
+        PHOTOGRAPHERS_PER_PAGE,
 
-
-      try {
-
-        setSearching(true);
-
-        await fetchPhotographers(
-          emptyFilters
-        );
-
-      } finally {
-
-        setSearching(false);
-
-      }
-
-    };
+      safeCurrentPage *
+        PHOTOGRAPHERS_PER_PAGE
+    );
 
 
   return (
@@ -441,416 +369,135 @@ const PhotographerListing = () => {
 
 
         {/* ==================================
-            SEARCH AND FILTERS
+            PHOTOGRAPHER SEARCH
         ================================== */}
 
         <section className="
+          mx-auto
           mt-6
-          rounded-2xl
-          border
-          border-gray-200
-          bg-white
-          p-5
-          shadow-sm
-          sm:p-6
+          max-w-3xl
         ">
 
           <form
-            onSubmit={
-              handleSearch
-            }
+            onSubmit={handleSearch}
+            className="
+              flex
+              items-center
+              gap-5
+              rounded-2xl
+              border
+              border-gray-200
+              bg-white
+              p-2
+              shadow-sm
+              transition
+              focus-within:border-orange-300
+              focus-within:shadow-md
+            "
           >
 
-            {/* Search */}
-
-            <div>
-
-              <label
-                htmlFor="search"
-                className="
-                  mb-2
-                  block
-                  text-sm
-                  font-medium
-                  text-gray-700
-                "
-              >
-                Search photographers
-              </label>
-
-
-              <div className="relative">
-
-                <svg
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-4
-                    top-1/2
-                    h-5
-                    w-5
-                    -translate-y-1/2
-                    text-gray-400
-                  "
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="11"
-                    cy="11"
-                    r="7"
-                  />
-
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-
-
-                <input
-                  id="search"
-                  name="search"
-                  type="text"
-                  value={
-                    filters.search
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Search by name, specialization or location"
-                  className="
-                    w-full
-                    rounded-xl
-                    border
-                    border-gray-300
-                    bg-white
-                    py-3
-                    pl-11
-                    pr-4
-                    text-sm
-                    text-gray-950
-                    outline-none
-                    transition
-                    placeholder:text-gray-400
-                    focus:border-orange-500
-                    focus:ring-2
-                    focus:ring-orange-500/10
-                  "
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* Filters */}
-
+            {/* Search icon */}
             <div className="
-              mt-5
-              grid
-              gap-4
-              sm:grid-cols-2
-              lg:grid-cols-4
-            ">
-
-              {/* Specialization */}
-
-              <div>
-
-                <label
-                  htmlFor="specialization"
-                  className="
-                    mb-2
-                    block
-                    text-sm
-                    font-medium
-                    text-gray-700
-                  "
-                >
-                  Specialization
-                </label>
-
-
-                <input
-                  id="specialization"
-                  name="specialization"
-                  type="text"
-                  value={
-                    filters.specialization
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="e.g. Wedding"
-                  className="
-                    w-full
-                    rounded-xl
-                    border
-                    border-gray-300
-                    px-4
-                    py-3
-                    text-sm
-                    outline-none
-                    transition
-                    focus:border-orange-500
-                    focus:ring-2
-                    focus:ring-orange-500/10
-                  "
-                />
-
-              </div>
-
-
-              {/* Location */}
-
-              <div>
-
-                <label
-                  htmlFor="location"
-                  className="
-                    mb-2
-                    block
-                    text-sm
-                    font-medium
-                    text-gray-700
-                  "
-                >
-                  Location
-                </label>
-
-
-                <input
-                  id="location"
-                  name="location"
-                  type="text"
-                  value={
-                    filters.location
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="e.g. Matara"
-                  className="
-                    w-full
-                    rounded-xl
-                    border
-                    border-gray-300
-                    px-4
-                    py-3
-                    text-sm
-                    outline-none
-                    transition
-                    focus:border-orange-500
-                    focus:ring-2
-                    focus:ring-orange-500/10
-                  "
-                />
-
-              </div>
-
-
-              {/* Minimum Rate */}
-
-              <div>
-
-                <label
-                  htmlFor="minRate"
-                  className="
-                    mb-2
-                    block
-                    text-sm
-                    font-medium
-                    text-gray-700
-                  "
-                >
-                  Minimum Rate
-                </label>
-
-
-                <input
-                  id="minRate"
-                  name="minRate"
-                  type="number"
-                  min="0"
-                  value={
-                    filters.minRate
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="LKR"
-                  className="
-                    w-full
-                    rounded-xl
-                    border
-                    border-gray-300
-                    px-4
-                    py-3
-                    text-sm
-                    outline-none
-                    transition
-                    focus:border-orange-500
-                    focus:ring-2
-                    focus:ring-orange-500/10
-                  "
-                />
-
-              </div>
-
-
-              {/* Maximum Rate */}
-
-              <div>
-
-                <label
-                  htmlFor="maxRate"
-                  className="
-                    mb-2
-                    block
-                    text-sm
-                    font-medium
-                    text-gray-700
-                  "
-                >
-                  Maximum Rate
-                </label>
-
-
-                <input
-                  id="maxRate"
-                  name="maxRate"
-                  type="number"
-                  min="0"
-                  value={
-                    filters.maxRate
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Any"
-                  className="
-                    w-full
-                    rounded-xl
-                    border
-                    border-gray-300
-                    px-4
-                    py-3
-                    text-sm
-                    outline-none
-                    transition
-                    focus:border-orange-500
-                    focus:ring-2
-                    focus:ring-orange-500/10
-                  "
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* Error */}
-
-            {error && (
-
-              <div className="
-                mt-4
-                rounded-xl
-                border
-                border-red-200
-                bg-red-50
-                px-4
-                py-3
-                text-sm
-                text-red-700
-              ">
-                {error}
-              </div>
-
-            )}
-
-
-            {/* Actions */}
-
-            <div className="
-              mt-5
               flex
-              flex-col
-              gap-3
-              sm:flex-row
-              sm:items-center
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              text-gray-400
             ">
-
-              <button
-                type="submit"
-                disabled={
-                  searching
-                }
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-orange-600
-                  px-5
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-orange-700
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                  focus:outline-none
-                  focus-visible:ring-2
-                  focus-visible:ring-orange-500
-                  focus-visible:ring-offset-2
-                "
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
               >
-                {searching
-                  ? "Searching..."
-                  : "Search Photographers"}
-              </button>
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                />
 
-
-              <button
-                type="button"
-                onClick={
-                  clearFilters
-                }
-                disabled={
-                  searching
-                }
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-gray-300
-                  bg-white
-                  px-5
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-gray-700
-                  transition
-                  hover:bg-gray-50
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                "
-              >
-                Clear Filters
-              </button>
-
+                <path d="m20 20-3.5-3.5" />
+              </svg>
             </div>
+
+
+            {/* Search input */}
+            <input
+              id="search"
+              name="search"
+              type="text"
+              value={filters.search}
+              onChange={handleChange}
+              placeholder="Search photographers..."
+              className="
+                min-w-0
+                flex-1
+                border-0
+                bg-transparent
+                px-1
+                py-2.5
+                text-sm
+                text-gray-950
+                outline-none
+                placeholder:text-gray-400
+                focus:ring-0
+              "
+            />
+
+
+            {/* Search button */}
+            <button
+              type="submit"
+              disabled={searching}
+              className="
+                shrink-0
+                rounded-xl
+                bg-orange-600
+                px-5
+                py-2.5
+                text-sm
+                font-semibold
+                text-white
+                transition
+                hover:bg-orange-700
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+                focus:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-orange-500
+                focus-visible:ring-offset-2
+              "
+            >
+              {searching
+                ? "Searching..."
+                : "Search"}
+            </button>
 
           </form>
 
-        </section>
 
+          {/* Error */}
+          {error && (
+            <div className="
+              mt-3
+              rounded-xl
+              border
+              border-red-200
+              bg-red-50
+              px-4
+              py-3
+              text-sm
+              text-red-700
+            ">
+              {error}
+            </div>
+          )}
+
+        </section>
 
         {/* ==================================
             INITIAL LOADING SKELETONS
@@ -996,46 +643,31 @@ const PhotographerListing = () => {
               leading-6
               text-gray-500
             ">
-              No photographers match
-              your current search and
-              filter criteria.
+              No photographers match your search.
+              Try a different name, specialization, or location.
             </p>
 
 
-            <button
-              type="button"
-              onClick={
-                clearFilters
-              }
-              className="
-                mt-5
-                text-sm
-                font-semibold
-                text-orange-600
-                hover:text-orange-700
-              "
-            >
-              Clear filters
-            </button>
-
           </div>
 
-        ) : (
+          ) : (
 
-          /* ================================
-              PHOTOGRAPHER GRID
-          ================================ */
+            /* ================================
+                PHOTOGRAPHER GRID
+            ================================ */
 
-          <div className="
-            mt-7
-            grid
-            gap-5
-            md:grid-cols-2
-            xl:grid-cols-3
-          ">
+            <div>
 
-            {photographers.map(
-              (photographer) => (
+              <div className="
+                mt-7
+                grid
+                gap-5
+                md:grid-cols-2
+                xl:grid-cols-3
+              ">
+
+                {paginatedPhotographers.map(
+                  (photographer) => (
 
                 <article
                   key={
@@ -1291,6 +923,107 @@ const PhotographerListing = () => {
                 </article>
 
               )
+              )}
+
+            </div>
+
+
+            {totalPages > 1 && (
+
+              <div className="
+                mt-8
+                flex
+                items-center
+                justify-center
+                gap-3
+              ">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage(
+                      Math.max(
+                        safeCurrentPage - 1,
+                        1
+                      )
+                    )
+                  }
+                  disabled={
+                    safeCurrentPage === 1
+                  }
+                  className="
+                    rounded-lg
+                    border
+                    border-gray-200
+                    bg-white
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    text-gray-700
+                    transition
+                    hover:bg-gray-50
+                    disabled:cursor-not-allowed
+                    disabled:opacity-40
+                  "
+                >
+                  Previous
+                </button>
+
+
+                <span className="
+                  text-sm
+                  text-gray-500
+                ">
+                  Page{" "}
+
+                  <span className="
+                    font-semibold
+                    text-gray-900
+                  ">
+                    {safeCurrentPage}
+                  </span>
+
+                  {" "}of{" "}
+                  {totalPages}
+                </span>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage(
+                      Math.min(
+                        safeCurrentPage + 1,
+                        totalPages
+                      )
+                    )
+                  }
+                  disabled={
+                    safeCurrentPage ===
+                    totalPages
+                  }
+                  className="
+                    rounded-lg
+                    border
+                    border-gray-200
+                    bg-white
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    text-gray-700
+                    transition
+                    hover:bg-gray-50
+                    disabled:cursor-not-allowed
+                    disabled:opacity-40
+                  "
+                >
+                  Next
+                </button>
+
+              </div>
+
             )}
 
           </div>
