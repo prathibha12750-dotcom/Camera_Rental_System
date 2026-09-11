@@ -23,7 +23,7 @@ const AdminLayout = () => {
         {/* Sidebar */}
         <aside className="hidden w-64 shrink-0 bg-gray-950 text-white md:block">
           <div className="sticky top-0 flex h-screen flex-col">
-
+ 
             {/* Logo / Brand */}
             <div className="border-b border-gray-800 px-6 py-6">
               <Link to="/admin">

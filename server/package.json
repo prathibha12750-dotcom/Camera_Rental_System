@@ -2,11 +2,11 @@
   "name": "camera-rental-backend",
   "version": "1.0.0",
   "description": "Backend for Camera Equipment Rental and Photographer Booking System",
-  "main": "server/src/server.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server/src/server.js",
-    "dev": "nodemon server/src/server.js",
-    "create-admin": "node server/src/seed/createAdmin.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "create-admin": "node src/seed/createAdmin.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
