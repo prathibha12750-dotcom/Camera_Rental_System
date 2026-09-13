@@ -420,6 +420,9 @@ const createBooking = async (
     let selectedPackageId =
       null;
 
+    let selectedPackage =
+      null;
+
 
     if (packageRateId) {
 
@@ -436,7 +439,7 @@ const createBooking = async (
       }
 
 
-      const selectedPackage =
+      selectedPackage =
         photographer.packageRates.id(
           packageRateId
         );
@@ -453,6 +456,87 @@ const createBooking = async (
 
       selectedPackageId =
         selectedPackage._id;
+    }
+
+    // --------------------------------------
+    // Calculate booking price
+    // --------------------------------------
+
+    const startMinutes =
+      timeToMinutes(startTime);
+
+    const endMinutes =
+      timeToMinutes(endTime);
+
+    const durationHours =
+      (endMinutes - startMinutes) /
+      60;
+
+
+    let pricingType;
+
+    let hourlyRateAtBooking =
+      null;
+
+    let packageNameAtBooking =
+      null;
+
+    let packagePriceAtBooking =
+      null;
+
+    let totalAmount;
+
+
+    if (selectedPackage) {
+
+      // Package pricing:
+      // fixed package price
+
+      pricingType =
+        "PACKAGE";
+
+      packageNameAtBooking =
+        selectedPackage.name;
+
+      packagePriceAtBooking =
+        Number(
+          selectedPackage.price
+        );
+
+      totalAmount =
+        packagePriceAtBooking;
+
+    } else {
+
+      // Hourly pricing:
+      // hourly rate × duration
+
+      pricingType =
+        "HOURLY";
+
+      hourlyRateAtBooking =
+        Number(
+          photographer.hourlyRate
+        );
+
+
+      if (
+        !Number.isFinite(
+          hourlyRateAtBooking
+        ) ||
+        hourlyRateAtBooking < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Photographer hourly rate is not available",
+        });
+      }
+
+
+      totalAmount =
+        hourlyRateAtBooking *
+        durationHours;
     }
 
 
@@ -514,6 +598,7 @@ const createBooking = async (
 
     const booking =
       await Booking.create({
+
         customer:
           customer._id,
 
@@ -524,10 +609,23 @@ const createBooking = async (
           normalizedDate,
 
         startTime,
+
         endTime,
 
         packageRateId:
           selectedPackageId,
+
+        pricingType,
+
+        durationHours,
+
+        hourlyRateAtBooking,
+
+        packageNameAtBooking,
+
+        packagePriceAtBooking,
+
+        totalAmount,
 
         notes:
           notes?.trim() || "",

@@ -92,6 +92,49 @@ const bookingSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ----------------------------------------
+    // Pricing information
+    // ----------------------------------------
+
+    pricingType: {
+      type: String,
+      enum: [
+        "HOURLY",
+        "PACKAGE",
+      ],
+      required: true,
+    },
+
+    durationHours: {
+      type: Number,
+      min: 0,
+      required: true,
+    },
+
+    hourlyRateAtBooking: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    packageNameAtBooking: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    packagePriceAtBooking: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    totalAmount: {
+      type: Number,
+      min: 0,
+      required: true,
+    },
+
 
     // ----------------------------------------
     // Booking notes

@@ -665,6 +665,46 @@ const PhotographerBooking = () => {
         formData.packageRateId
     );
 
+    // ==========================================
+    // BOOKING PRICE CALCULATION
+    // ==========================================
+
+    const bookingDurationHours =
+      formData.startTime &&
+      formData.endTime &&
+      selectedTimeIsValid
+        ? (
+            timeToMinutes(
+              formData.endTime
+            ) -
+            timeToMinutes(
+              formData.startTime
+            )
+          ) / 60
+        : 0;
+
+
+    const hourlyRate =
+      Number(
+        photographer?.hourlyRate || 0
+      );
+
+
+    const hourlyTotalAmount =
+      bookingDurationHours > 0 &&
+      hourlyRate > 0
+        ? bookingDurationHours *
+          hourlyRate
+        : 0;
+
+
+    const totalAmount =
+      selectedPackage
+        ? Number(
+            selectedPackage.price || 0
+          )
+        : hourlyTotalAmount;
+
 
   // ==========================================
   // CALENDAR DATA
@@ -2688,7 +2728,6 @@ const PhotographerBooking = () => {
 
                   </div>
 
-
                   {/* PRICING */}
 
                   <div className="py-4">
@@ -2707,36 +2746,189 @@ const PhotographerBooking = () => {
                     <dd className="
                       mt-1
                       text-sm
-                      font-medium
-                      text-gray-700
+                      font-semibold
+                      text-gray-950
                     ">
-
                       {selectedPackage
                         ? selectedPackage.name
                         : "Hourly rate"}
+                    </dd>
+
+
+                    {selectedPackage ? (
+
+                      /* ============================
+                        PACKAGE PRICING
+                      ============================ */
+
+                      <div className="
+                        mt-3
+                        space-y-2
+                      ">
+
+                        <div className="
+                          flex
+                          items-center
+                          justify-between
+                          gap-4
+                          text-sm
+                        ">
+
+                          <span className="
+                            text-gray-500
+                          ">
+                            Package Price
+                          </span>
+
+                          <span className="
+                            font-semibold
+                            text-gray-950
+                          ">
+                            LKR{" "}
+                            {Number(
+                              selectedPackage.price
+                            ).toLocaleString()}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    ) : (
+
+                      /* ============================
+                        HOURLY PRICING
+                      ============================ */
+
+                      <div className="
+                        mt-3
+                        space-y-2
+                      ">
+
+                        <div className="
+                          flex
+                          items-center
+                          justify-between
+                          gap-4
+                          text-sm
+                        ">
+
+                          <span className="
+                            text-gray-500
+                          ">
+                            Hourly Rate
+                          </span>
+
+                          <span className="
+                            font-semibold
+                            text-gray-950
+                          ">
+                            {photographer.hourlyRate !==
+                              null &&
+                            photographer.hourlyRate !==
+                              undefined
+                              ? `LKR ${Number(
+                                  photographer.hourlyRate
+                                ).toLocaleString()}`
+                              : "Not specified"}
+                          </span>
+
+                        </div>
+
+
+                        <div className="
+                          flex
+                          items-center
+                          justify-between
+                          gap-4
+                          text-sm
+                        ">
+
+                          <span className="
+                            text-gray-500
+                          ">
+                            Duration
+                          </span>
+
+                          <span className="
+                            font-semibold
+                            text-gray-950
+                          ">
+                            {bookingDurationHours > 0
+                              ? `${bookingDurationHours} ${
+                                  bookingDurationHours ===
+                                  1
+                                    ? "hour"
+                                    : "hours"
+                                }`
+                              : "Select booking time"}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+
+                  {/* TOTAL AMOUNT */}
+
+                  <div className="py-4">
+
+                    <dt className="
+                      text-xs
+                      font-medium
+                      uppercase
+                      tracking-wide
+                      text-gray-400
+                    ">
+                      Total Amount
+                    </dt>
+
+
+                    <dd className="
+                      mt-2
+                      text-xl
+                      font-bold
+                      text-orange-600
+                    ">
+
+                      {selectedPackage ? (
+
+                        `LKR ${totalAmount.toLocaleString()}`
+
+                      ) : bookingDurationHours > 0 &&
+                        hourlyRate > 0 ? (
+
+                        `LKR ${totalAmount.toLocaleString()}`
+
+                      ) : (
+
+                        <span className="
+                          text-sm
+                          font-medium
+                          text-gray-400
+                        ">
+                          Select booking time
+                        </span>
+
+                      )}
 
                     </dd>
 
 
                     <p className="
                       mt-1
-                      text-sm
-                      font-semibold
-                      text-gray-950
+                      text-xs
+                      leading-5
+                      text-gray-500
                     ">
 
                       {selectedPackage
-                        ? `LKR ${Number(
-                            selectedPackage.price
-                          ).toLocaleString()}`
-                        : photographer.hourlyRate !==
-                              null &&
-                            photographer.hourlyRate !==
-                              undefined
-                          ? `LKR ${Number(
-                              photographer.hourlyRate
-                            ).toLocaleString()} / hr`
-                          : "Rate not specified"}
+                        ? "Fixed price for the selected package."
+                        : "Calculated using hourly rate × booking duration."}
 
                     </p>
 
