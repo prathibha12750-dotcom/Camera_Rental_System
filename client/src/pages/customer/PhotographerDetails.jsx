@@ -80,6 +80,33 @@ const PhotographerDetails = () => {
   ] = useState([]);
 
   const [
+    busyPeriods,
+    setBusyPeriods,
+  ] = useState([]);
+
+  // ==========================================
+  // CUSTOMER AVAILABILITY CALENDAR
+  // ==========================================
+
+  const [
+    calendarMonth,
+    setCalendarMonth,
+  ] = useState(() => {
+    const today = new Date();
+
+    return new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1
+    );
+  });
+
+  const [
+    selectedAvailabilityDate,
+    setSelectedAvailabilityDate,
+  ] = useState(null);
+
+  const [
     reviews,
     setReviews,
   ] = useState([]);
@@ -170,6 +197,17 @@ const PhotographerDetails = () => {
               )
                 ? response.data.data
                     .availability
+                : []
+            );
+
+
+            setBusyPeriods(
+              Array.isArray(
+                response.data?.data
+                  ?.busyPeriods
+              )
+                ? response.data.data
+                    .busyPeriods
                 : []
             );
 
@@ -305,30 +343,6 @@ const PhotographerDetails = () => {
   // DATE FORMAT
   // ==========================================
 
-  const formatDate = (
-    value
-  ) => {
-
-    if (!value) {
-      return "";
-    }
-
-
-    return new Date(
-      value
-    ).toLocaleDateString(
-      undefined,
-      {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }
-    );
-
-  };
-
-
   const visiblePortfolio =
     portfolio.slice(
       0,
@@ -340,6 +354,351 @@ const PhotographerDetails = () => {
       0,
       visibleReviewCount
     );
+
+
+  // ==========================================
+  // CALENDAR HELPERS
+  // ==========================================
+
+  const getDateKey = (value) => {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(value);
+
+    const year = date.getFullYear();
+
+    const month = String(
+      date.getMonth() + 1
+    ).padStart(2, "0");
+
+    const day = String(
+      date.getDate()
+    ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+
+  const getLocalDateKey = (
+    year,
+    month,
+    day
+  ) => {
+
+    const monthValue = String(
+      month + 1
+    ).padStart(2, "0");
+
+    const dayValue = String(
+      day
+    ).padStart(2, "0");
+
+    return (
+      `${year}-${monthValue}-${dayValue}`
+    );
+  };
+
+
+  const calendarYear =
+    calendarMonth.getFullYear();
+
+  const calendarMonthIndex =
+    calendarMonth.getMonth();
+
+
+  const daysInCalendarMonth =
+    new Date(
+      calendarYear,
+      calendarMonthIndex + 1,
+      0
+    ).getDate();
+
+
+  const firstDayOfCalendarMonth =
+    new Date(
+      calendarYear,
+      calendarMonthIndex,
+      1
+    ).getDay();
+
+
+  const calendarMonthLabel =
+    calendarMonth.toLocaleDateString(
+      undefined,
+      {
+        month: "long",
+        year: "numeric",
+      }
+    );
+
+    const timeToMinutes = (
+      time
+    ) => {
+
+      if (!time) {
+        return 0;
+      }
+
+      const [
+        hours,
+        minutes,
+      ] = time
+        .split(":")
+        .map(Number);
+
+      return (
+        hours * 60 +
+        minutes
+      );
+    };
+
+  const getRemainingSlots = (
+    availabilitySlot,
+    dateBusyPeriods
+  ) => {
+
+    let remaining = [
+      {
+        startTime:
+          availabilitySlot.startTime,
+
+        endTime:
+          availabilitySlot.endTime,
+
+        sourceId:
+          availabilitySlot._id,
+      },
+    ];
+
+
+    dateBusyPeriods.forEach(
+      (busy) => {
+
+        const busyStart =
+          timeToMinutes(
+            busy.startTime
+          );
+
+        const busyEnd =
+          timeToMinutes(
+            busy.endTime
+          );
+
+
+        const nextRemaining = [];
+
+
+        remaining.forEach(
+          (slot) => {
+
+            const slotStart =
+              timeToMinutes(
+                slot.startTime
+              );
+
+            const slotEnd =
+              timeToMinutes(
+                slot.endTime
+              );
+
+
+            // No overlap
+
+            if (
+              busyEnd <= slotStart ||
+              busyStart >= slotEnd
+            ) {
+
+              nextRemaining.push(
+                slot
+              );
+
+              return;
+            }
+
+
+            // Available time before
+            // the busy period
+
+            if (
+              busyStart >
+              slotStart
+            ) {
+
+              nextRemaining.push({
+                startTime:
+                  slot.startTime,
+
+                endTime:
+                  busy.startTime,
+
+                sourceId:
+                  slot.sourceId,
+              });
+            }
+
+
+            // Available time after
+            // the busy period
+
+            if (
+              busyEnd <
+              slotEnd
+            ) {
+
+              nextRemaining.push({
+                startTime:
+                  busy.endTime,
+
+                endTime:
+                  slot.endTime,
+
+                sourceId:
+                  slot.sourceId,
+              });
+            }
+
+          }
+        );
+
+
+        remaining =
+          nextRemaining;
+
+      }
+    );
+
+
+    return remaining;
+  };
+
+
+const availabilityByDate =
+  availability.reduce(
+    (result, slot) => {
+
+      const dateKey =
+        getDateKey(
+          slot.date
+        );
+
+
+      if (!dateKey) {
+        return result;
+      }
+
+
+      const busyForDate =
+        busyPeriods.filter(
+          (busy) =>
+            getDateKey(
+              busy.date
+            ) === dateKey
+        );
+
+
+      const remainingSlots =
+        getRemainingSlots(
+          slot,
+          busyForDate
+        );
+
+
+      if (
+        remainingSlots.length ===
+        0
+      ) {
+        return result;
+      }
+
+
+      if (!result[dateKey]) {
+        result[dateKey] = [];
+      }
+
+
+      remainingSlots.forEach(
+        (
+          remainingSlot,
+          index
+        ) => {
+
+          result[
+            dateKey
+          ].push({
+            ...remainingSlot,
+
+            _id:
+              `${slot._id}-${index}`,
+          });
+
+        }
+      );
+
+
+      return result;
+
+    },
+    {}
+  );
+
+
+  const selectedSlots =
+    selectedAvailabilityDate
+      ? availabilityByDate[
+          selectedAvailabilityDate
+        ] || []
+      : [];
+
+
+  const goToPreviousMonth = () => {
+
+    const today = new Date();
+
+    const currentMonthStart =
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
+      );
+
+    if (
+      calendarMonth <=
+      currentMonthStart
+    ) {
+      return;
+    }
+
+    setCalendarMonth(
+      new Date(
+        calendarYear,
+        calendarMonthIndex - 1,
+        1
+      )
+    );
+
+    setSelectedAvailabilityDate(
+      null
+    );
+  };
+
+
+  const goToNextMonth = () => {
+
+    setCalendarMonth(
+      new Date(
+        calendarYear,
+        calendarMonthIndex + 1,
+        1
+      )
+    );
+
+    setSelectedAvailabilityDate(
+      null
+    );
+  };
 
 
   // ==========================================
@@ -1310,60 +1669,48 @@ const PhotographerDetails = () => {
 
 
         {/* ==================================
-            AVAILABILITY
+            AVAILABILITY CALENDAR
         ================================== */}
 
         <section className="mt-10">
 
-          <div className="
-            flex
-            flex-col
-            gap-3
-            sm:flex-row
-            sm:items-end
-            sm:justify-between
-          ">
+          <div>
 
-            <div>
-
-              <p className="
-                text-xs
-                font-semibold
-                uppercase
-                tracking-wider
-                text-orange-600
-              ">
-                Schedule
-              </p>
+            <p className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wider
+              text-orange-600
+            ">
+              Schedule
+            </p>
 
 
-              <h2 className="
-                mt-1
-                text-2xl
-                font-bold
-                text-gray-950
-              ">
-                Upcoming Availability
-              </h2>
+            <h2 className="
+              mt-1
+              text-2xl
+              font-bold
+              text-gray-950
+            ">
+              Upcoming Availability
+            </h2>
 
 
-              <p className="
-                mt-2
-                text-sm
-                text-gray-500
-              ">
-                Available dates and
-                time periods currently
-                listed by the photographer.
-              </p>
-
-            </div>
+            <p className="
+              mt-2
+              text-sm
+              text-gray-500
+            ">
+              Select an available date to view
+              the photographer&apos;s available
+              time slots.
+            </p>
 
           </div>
 
 
-          {availability.length ===
-          0 ? (
+          {availability.length === 0 ? (
 
             <div className="
               mt-5
@@ -1382,8 +1729,7 @@ const PhotographerDetails = () => {
                 text-gray-500
               ">
                 This photographer has no
-                upcoming availability
-                listed.
+                upcoming availability listed.
               </p>
 
             </div>
@@ -1393,79 +1739,508 @@ const PhotographerDetails = () => {
             <div className="
               mt-5
               grid
-              gap-3
-              md:grid-cols-2
+              gap-5
+              lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]
             ">
 
-              {availability.map(
-                (slot) => (
+              {/* CALENDAR */}
 
-                  <div
-                    key={slot._id}
+              <div className="
+                rounded-2xl
+                border
+                border-gray-200
+                bg-white
+                p-5
+                shadow-sm
+                sm:p-6
+              ">
+
+                {/* MONTH NAVIGATION */}
+
+                <div className="
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                ">
+
+                  <button
+                    type="button"
+                    onClick={
+                      goToPreviousMonth
+                    }
                     className="
                       flex
+                      h-10
+                      w-10
                       items-center
-                      justify-between
-                      gap-4
-                      rounded-2xl
+                      justify-center
+                      rounded-xl
                       border
                       border-gray-200
-                      bg-white
-                      p-5
-                      shadow-sm
+                      text-lg
+                      text-gray-600
+                      transition
+                      hover:border-orange-300
+                      hover:bg-orange-50
+                      hover:text-orange-700
                     "
+                    aria-label="Previous month"
                   >
+                    ←
+                  </button>
 
-                    <div className="
-                      min-w-0
-                    ">
 
-                      <p className="
+                  <h3 className="
+                    text-base
+                    font-bold
+                    text-gray-950
+                    sm:text-lg
+                  ">
+                    {calendarMonthLabel}
+                  </h3>
+
+
+                  <button
+                    type="button"
+                    onClick={
+                      goToNextMonth
+                    }
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      items-center
+                      justify-center
+                      rounded-xl
+                      border
+                      border-gray-200
+                      text-lg
+                      text-gray-600
+                      transition
+                      hover:border-orange-300
+                      hover:bg-orange-50
+                      hover:text-orange-700
+                    "
+                    aria-label="Next month"
+                  >
+                    →
+                  </button>
+
+                </div>
+
+
+                {/* WEEKDAY HEADINGS */}
+
+                <div className="
+                  mt-6
+                  grid
+                  grid-cols-7
+                  gap-1
+                ">
+
+                  {[
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                  ].map((day) => (
+
+                    <div
+                      key={day}
+                      className="
+                        py-2
+                        text-center
+                        text-xs
                         font-semibold
-                        text-gray-950
-                      ">
-                        {formatDate(
-                          slot.date
-                        )}
-                      </p>
-
-
-                      <p className="
-                        mt-1
-                        text-sm
-                        text-gray-500
-                      ">
-
-                        {slot.startTime}
-
-                        {" — "}
-
-                        {slot.endTime}
-
-                      </p>
-
+                        text-gray-400
+                      "
+                    >
+                      {day}
                     </div>
 
+                  ))}
+
+                </div>
+
+
+                {/* CALENDAR DAYS */}
+
+                <div className="
+                  grid
+                  grid-cols-7
+                  gap-1
+                ">
+
+                  {Array.from({
+                    length:
+                      firstDayOfCalendarMonth,
+                  }).map((_, index) => (
+
+                    <div
+                      key={`empty-${index}`}
+                      className="aspect-square"
+                    />
+
+                  ))}
+
+
+                  {Array.from({
+                    length:
+                      daysInCalendarMonth,
+                  }).map((_, index) => {
+
+                    const day =
+                      index + 1;
+
+                    const dateKey =
+                      getLocalDateKey(
+                        calendarYear,
+                        calendarMonthIndex,
+                        day
+                      );
+
+                    const daySlots =
+                      availabilityByDate[
+                        dateKey
+                      ] || [];
+
+                    const isAvailable =
+                      daySlots.length > 0;
+
+                    const isSelected =
+                      selectedAvailabilityDate ===
+                      dateKey;
+
+                    const today =
+                      new Date();
+
+                    const dateValue =
+                      new Date(
+                        calendarYear,
+                        calendarMonthIndex,
+                        day
+                      );
+
+                    const todayStart =
+                      new Date(
+                        today.getFullYear(),
+                        today.getMonth(),
+                        today.getDate()
+                      );
+
+                    const isPast =
+                      dateValue <
+                      todayStart;
+
+
+                    return (
+
+                      <button
+                        key={dateKey}
+                        type="button"
+                        disabled={
+                          !isAvailable ||
+                          isPast
+                        }
+                        onClick={() =>
+                          setSelectedAvailabilityDate(
+                            dateKey
+                          )
+                        }
+                        className={`
+                          relative
+                          flex
+                          aspect-square
+                          items-center
+                          justify-center
+                          rounded-xl
+                          text-sm
+                          font-medium
+                          transition
+
+                          ${
+                            isSelected
+                              ? "bg-orange-600 text-white shadow-sm"
+                              : isAvailable &&
+                                !isPast
+                              ? "bg-green-50 text-green-700 hover:bg-green-100"
+                              : "text-gray-400"
+                          }
+
+                          ${
+                            !isAvailable ||
+                            isPast
+                              ? "cursor-default"
+                              : "cursor-pointer"
+                          }
+                        `}
+                      >
+
+                        {day}
+
+
+                        {isAvailable &&
+                          !isPast &&
+                          !isSelected && (
+
+                          <span className="
+                            absolute
+                            bottom-1.5
+                            h-1.5
+                            w-1.5
+                            rounded-full
+                            bg-green-500
+                          " />
+
+                        )}
+
+                      </button>
+
+                    );
+
+                  })}
+
+                </div>
+
+
+                {/* LEGEND */}
+
+                <div className="
+                  mt-5
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-4
+                  border-t
+                  border-gray-100
+                  pt-4
+                ">
+
+                  <div className="
+                    flex
+                    items-center
+                    gap-2
+                    text-xs
+                    text-gray-500
+                  ">
 
                     <span className="
-                      shrink-0
+                      h-3
+                      w-3
                       rounded-full
-                      border
-                      border-green-200
-                      bg-green-50
-                      px-3
-                      py-1.5
-                      text-xs
-                      font-semibold
-                      text-green-700
-                    ">
-                      Available
-                    </span>
+                      bg-green-100
+                      ring-1
+                      ring-green-300
+                    " />
+
+                    Available
 
                   </div>
 
-                )
-              )}
+
+                  <div className="
+                    flex
+                    items-center
+                    gap-2
+                    text-xs
+                    text-gray-500
+                  ">
+
+                    <span className="
+                      h-3
+                      w-3
+                      rounded-full
+                      bg-orange-600
+                    " />
+
+                    Selected
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* SELECTED DATE / TIME SLOTS */}
+
+              <div className="
+                rounded-2xl
+                border
+                border-gray-200
+                bg-white
+                p-5
+                shadow-sm
+                sm:p-6
+              ">
+
+                <p className="
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wider
+                  text-orange-600
+                ">
+                  Available Times
+                </p>
+
+
+                {!selectedAvailabilityDate ? (
+
+                  <div className="
+                    mt-5
+                    rounded-xl
+                    border
+                    border-dashed
+                    border-gray-200
+                    bg-gray-50
+                    px-5
+                    py-8
+                    text-center
+                  ">
+
+                    <p className="
+                      text-sm
+                      font-medium
+                      text-gray-700
+                    ">
+                      Select an available date
+                    </p>
+
+                    <p className="
+                      mt-2
+                      text-xs
+                      leading-5
+                      text-gray-500
+                    ">
+                      Dates highlighted in green
+                      have available photography
+                      time slots.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  <>
+
+                    <h3 className="
+                      mt-2
+                      text-lg
+                      font-bold
+                      text-gray-950
+                    ">
+
+                      {new Date(
+                        `${selectedAvailabilityDate}T00:00:00`
+                      ).toLocaleDateString(
+                        undefined,
+                        {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
+
+                    </h3>
+
+
+                    <div className="
+                      mt-5
+                      space-y-3
+                    ">
+
+                      {selectedSlots.map(
+                        (slot, index) => (
+                          <div
+                            key={
+                              slot._id ||
+                              `${slot.startTime}-${slot.endTime}-${index}`
+                            }
+                            className="
+                              flex
+                              flex-col
+                              gap-3
+                              rounded-xl
+                              border
+                              border-green-200
+                              bg-green-50
+                              p-4
+                              sm:flex-row
+                              sm:items-center
+                              sm:justify-between
+                            "
+                          >
+                            <div>
+                              <p className="
+                                text-xs
+                                font-semibold
+                                uppercase
+                                tracking-wide
+                                text-green-600
+                              ">
+                                Available
+                              </p>
+
+                              <p className="
+                                mt-1
+                                text-sm
+                                font-semibold
+                                text-green-900
+                              ">
+                                {slot.startTime}
+                                {" — "}
+                                {slot.endTime}
+                              </p>
+                            </div>
+
+                            <Link
+                              to={bookingLink}
+                              state={{
+                                preselectedBooking: {
+                                  date:
+                                    selectedAvailabilityDate,
+
+                                  startTime:
+                                    slot.startTime,
+
+                                  endTime:
+                                    slot.endTime,
+                                },
+                              }}
+                              className="
+                                inline-flex
+                                items-center
+                                justify-center
+                                rounded-lg
+                                bg-gray-950
+                                px-4
+                                py-2.5
+                                text-sm
+                                font-semibold
+                                text-white
+                                transition
+                                hover:bg-orange-600
+                              "
+                            >
+                              Book This Slot
+                            </Link>
+                          </div>
+                        )
+                      )}
+
+                    </div>
+
+                  </>
+
+                )}
+
+              </div>
 
             </div>
 

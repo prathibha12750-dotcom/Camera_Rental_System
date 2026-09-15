@@ -6,6 +6,7 @@ import {
 
 import {
   Link,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -37,7 +38,13 @@ const minutesToTime = (totalMinutes) => {
   const minutes =
     totalMinutes % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return `${String(hours).padStart(
+    2,
+    "0"
+  )}:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
 };
 
 
@@ -92,6 +99,7 @@ const getFreePeriods = (
         {
           startTime:
             availablePeriod.startTime,
+
           endTime:
             availablePeriod.endTime,
         },
@@ -121,28 +129,41 @@ const getFreePeriods = (
                   segment.endTime
                 );
 
+              // No overlap.
               if (
-                blockedEnd <= segmentStart ||
-                blockedStart >= segmentEnd
+                blockedEnd <=
+                  segmentStart ||
+                blockedStart >=
+                  segmentEnd
               ) {
                 return [segment];
               }
 
               const remaining = [];
 
-              if (blockedStart > segmentStart) {
+              // Free time before busy period.
+              if (
+                blockedStart >
+                segmentStart
+              ) {
                 remaining.push({
                   startTime:
                     segment.startTime,
+
                   endTime:
                     blockedPeriod.startTime,
                 });
               }
 
-              if (blockedEnd < segmentEnd) {
+              // Free time after busy period.
+              if (
+                blockedEnd <
+                segmentEnd
+              ) {
                 remaining.push({
                   startTime:
                     blockedPeriod.endTime,
+
                   endTime:
                     segment.endTime,
                 });
@@ -168,13 +189,35 @@ const getFreePeriods = (
 };
 
 
+// ==========================================
+// COMPONENT
+// ==========================================
+
 const PhotographerBooking = () => {
 
-  const { id } = useParams();
+  const { id } =
+    useParams();
+
+  const location =
+    useLocation();
 
   const navigate =
     useNavigate();
 
+
+  // ==========================================
+  // PRESELECTED SLOT FROM DETAILS PAGE
+  // ==========================================
+
+  const preselectedBooking =
+    location.state
+      ?.preselectedBooking ||
+    null;
+
+
+  // ==========================================
+  // STATE
+  // ==========================================
 
   const [
     photographer,
@@ -194,34 +237,87 @@ const PhotographerBooking = () => {
   ] = useState([]);
 
 
+  /*
+   * If the customer came from
+   * "Book This Slot", use that date
+   * immediately.
+   *
+   * Otherwise start with no selected date.
+   */
   const [
     selectedDate,
     setSelectedDate,
-  ] = useState("");
+  ] = useState(
+    () =>
+      preselectedBooking?.date ||
+      ""
+  );
 
 
+  /*
+   * Pre-fill the booking date/start/end
+   * when a slot was selected on the
+   * photographer details page.
+   *
+   * These values remain editable.
+   */
   const [
     formData,
     setFormData,
-  ] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
+  ] = useState(() => ({
+    date:
+      preselectedBooking?.date ||
+      "",
+
+    startTime:
+      preselectedBooking?.startTime ||
+      "",
+
+    endTime:
+      preselectedBooking?.endTime ||
+      "",
+
     packageRateId: "",
+
     notes: "",
-  });
+  }));
 
 
+  /*
+   * If a date was passed from the
+   * photographer details page, open the
+   * calendar on that month immediately.
+   */
   const [
     currentMonth,
     setCurrentMonth,
-  ] = useState(
-    new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
+  ] = useState(() => {
+
+    if (
+      preselectedBooking?.date
+    ) {
+      const selected =
+        new Date(
+          `${preselectedBooking.date}T00:00:00`
+        );
+
+      return new Date(
+        selected.getFullYear(),
+        selected.getMonth(),
+        1
+      );
+    }
+
+
+    const today =
+      new Date();
+
+    return new Date(
+      today.getFullYear(),
+      today.getMonth(),
       1
-    )
-  );
+    );
+  });
 
 
   const [
@@ -306,13 +402,19 @@ const PhotographerBooking = () => {
 
 
             /*
-             * Start the calendar on the month
-             * containing the first available
-             * date when one exists.
+             * Normal booking flow:
+             * start calendar on first
+             * available month.
+             *
+             * Book This Slot flow:
+             * keep the month that was
+             * initialized from the selected
+             * booking date.
              */
             if (
+              !preselectedBooking?.date &&
               loadedAvailability.length >
-              0
+                0
             ) {
 
               const firstDate =
@@ -347,7 +449,7 @@ const PhotographerBooking = () => {
             setError(
               err.response?.data
                 ?.message ||
-                "Failed to load photographer."
+              "Failed to load photographer."
             );
 
           }
@@ -370,7 +472,10 @@ const PhotographerBooking = () => {
       ignore = true;
     };
 
-  }, [id]);
+  }, [
+    id,
+    preselectedBooking?.date,
+  ]);
 
 
   // ==========================================
@@ -489,58 +594,81 @@ const PhotographerBooking = () => {
 
 
   // ==========================================
-  // BUSY / FREE PERIODS BY DATE
+  // BUSY PERIODS BY DATE
   // ==========================================
 
   const busyPeriodsByDate =
     useMemo(() => {
+
       const grouped = {};
+
 
       busyPeriods.forEach(
         (period) => {
+
           const key =
             toDateKey(
               period.date
             );
 
+
           if (!grouped[key]) {
             grouped[key] = [];
           }
 
+
           grouped[key].push(
             period
           );
+
         }
       );
 
+
       return grouped;
+
     }, [busyPeriods]);
 
 
+  // ==========================================
+  // FREE PERIODS BY DATE
+  // ==========================================
+
   const freePeriodsByDate =
     useMemo(() => {
+
       const freeByDate = {};
+
 
       Object.entries(
         availabilityByDate
       ).forEach(
         ([dateKey, periods]) => {
+
           freeByDate[dateKey] =
             getFreePeriods(
               periods,
+
               busyPeriodsByDate[
                 dateKey
               ] || []
             );
+
         }
       );
 
+
       return freeByDate;
+
     }, [
       availabilityByDate,
       busyPeriodsByDate,
     ]);
 
+
+  // ==========================================
+  // SELECTED DATE FREE PERIODS
+  // ==========================================
 
   const selectedDateFreePeriods =
     useMemo(() => {
@@ -548,6 +676,7 @@ const PhotographerBooking = () => {
       if (!selectedDate) {
         return [];
       }
+
 
       return (
         freePeriodsByDate[
@@ -561,8 +690,13 @@ const PhotographerBooking = () => {
     ]);
 
 
+  // ==========================================
+  // START TIME OPTIONS
+  // ==========================================
+
   const startTimeOptions =
     useMemo(() => {
+
       const options =
         selectedDateFreePeriods.flatMap(
           (period) =>
@@ -572,9 +706,19 @@ const PhotographerBooking = () => {
             )
         );
 
-      return [...new Set(options)].sort();
-    }, [selectedDateFreePeriods]);
 
+      return [
+        ...new Set(options),
+      ].sort();
+
+    }, [
+      selectedDateFreePeriods,
+    ]);
+
+
+  // ==========================================
+  // ACTIVE FREE PERIOD
+  // ==========================================
 
   const activeFreePeriod =
     formData.startTime
@@ -588,8 +732,13 @@ const PhotographerBooking = () => {
       : null;
 
 
+  // ==========================================
+  // END TIME OPTIONS
+  // ==========================================
+
   const endTimeOptions =
     useMemo(() => {
+
       if (
         !formData.startTime ||
         !activeFreePeriod
@@ -597,46 +746,71 @@ const PhotographerBooking = () => {
         return [];
       }
 
+
       const startMinutes =
         timeToMinutes(
           formData.startTime
         );
+
 
       const periodEndMinutes =
         timeToMinutes(
           activeFreePeriod.endTime
         );
 
+
       const options = [];
+
 
       for (
         let minute =
           startMinutes + 30;
-        minute <= periodEndMinutes;
+
+        minute <=
+          periodEndMinutes;
+
         minute += 30
       ) {
+
         options.push(
           minutesToTime(minute)
         );
+
       }
 
+
+      /*
+       * Preserve exact end boundary
+       * even when it is not on a
+       * 30-minute increment.
+       */
       if (
         periodEndMinutes >
           startMinutes &&
-        options[options.length - 1] !==
+        options[
+          options.length - 1
+        ] !==
           activeFreePeriod.endTime
       ) {
+
         options.push(
           activeFreePeriod.endTime
         );
+
       }
 
+
       return options;
+
     }, [
       activeFreePeriod,
       formData.startTime,
     ]);
 
+
+  // ==========================================
+  // VALIDATE SELECTED TIME
+  // ==========================================
 
   const selectedTimeIsValid =
     Boolean(
@@ -665,45 +839,48 @@ const PhotographerBooking = () => {
         formData.packageRateId
     );
 
-    // ==========================================
-    // BOOKING PRICE CALCULATION
-    // ==========================================
 
-    const bookingDurationHours =
-      formData.startTime &&
-      formData.endTime &&
-      selectedTimeIsValid
-        ? (
-            timeToMinutes(
-              formData.endTime
-            ) -
-            timeToMinutes(
-              formData.startTime
-            )
-          ) / 60
-        : 0;
+  // ==========================================
+  // BOOKING PRICE CALCULATION
+  // ==========================================
 
-
-    const hourlyRate =
-      Number(
-        photographer?.hourlyRate || 0
-      );
-
-
-    const hourlyTotalAmount =
-      bookingDurationHours > 0 &&
-      hourlyRate > 0
-        ? bookingDurationHours *
-          hourlyRate
-        : 0;
-
-
-    const totalAmount =
-      selectedPackage
-        ? Number(
-            selectedPackage.price || 0
+  const bookingDurationHours =
+    formData.startTime &&
+    formData.endTime &&
+    selectedTimeIsValid
+      ? (
+          timeToMinutes(
+            formData.endTime
+          ) -
+          timeToMinutes(
+            formData.startTime
           )
-        : hourlyTotalAmount;
+        ) / 60
+      : 0;
+
+
+  const hourlyRate =
+    Number(
+      photographer?.hourlyRate ||
+        0
+    );
+
+
+  const hourlyTotalAmount =
+    bookingDurationHours > 0 &&
+    hourlyRate > 0
+      ? bookingDurationHours *
+        hourlyRate
+      : 0;
+
+
+  const totalAmount =
+    selectedPackage
+      ? Number(
+          selectedPackage.price ||
+            0
+        )
+      : hourlyTotalAmount;
 
 
   // ==========================================
@@ -835,6 +1012,10 @@ const PhotographerBooking = () => {
     );
 
 
+    /*
+     * If the customer manually changes
+     * the date, clear the old times.
+     */
     setFormData(
       (previous) => ({
         ...previous,
@@ -861,29 +1042,50 @@ const PhotographerBooking = () => {
   const handleStartTimeChange = (
     event
   ) => {
+
     const value =
       event.target.value;
 
-    setFormData((previous) => ({
-      ...previous,
-      startTime: value,
-      endTime: "",
-    }));
+
+    /*
+     * Changing the start time clears
+     * the old end time because its
+     * validity depends on the new
+     * start time.
+     */
+    setFormData(
+      (previous) => ({
+        ...previous,
+
+        startTime:
+          value,
+
+        endTime: "",
+      })
+    );
+
 
     setError("");
+
   };
 
 
   const handleEndTimeChange = (
     event
   ) => {
-    setFormData((previous) => ({
-      ...previous,
-      endTime:
-        event.target.value,
-    }));
+
+    setFormData(
+      (previous) => ({
+        ...previous,
+
+        endTime:
+          event.target.value,
+      })
+    );
+
 
     setError("");
+
   };
 
 
@@ -1024,7 +1226,7 @@ const PhotographerBooking = () => {
         setError(
           err.response?.data
             ?.message ||
-            "Failed to create booking request."
+          "Failed to create booking request."
         );
 
       } finally {

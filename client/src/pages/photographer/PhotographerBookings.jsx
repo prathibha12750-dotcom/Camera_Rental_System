@@ -1144,6 +1144,141 @@ const PhotographerBookings = () => {
 
               </div>
 
+              {/* BOOKING DETAILS */}
+
+              <div className="
+                mt-4
+                rounded-xl
+                border
+                border-gray-200
+                bg-gray-50
+                p-4
+              ">
+                <p className="
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-gray-400
+                ">
+                  Booking Details
+                </p>
+
+                <div className="
+                  mt-3
+                  grid
+                  gap-4
+                  sm:grid-cols-2
+                ">
+
+                  {/* PRICING TYPE */}
+
+                  <div>
+                    <p className="
+                      text-xs
+                      text-gray-500
+                    ">
+                      Pricing
+                    </p>
+
+                    <p className="
+                      mt-1
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                    ">
+                      {booking.pricingType === "PACKAGE"
+                        ? "Package"
+                        : "Hourly Rate"}
+                    </p>
+                  </div>
+
+
+                  {/* PACKAGE OR HOURLY RATE */}
+
+                  <div>
+                    <p className="
+                      text-xs
+                      text-gray-500
+                    ">
+                      {booking.pricingType === "PACKAGE"
+                        ? "Package"
+                        : "Hourly Rate"}
+                    </p>
+
+                    <p className="
+                      mt-1
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                    ">
+                      {booking.pricingType === "PACKAGE"
+                        ? booking.packageNameAtBooking ||
+                          "Photography Package"
+                        : booking.hourlyRateAtBooking != null
+                          ? `LKR ${Number(
+                              booking.hourlyRateAtBooking
+                            ).toLocaleString()} / hour`
+                          : "Not available"}
+                    </p>
+                  </div>
+
+
+                  {/* DURATION */}
+
+                  <div>
+                    <p className="
+                      text-xs
+                      text-gray-500
+                    ">
+                      Duration
+                    </p>
+
+                    <p className="
+                      mt-1
+                      text-sm
+                      font-semibold
+                      text-gray-900
+                    ">
+                      {booking.durationHours != null
+                        ? `${booking.durationHours} ${
+                            Number(
+                              booking.durationHours
+                            ) === 1
+                              ? "hour"
+                              : "hours"
+                          }`
+                        : "Not available"}
+                    </p>
+                  </div>
+
+
+                  {/* TOTAL AMOUNT */}
+
+                  <div>
+                    <p className="
+                      text-xs
+                      text-gray-500
+                    ">
+                      Total Amount
+                    </p>
+
+                    <p className="
+                      mt-1
+                      text-sm
+                      font-bold
+                      text-gray-950
+                    ">
+                      {booking.totalAmount != null
+                        ? `LKR ${Number(
+                            booking.totalAmount
+                          ).toLocaleString()}`
+                        : "Not available"}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
 
               {booking.notes && (
 
@@ -2281,11 +2416,19 @@ const PhotographerBookings = () => {
                               font-semibold
                               text-gray-950
                             ">
-                              {
-                                booking.customer
-                                  ?.name ||
-                                "Customer"
-                              }
+                              {booking.customer?.name ||
+                                "Customer"}
+                            </p>
+
+                            <p className="
+                              mt-1
+                              text-sm
+                              text-gray-600
+                            ">
+                              {booking.pricingType === "PACKAGE"
+                                ? booking.packageNameAtBooking ||
+                                  "Photography Package"
+                                : "Hourly Booking"}
                             </p>
 
                             <p className="
@@ -2412,11 +2555,19 @@ const PhotographerBookings = () => {
                               font-semibold
                               text-gray-950
                             ">
-                              {
-                                booking.customer
-                                  ?.name ||
-                                "Customer"
-                              }
+                              {booking.customer?.name ||
+                                "Customer"}
+                            </p>
+
+                            <p className="
+                              mt-1
+                              text-sm
+                              text-gray-600
+                            ">
+                              {booking.pricingType === "PACKAGE"
+                                ? booking.packageNameAtBooking ||
+                                  "Photography Package"
+                                : "Hourly Booking"}
                             </p>
 
                             <p className="
