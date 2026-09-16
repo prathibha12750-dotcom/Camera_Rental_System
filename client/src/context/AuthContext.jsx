@@ -99,6 +99,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ========================================
+  // UPDATE CURRENT USER IN AUTH STATE
+  // ========================================
+
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
+  // ========================================
   // CONTEXT VALUE
   // ========================================
 
@@ -109,6 +117,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUser,
   };
 
   // ========================================

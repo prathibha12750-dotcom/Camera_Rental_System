@@ -2,6 +2,9 @@ const express = require("express");
 
 const {
   createPhotographer,
+  getPhotographerApplications,
+  getPhotographerApplicationById,
+  reviewPhotographerApplication,
 } = require("../controllers/adminController");
 
 const authenticate = require("../middleware/authenticate");
@@ -37,6 +40,40 @@ router.post(
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   createPhotographer
+);
+
+
+// ==========================================
+// PHOTOGRAPHER APPLICATIONS
+// ==========================================
+
+router.get(
+  "/photographer-applications",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  getPhotographerApplications
+);
+
+
+router.get(
+  "/photographer-applications/:id",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  getPhotographerApplicationById
+);
+
+
+router.patch(
+  "/photographer-applications/:id/status",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  reviewPhotographerApplication
 );
 
 

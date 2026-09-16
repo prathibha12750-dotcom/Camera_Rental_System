@@ -5,6 +5,7 @@ const {
   login,
   logout,
   getCurrentUser,
+  changeTemporaryPassword,
 } = require("../controllers/authController");
 
 const authenticate = require("../middleware/authenticate");
@@ -20,6 +21,9 @@ router.post("/login", login);
 // Protected routes
 router.post("/logout", authenticate, logout);
 router.get("/me", authenticate, getCurrentUser);
+
+
+router.put("/change-temporary-password", authenticate, changeTemporaryPassword);
 
 
 module.exports = router;
