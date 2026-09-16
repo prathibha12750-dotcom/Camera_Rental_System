@@ -4,7 +4,7 @@ const User = require("../models/User");
 const Photographer = require("../models/Photographer");
 const Availability = require("../models/Availability");
 const Booking = require("../models/Booking");
-const Notification = require("../models/Notification");
+const PhotographerNotification = require("../models/photographerNotification");
 
 // ==========================================
 // HELPERS
@@ -16,10 +16,10 @@ const createNotification =
     type,
     title,
     message,
-    relatedBooking = null,
+    relatedBooking = null, 
   }) => {
     try {
-      await Notification.create({
+      await PhotographerNotification.create({
         user,
         type,
         title,

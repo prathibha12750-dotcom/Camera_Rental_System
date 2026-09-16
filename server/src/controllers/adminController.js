@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const Photographer = require("../models/Photographer");
 const PhotographerApplication = require("../models/PhotographerApplication");
-const Notification = require("../models/Notification");
+const PhotographerNotification = require("../models/photographerNotification");
 const sendEmail = require("../utils/sendEmail");
 
 // ==========================================
@@ -795,7 +795,7 @@ const reviewPhotographerApplication =
           status ===
           "APPROVED"
         ) {
-          await Notification.create({
+          await PhotographerNotification.create({
             user:
               application.customer,
 
@@ -812,7 +812,7 @@ const reviewPhotographerApplication =
               application._id,
           });
         } else {
-          await Notification.create({
+          await PhotographerNotification.create({
             user:
               application.customer,
 

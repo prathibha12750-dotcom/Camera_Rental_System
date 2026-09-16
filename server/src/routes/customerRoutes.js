@@ -40,7 +40,7 @@ const {
   getMyNotifications,
   markNotificationAsRead,
 } = require(
-  "../controllers/notificationController"
+  "../controllers/photographerNotificationController"
 );
 
 const authenticate = require("../middleware/authenticate");

@@ -1,6 +1,4 @@
-const Notification =
-  require("../models/Notification");
-
+const PhotographerNotification = require("../models/photographerNotification");
 
 // ==========================================
 // GET MY NOTIFICATIONS
@@ -11,7 +9,7 @@ const getMyNotifications =
   async (req, res, next) => {
     try {
       const notifications =
-        await Notification.find({
+        await PhotographerNotification.find({
           user:
             req.user.userId,
         })
@@ -21,7 +19,7 @@ const getMyNotifications =
           .limit(50);
 
       const unreadCount =
-        await Notification.countDocuments({
+        await PhotographerNotification.countDocuments({
           user:
             req.user.userId,
 
@@ -53,7 +51,7 @@ const markNotificationAsRead =
   async (req, res, next) => {
     try {
       const notification =
-        await Notification.findOne({
+        await PhotographerNotification.findOne({
           _id:
             req.params.id,
 
@@ -75,7 +73,7 @@ const markNotificationAsRead =
       notification.read =
         true;
 
-      await notification.save();
+      await PhotographerNotification.save();
 
       return res
         .status(200)

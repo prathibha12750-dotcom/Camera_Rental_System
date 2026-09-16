@@ -1,7 +1,7 @@
 const mongoose =
   require("mongoose");
 
-const notificationSchema =
+const photographerNotificationSchema =
   new mongoose.Schema(
     {
       user: {
@@ -67,13 +67,13 @@ const notificationSchema =
     }
   );
 
-notificationSchema.index({
+photographerNotificationSchema.index({
   user: 1,
   createdAt: -1,
 });
 
 module.exports =
   mongoose.model(
-    "Notification",
-    notificationSchema
+    "PhotographerNotification",
+    photographerNotificationSchema
   );
