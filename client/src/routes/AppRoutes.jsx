@@ -42,6 +42,19 @@ import PasswordChangeRoute from "./PasswordChangeRoute";
 // 404 PAGE
 // ==========================================
 
+// import start by Abilash
+
+import AdminLayout from "../components/admin/AdminLayout";
+import Users from "../pages/admin/Users";
+import Invoices from "../pages/admin/Invoices";
+import Payments from "../pages/admin/Payments";
+import Deposits from "../pages/admin/Deposits";
+import Refunds from "../pages/admin/Refunds";
+import Reports from "../pages/admin/Reports";
+import Notifications from "../pages/admin/Notifications";
+
+// import end by Abilash
+
 const NotFound = () => {
 
   return (
@@ -287,6 +300,32 @@ const AppRoutes = () => {
                 element={<PhotographerChangePassword />}
               />
 
+            }
+          >
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            {/*Route adding starts by Abilash*/}
+
+
+            <Route element={<AdminLayout />}>
+
+
               <Route element={<PasswordChangeRoute />}>
                 <Route
                   path="/photographer"
@@ -330,11 +369,51 @@ const AppRoutes = () => {
               }
             >
               {/* prathibha routes start */}
+
               <Route
                 path="/admin"
                 element={<AdminHome />}
               />
 
+              <Route 
+                path="/admin/users"
+                element={<Users />}
+              />
+
+              <Route 
+                path="/admin/invoices" 
+                element={<Invoices />} 
+              />
+
+              <Route 
+                path="/admin/payments" 
+                element={<Payments />} 
+              />
+
+              <Route
+               path="/admin/deposits"
+               element={<Deposits />} 
+              />
+
+              <Route
+               path="/admin/refunds"
+               element={<Refunds />} 
+              />
+
+              <Route 
+               path="/admin/reports" 
+               element={<Reports />} 
+              />
+
+              <Route
+                path="/admin/notifications"
+                element={<Notifications />}
+              />
+            </Route>
+
+            
+            {/*Route adding ends by Abilash*/}
+            
               <Route
                 path="/admin/photographer-applications"
                 element={
@@ -347,6 +426,29 @@ const AppRoutes = () => {
 
 
           </Route>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         </Route>
 
