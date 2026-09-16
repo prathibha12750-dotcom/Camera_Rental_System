@@ -3,6 +3,9 @@ const express = require("express");
 const {
   createPhotographer,
   getCustomers, //imported by abilash
+  getPhotographerApplications,
+  getPhotographerApplicationById,
+  reviewPhotographerApplication,
 } = require("../controllers/adminController");
 
 
@@ -308,5 +311,39 @@ router.get(
 
 
 // Abilash routes ends here
+
+// ==========================================
+// PHOTOGRAPHER APPLICATIONS
+// ==========================================
+
+router.get(
+  "/photographer-applications",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  getPhotographerApplications
+);
+
+
+router.get(
+  "/photographer-applications/:id",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  getPhotographerApplicationById
+);
+
+
+router.patch(
+  "/photographer-applications/:id/status",
+  authenticate,
+  authorizeRoles(
+    "STAFF_ADMIN"
+  ),
+  reviewPhotographerApplication
+);
+
 
 module.exports = router;
