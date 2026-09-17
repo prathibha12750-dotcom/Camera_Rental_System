@@ -947,8 +947,45 @@ const reviewPhotographerApplication =
     }
   };
 
+// Adding controller by Abilash started here
+
+
+// ==========================================
+// GET ALL CUSTOMERS
+// GET /api/admin/customers
+// ==========================================
+const getCustomers = async (req, res, next) => {
+  try {
+    const customers = await User.find(
+      {
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      },
+      {
+        name: 1,
+        email: 1,
+        status: 1,
+      }
+    ).sort({ name: 1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Customers retrieved successfully",
+      data: {
+        customers,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// Adding controller by Abilash started here
+
 module.exports = {
   createPhotographer,
+  getCustomers, //exported by Abilash
   getPhotographerApplications,  
   getPhotographerApplicationById,
   reviewPhotographerApplication,
