@@ -1,4 +1,11 @@
-require("dotenv").config();
+const path = require("path");
+
+//fix: resolve MongoDB Atlas DNS connection issue
+const dns = require("dns");
+dns.setServers(["8.8.8.8","1.1.1.1"]);
+//end of fix
+
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const app = require("./app");
 const connectDB = require("./config/db");

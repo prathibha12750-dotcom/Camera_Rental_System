@@ -19,6 +19,19 @@ import AdminHome from "../pages/admin/AdminHome";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
+// import start by Abilash
+
+import AdminLayout from "../components/admin/AdminLayout";
+import Users from "../pages/admin/Users";
+import Invoices from "../pages/admin/Invoices";
+import Payments from "../pages/admin/Payments";
+import Deposits from "../pages/admin/Deposits";
+import Refunds from "../pages/admin/Refunds";
+import Reports from "../pages/admin/Reports";
+import Notifications from "../pages/admin/Notifications";
+
+// import end by Abilash
+
 const NotFound = () => {
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 px-6 py-16">
@@ -104,11 +117,96 @@ const AppRoutes = () => {
               />
             }
           >
-            <Route
-              path="/admin"
-              element={<AdminHome />}
-            />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            {/*Route adding starts by Abilash*/}
+
+
+            <Route element={<AdminLayout />}>
+              <Route
+                path="/admin"
+                element={<AdminHome />}
+              />
+
+              <Route 
+                path="/admin/users"
+                element={<Users />}
+              />
+
+              <Route 
+                path="/admin/invoices" 
+                element={<Invoices />} 
+              />
+
+              <Route 
+                path="/admin/payments" 
+                element={<Payments />} 
+              />
+
+              <Route
+               path="/admin/deposits"
+               element={<Deposits />} 
+              />
+
+              <Route
+               path="/admin/refunds"
+               element={<Refunds />} 
+              />
+
+              <Route 
+               path="/admin/reports" 
+               element={<Reports />} 
+              />
+
+              <Route
+                path="/admin/notifications"
+                element={<Notifications />}
+              />
+            </Route>
+
+            
+            {/*Route adding ends by Abilash*/}
+            
           </Route>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         </Route>
 
