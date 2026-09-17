@@ -1,3 +1,13 @@
+// ==========================================================
+//Routes added by thasindu nayanajith
+
+const equipmentRoutes = require("./routes/equipmentRoutes"); //Connect the equipment routes
+const rentalRoutes = require("./routes/rentalRoutes");//connect the rental routes
+const categoryRoutes = require("./routes/categoryRoutes");//coonect the category routes
+
+//end of the routes by thasindu
+// ===========================================================
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -10,6 +20,10 @@ const customerRoutes = require("./routes/customerRoutes");
 const photographerRoutes = require("./routes/photographerRoutes");
 
 const app = express();
+
+//const app = express();
+
+
 
 // SECURITY MIDDLEWARE
 
@@ -67,6 +81,22 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/customer", customerRoutes);
 
 app.use("/api/photographer", photographerRoutes);
+
+
+// ======================================================================================
+// routes connects by thasindu
+// ======================================================================================
+
+app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes by thasindu
+
+app.use("/api/rentals", rentalRoutes);//connect the rental routes by thasindu
+
+app.use("/api/categories", categoryRoutes);//connect the category routes by thasindu
+
+// ======================================================================================
+// End of the routes connects by thasindu
+// ======================================================================================
+
 
 
 // ==========================================

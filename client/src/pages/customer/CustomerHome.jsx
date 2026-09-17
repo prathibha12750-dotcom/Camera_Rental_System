@@ -5,6 +5,7 @@ import {
 
 import {
   Link,
+  useNavigate,
 } from "react-router-dom";
 
 import { useAuth } from "../../context/useAuth";
@@ -14,6 +15,7 @@ import api from "../../services/api";
 const CustomerHome = () => {
 
   const { user } = useAuth();
+  const navigate = useNavigate();
 
 
   const [
@@ -322,7 +324,6 @@ const CustomerHome = () => {
             border
             border-gray-200
             bg-white
-            
           "
         >
 
@@ -1515,14 +1516,35 @@ const CustomerHome = () => {
         ================================== */}
 
         <section
+          onClick={() =>
+            navigate("/customer/equipment")
+          }
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" ||
+              event.key === " "
+            ) {
+              navigate("/customer/equipment");
+            }
+          }}
+          role="button"
+          tabIndex={0}
           className="
             mt-6
+            cursor-pointer
             rounded-2xl
             border
             border-gray-200
             bg-white
             p-6
             shadow-sm
+            transition
+            hover:border-orange-300
+            hover:shadow-md
+            focus:outline-none
+            focus:ring-2
+            focus:ring-orange-500
+            focus:ring-offset-2
           "
         >
 
@@ -1609,9 +1631,32 @@ const CustomerHome = () => {
                   Rental activity
                 </h2>
 
+
+                <p
+                  className="
+                    mt-1
+                    text-sm
+                    text-gray-500
+                  "
+                >
+                  Browse camera equipment and
+                  manage your rental activity.
+                </p>
+
               </div>
 
             </div>
+
+
+            <span
+              className="
+                text-sm
+                font-semibold
+                text-orange-600
+              "
+            >
+              Browse Equipment →
+            </span>
 
           </div>
 
