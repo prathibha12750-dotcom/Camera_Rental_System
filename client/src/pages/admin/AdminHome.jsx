@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/useAuth";
@@ -123,7 +123,7 @@ const AdminHome = () => {
         </div>
 
         {/* Quick Management Links */}
-        <div className="mb-8 grid gap-5 md:grid-cols-3">
+        <div className="mb-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {[
             [
               "Users",
@@ -137,6 +137,10 @@ const AdminHome = () => {
               "Equipment",
               "Manage camera equipment and rental inventory.",
             ],
+            [
+              "Rentals",
+              "Manage rental requests, issuing, returns and rental status.",
+            ],
           ].map(([title, description]) => (
             <div
               key={title}
@@ -144,9 +148,13 @@ const AdminHome = () => {
                 if (title === "Equipment") {
                   navigate("/admin/equipment");
                 }
+
+                if (title === "Rentals") {
+                  navigate("/admin/rentals");
+                }
               }}
               className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ${
-                title === "Equipment"
+                title === "Equipment" || title === "Rentals"
                   ? "cursor-pointer transition hover:border-orange-300 hover:shadow-md"
                   : ""
               }`}

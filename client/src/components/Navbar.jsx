@@ -230,7 +230,7 @@ const Navbar = () => {
 
         {/* Equipment */}
         <a
-          href="/#equipment"
+          href="/customer/equipment"
           className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
         >
           Equipment
@@ -246,23 +246,31 @@ const Navbar = () => {
         </Link>
 
 
-      {/* Customer / Guest specific link */}
-      {isAuthenticated &&
-      user?.role === "CUSTOMER" ? (
-        <Link
-          to="/customer/bookings"
-          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-        >
-          My Bookings
-        </Link>
-      ) : (
-        <a
-          href="/#how-it-works"
-          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-        >
-          How It Works
-        </a>
-      )}
+        {/* Customer / Guest specific links */}
+        {isAuthenticated && user?.role === "CUSTOMER" ? (
+          <>
+            <Link
+              to="/customer/bookings"
+              className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+            >
+              My Bookings
+            </Link>
+
+            <Link
+              to="/customer/rentals"
+              className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+            >
+              My Rentals
+            </Link>
+          </>
+        ) : (
+          <a
+            href="/#how-it-works"
+            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+          >
+            How It Works
+          </a>
+        )}
 
     </nav>
 

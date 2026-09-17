@@ -74,7 +74,7 @@ const heroSlides = [
       "Explore studio equipment, lighting gear and creative tools for photography and production work.",
     image: studioImage,
     primaryText: "Explore Equipment",
-    primaryLink: "#equipment",
+    primaryLink: "/customer/equipment",
     secondaryText: "Create Account",
     secondaryLink: "/register",
   },
