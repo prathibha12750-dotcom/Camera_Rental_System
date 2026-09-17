@@ -45,6 +45,7 @@ const authenticate = async (req, res, next) => {
     req.user = {
       userId: user._id.toString(),
       role: user.role,
+      mustChangePassword: user.mustChangePassword,
     };
 
     next();
