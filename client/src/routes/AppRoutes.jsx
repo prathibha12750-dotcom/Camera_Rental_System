@@ -295,35 +295,15 @@ const AppRoutes = () => {
                 />
               }
             >
+              {/* Photographer can access this before
+                  completing temporary password change */}
               <Route
                 path="/photographer/change-password"
                 element={<PhotographerChangePassword />}
               />
-            }
-          >
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            {/*Route adding starts by Abilash*/}
-
-
-            <Route element={<AdminLayout />}>
-
+              {/* All normal photographer routes require
+                  temporary password change to be completed */}
               <Route element={<PasswordChangeRoute />}>
                 <Route
                   path="/photographer"
@@ -352,6 +332,65 @@ const AppRoutes = () => {
               </Route>
             </Route>
 
+
+            {/* ===============================
+                STAFF ADMIN ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={["STAFF_ADMIN"]}
+                />
+              }
+            >
+              <Route element={<AdminLayout />}>
+                <Route
+                  path="/admin"
+                  element={<AdminHome />}
+                />
+
+                <Route
+                  path="/admin/users"
+                  element={<Users />}
+                />
+
+                <Route
+                  path="/admin/invoices"
+                  element={<Invoices />}
+                />
+
+                <Route
+                  path="/admin/payments"
+                  element={<Payments />}
+                />
+
+                <Route
+                  path="/admin/deposits"
+                  element={<Deposits />}
+                />
+
+                <Route
+                  path="/admin/refunds"
+                  element={<Refunds />}
+                />
+
+                <Route
+                  path="/admin/reports"
+                  element={<Reports />}
+                />
+
+                <Route
+                  path="/admin/notifications"
+                  element={<Notifications />}
+                />
+
+                <Route
+                  path="/admin/photographer-applications"
+                  element={<AdminPhotographerApplications />}
+                />
+              </Route>
+            </Route>
 
             {/* ===============================
                 STAFF ADMIN ROUTES
@@ -423,31 +462,6 @@ const AppRoutes = () => {
 
 
           </Route>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        </Route>
 
 
         {/* ==================================
