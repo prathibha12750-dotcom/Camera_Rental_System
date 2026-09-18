@@ -73,7 +73,7 @@ const markNotificationAsRead =
       notification.read =
         true;
 
-      await PhotographerNotification.save();
+      await notification.save();
 
       return res
         .status(200)
