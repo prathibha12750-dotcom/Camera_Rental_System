@@ -17,111 +17,174 @@ const {
 } = require("../controllers/rentalController");
 
 const authenticate = require("../middleware/authenticate");
-
 const authorizeRoles = require("../middleware/authorizeRoles");
 
 const router = express.Router();
 
-// Check equipment availability
+
+// ==========================================
+// EQUIPMENT AVAILABILITY
+// AUTHENTICATED USERS
+// ==========================================
+
 router.post(
   "/check-availability",
   authenticate,
   checkAvailability
 );
 
-//create rental request
+
+// ==========================================
+// CREATE RENTAL REQUEST
+// AUTHENTICATED USERS
+// ==========================================
+
 router.post(
   "/",
   authenticate,
   createRentalRequest
 );
 
-//get all rentals by admin
+
+// ==========================================
+// GET ALL RENTALS
+// CLERK OR ADMIN
+// ==========================================
+
 router.get(
   "/",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getAllRentals
 );
 
-//get damage records
+
+// ==========================================
+// GET ALL DAMAGE RECORDS
+// CLERK OR ADMIN
+// ==========================================
+
 router.get(
   "/damage-records",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getAllDamageRecords
 );
 
-//Detect overdue rentals
+
+// ==========================================
+// GET OVERDUE RENTALS
+// CLERK OR ADMIN
+// ==========================================
+
 router.get(
   "/overdue",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getOverdueRentals
 );
 
-//customer rental history
+
+// ==========================================
+// CUSTOMER RENTAL HISTORY
+// AUTHENTICATED USERS
+// ==========================================
+
 router.get(
   "/my-rentals",
   authenticate,
   getMyRentals
 );
 
-//approve rental
+
+// ==========================================
+// APPROVE RENTAL
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/:id/approve",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   approveRental
 );
 
-//reject rental
+
+// ==========================================
+// REJECT RENTAL
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/:id/reject",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   rejectRental
 );
 
-//issue equipment
+
+// ==========================================
+// ISSUE EQUIPMENT
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/:id/issue",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   issueRental
 );
 
-//return rental
+
+// ==========================================
+// RETURN RENTAL / EQUIPMENT
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/:id/return",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   returnRental
 );
 
-//damage status update endpoint
+
+// ==========================================
+// UPDATE DAMAGE RECORD STATUS
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/damage-records/:id/status",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   updateDamageRecordStatus
 );
 
-//cancelRental
+
+// ==========================================
+// CANCEL RENTAL
+// AUTHENTICATED USERS
+// ==========================================
+
 router.patch(
   "/:id/cancel",
   authenticate,
   cancelRental
 );
 
-//complete reantal
+
+// ==========================================
+// COMPLETE RENTAL
+// CLERK OR ADMIN
+// ==========================================
+
 router.patch(
   "/:id/complete",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   completeRental
 );
-
 
 
 module.exports = router;

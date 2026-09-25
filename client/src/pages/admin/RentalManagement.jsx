@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../../context/useAuth";
 import {
   getAllRentals,
   approveRental,
@@ -82,6 +83,11 @@ const RentalManagement = () => {
     await loadRentals();
   }
 };
+
+
+  const { user } = useAuth();
+
+  const isClerk = user?.role === "CLERK";
 
 
   const loadDamageRecords = async () => {
@@ -360,7 +366,36 @@ const handleComplete = async (rental) => {
 
 
   useEffect(() => {
-    loadRentals();
+    let cancelled = false;
+
+    const fetchInitialRentals = async () => {
+      try {
+        const result = await getAllRentals();
+
+        console.log("RENTAL RESULT:", result);
+
+        if (!cancelled) {
+          setRentals(result?.data?.rentals || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err.response?.data?.message ||
+              "Failed to load rentals"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchInitialRentals();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const formatDate = (date) => {
@@ -428,7 +463,7 @@ const getDamageStatusClass = (status) => {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
                 <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-                Admin
+                  {isClerk ? "Clerk" : "Admin"}
                 </p>
 
                 <h1 className="mt-2 text-3xl font-bold text-gray-950">
@@ -436,7 +471,9 @@ const getDamageStatusClass = (status) => {
                 </h1>
 
                 <p className="mt-2 text-gray-600">
-                Manage equipment rental requests and rental status.
+                  {isClerk
+                    ? "Manage rental requests, equipment issue and return operations, overdue rentals, and damage records."
+                    : "Manage equipment rental requests and rental status."}
                 </p>
             </div>
 

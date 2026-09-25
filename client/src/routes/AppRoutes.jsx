@@ -500,10 +500,17 @@ const AppRoutes = () => {
                 }
               >
 
+               <Route
+                 path="/clerk"
+                 element={
+                  <ClerkHome />
+                 }
+               />
+
                 <Route
-                  path="/clerk"
+                  path="/clerk/rentals"
                   element={
-                    <ClerkHome />
+                    <RentalManagement />
                   }
                 />
 
