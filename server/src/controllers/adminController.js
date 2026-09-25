@@ -980,11 +980,291 @@ const getCustomers = async (req, res, next) => {
   }
 };
 
+// ==========================================
+// CREATE CLERK ACCOUNT
+// POST /api/admin/clerks
+// STAFF_ADMIN ONLY
+// ==========================================
+
+const createClerk = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+
+    // ======================================
+    // 1. VALIDATE REQUIRED FIELDS
+    // ======================================
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Clerk name is required.",
+      });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Clerk email is required.",
+      });
+    }
+
+    // ======================================
+    // 2. NORMALIZE EMAIL
+    // ======================================
+
+    const normalizedEmail =
+      email.trim().toLowerCase();
+
+    // ======================================
+    // 3. CHECK EXISTING USER
+    // ======================================
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "An account with this email already exists.",
+      });
+    }
+
+    // ======================================
+    // 4. GENERATE TEMPORARY PASSWORD
+    // ======================================
+
+    const temporaryPassword =
+      generateTemporaryPassword();
+
+    // ======================================
+    // 5. HASH TEMPORARY PASSWORD
+    // ======================================
+
+    const passwordHash = await bcrypt.hash(
+      temporaryPassword,
+      12
+    );
+
+    // ======================================
+    // 6. CREATE CLERK USER
+    // ======================================
+
+    const clerk = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash,
+
+      role: "CLERK",
+
+      status: "ACTIVE",
+
+      mustChangePassword: true,
+    });
+
+    // ======================================
+    // 7. SEND CLERK CREDENTIALS EMAIL
+    // ======================================
+
+    try {
+      await sendEmail({
+        to: clerk.email,
+
+        subject:
+          "Your Southern Camera Rental Clerk Account",
+
+        text: `
+Hello ${clerk.name},
+
+Your Clerk account for Southern Camera Rental has been created.
+
+Login Email:
+${clerk.email}
+
+Temporary Password:
+${temporaryPassword}
+
+Please use these credentials to log in.
+
+You will be required to change your temporary password after your first login.
+
+For security, please do not share your login credentials with anyone.
+
+Regards,
+Southern Camera Rental
+        `.trim(),
+
+        html: `
+          <div
+            style="
+              max-width: 600px;
+              margin: 0 auto;
+              font-family: Arial, sans-serif;
+              color: #1f2937;
+              line-height: 1.6;
+            "
+          >
+            <div
+              style="
+                padding: 24px;
+                background: #111827;
+                color: #ffffff;
+                border-radius: 12px 12px 0 0;
+              "
+            >
+              <h1
+                style="
+                  margin: 0;
+                  font-size: 22px;
+                "
+              >
+                Southern Camera Rental
+              </h1>
+            </div>
+
+            <div
+              style="
+                padding: 30px;
+                border: 1px solid #e5e7eb;
+                border-top: 0;
+                border-radius: 0 0 12px 12px;
+              "
+            >
+              <h2
+                style="
+                  margin-top: 0;
+                  color: #111827;
+                "
+              >
+                Clerk Account Created
+              </h2>
+
+              <p>
+                Hello ${clerk.name},
+              </p>
+
+              <p>
+                Your Clerk account for Southern
+                Camera Rental has been created.
+              </p>
+
+              <div
+                style="
+                  margin: 24px 0;
+                  padding: 20px;
+                  background: #fff7ed;
+                  border: 1px solid #fed7aa;
+                  border-radius: 10px;
+                "
+              >
+                <p
+                  style="
+                    margin: 0 0 12px;
+                    font-size: 13px;
+                    color: #6b7280;
+                  "
+                >
+                  CLERK LOGIN EMAIL
+                </p>
+
+                <p
+                  style="
+                    margin: 0 0 20px;
+                    font-weight: bold;
+                    color: #111827;
+                  "
+                >
+                  ${clerk.email}
+                </p>
+
+                <p
+                  style="
+                    margin: 0 0 12px;
+                    font-size: 13px;
+                    color: #6b7280;
+                  "
+                >
+                  TEMPORARY PASSWORD
+                </p>
+
+                <p
+                  style="
+                    margin: 0;
+                    font-weight: bold;
+                    color: #111827;
+                  "
+                >
+                  ${temporaryPassword}
+                </p>
+              </div>
+
+              <p>
+                Please use these credentials to
+                log in. You will be required to
+                change your temporary password
+                after your first login.
+              </p>
+
+              <p
+                style="
+                  font-size: 13px;
+                  color: #6b7280;
+                "
+              >
+                For security, please do not share
+                your login credentials with anyone.
+              </p>
+
+              <p style="margin-top: 28px;">
+                Regards,<br />
+                <strong>
+                  Southern Camera Rental
+                </strong>
+              </p>
+            </div>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error(
+        "Failed to send Clerk credentials email:",
+        emailError
+      );
+    }
+
+    // ======================================
+    // 8. RETURN SAFE RESPONSE
+    // ======================================
+
+    return res.status(201).json({
+      success: true,
+
+      message:
+        "Clerk account created successfully.",
+
+      data: {
+        clerk: {
+          id: clerk._id,
+          name: clerk.name,
+          email: clerk.email,
+          role: clerk.role,
+          status: clerk.status,
+          mustChangePassword:
+            clerk.mustChangePassword,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // Adding controller by Abilash started here
 
 module.exports = {
   createPhotographer,
+  createClerk,
   getCustomers, //exported by Abilash
   getPhotographerApplications,  
   getPhotographerApplicationById,

@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   createPhotographer,
+  createClerk,
   getCustomers, //imported by abilash
   getPhotographerApplications,
   getPhotographerApplicationById,
@@ -88,6 +89,19 @@ router.post(
   createPhotographer
 );
 
+// ==========================================
+// CREATE CLERK ACCOUNT
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.post(
+  "/clerks",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createClerk
+);  
+
+
 // Abilash routes starts here
 
 // ==========================================
@@ -152,7 +166,7 @@ router.post(
 
 // ===========================================
 // GET PAYMENTS FOR AN INVOICE
-// GET /api/admi/payments/invoice/:invoiceId
+// GET /api/admin/payments/invoice/:invoiceId
 // ===========================================
 
 router.get(
@@ -162,7 +176,18 @@ router.get(
   getPaymentsByInvoice
 );
 
-router.get("/payments", getAllPayments);
+// ===========================================
+// GET ALL PAYMENTS
+// GET /api/admin/payments
+// STAFF_ADMIN ONLY
+// ===========================================
+
+router.get(
+  "/payments",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getAllPayments
+);
 
 // ==========================================
 // RECORD SECURITY DEPOSIT
@@ -190,7 +215,7 @@ router.get(
 
 // ==========================================
 // GET SINGLE DEPOSIT
-// GET /aoi/admin/deposits/:depositId
+// GET /api/admin/deposits/:depositId
 // ==========================================
 
 router.get(
