@@ -79,6 +79,30 @@ const ClerkHome = () => {
             </span>
           </Link>
 
+          {/* Equipment Status */}
+          <Link
+            to="/clerk/equipment"
+            className="group rounded-3xl border border-gray-200 bg-white p-7 shadow-sm transition hover:border-orange-300 hover:shadow-md"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">
+              📦
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold text-gray-950 transition group-hover:text-orange-600">
+              Equipment Status
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              View equipment availability, condition,
+              rental status, pricing, and security
+              deposit information.
+            </p>
+
+            <span className="mt-5 inline-flex font-semibold text-orange-600">
+              View Equipment →
+            </span>
+          </Link>
+
         </div>
 
       </div>
