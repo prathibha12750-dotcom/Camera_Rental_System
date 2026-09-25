@@ -136,7 +136,7 @@ router.post(
 router.get(
   "/invoices",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   getInvoices
 );
 
@@ -197,7 +197,7 @@ router.get(
 router.post(
   "/deposits",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   createDeposit
 );
 
@@ -209,7 +209,7 @@ router.post(
 router.get(
   "/deposits/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   getDepositByInvoice
 );
 
@@ -233,7 +233,7 @@ router.get(
 router.post(
   "/refunds",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createRefund
 );
 
@@ -245,7 +245,7 @@ router.post(
 router.get(
   "/refunds/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getRefundsByInvoice
 );
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import { useAuth } from "../../context/useAuth";
 
 const Refunds = () => {
   const [invoices, setInvoices] = useState([]);
@@ -21,27 +22,8 @@ const Refunds = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // ==========================================
-  // FETCH INVOICES
-  // ==========================================
-
-  const fetchInvoices = async () => {
-    try {
-      setLoadingInvoices(true);
-      setError("");
-
-      const response = await api.get("/admin/invoices");
-
-      setInvoices(response.data?.data?.invoices || []);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to load invoices. Please try again."
-      );
-    } finally {
-      setLoadingInvoices(false);
-    }
-  };
+  const { user } = useAuth();
+  const isClerk = user?.role === "CLERK";
 
   // ==========================================
   // FETCH DEPOSITS FOR SELECTED INVOICE
@@ -111,9 +93,37 @@ const Refunds = () => {
   // ==========================================
   // INITIAL LOAD
   // ==========================================
-
   useEffect(() => {
-    fetchInvoices();
+    let cancelled = false;
+
+    const loadInvoices = async () => {
+      try {
+        const response = await api.get("/admin/invoices");
+
+        if (!cancelled) {
+          setInvoices(
+            response.data?.data?.invoices || []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setError(
+            error.response?.data?.message ||
+              "Failed to load invoices. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingInvoices(false);
+        }
+      }
+    };
+
+    loadInvoices();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ==========================================
@@ -302,7 +312,9 @@ const Refunds = () => {
         </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          Record security deposit refunds and view refund history.
+          {isClerk
+            ? "Process customer security deposit refunds after rental return and review refund history."
+            : "Record security deposit refunds and view refund history."}
         </p>
       </div>
 
@@ -397,8 +409,20 @@ const Refunds = () => {
               <select
                 value={selectedDeposit}
                 onChange={(event) => {
-                  setSelectedDeposit(event.target.value);
-                  setAmount("");
+                  const depositId = event.target.value;
+
+                  setSelectedDeposit(depositId);
+
+                  const depositData = deposits.find(
+                    (deposit) => deposit._id === depositId
+                  );
+
+                  setAmount(
+                    depositData
+                      ? String(depositData.amount)
+                      : ""
+                  );
+
                   setError("");
                   setSuccess("");
                 }}
@@ -481,19 +505,15 @@ const Refunds = () => {
 
               <input
                 type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                value={selectedDepositData?.amount || ""}
+                readOnly
                 disabled={!selectedDeposit || submitting}
-                placeholder="Enter refund amount"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none"
               />
 
               {selectedDepositData && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Maximum refundable amount:{" "}
-                  {formatAmount(selectedDepositData.amount)}
+                  The full held deposit amount will be refunded.
                 </p>
               )}
             </div>

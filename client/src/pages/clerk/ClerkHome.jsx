@@ -103,6 +103,53 @@ const ClerkHome = () => {
             </span>
           </Link>
 
+          {/* Security Deposits */}
+          <Link
+            to="/clerk/deposits"
+            className="group rounded-3xl border border-gray-200 bg-white p-7 shadow-sm transition hover:border-orange-300 hover:shadow-md"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">
+              💰
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold text-gray-950 transition group-hover:text-orange-600">
+              Security Deposits
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Record customer security deposits,
+              check required deposit amounts, and
+              review deposit history.
+            </p>
+
+            <span className="mt-5 inline-flex font-semibold text-orange-600">
+              Manage Deposits →
+            </span>
+          </Link>
+
+          {/* Refund Management */}
+          <Link
+            to="/clerk/refunds"
+            className="group rounded-3xl border border-gray-200 bg-white p-7 shadow-sm transition hover:border-orange-300 hover:shadow-md"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">
+              ↩️
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold text-gray-950 transition group-hover:text-orange-600">
+              Refund Management
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Process security deposit refunds after rental returns
+              and review customer refund history.
+            </p>
+
+            <span className="mt-5 inline-flex font-semibold text-orange-600">
+              Manage Refunds →
+            </span>
+          </Link>
+
         </div>
 
       </div>

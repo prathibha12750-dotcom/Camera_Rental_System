@@ -76,10 +76,20 @@ const createRefund = async(req, res, next) => {
         // 4. Check refund amount
         // ----------------------------------------
 
-        if(amount > existingDeposit.amount){
+        const refundAmount = Number(amount);
+        const depositAmount = Number(existingDeposit.amount);
+
+        if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
             return res.status(400).json({
                 success: false,
-                message: "Refund amount cannot exceed the deposit amount"
+                message: "Refund amount must be a valid amount greater than zero",
+            });
+        }
+
+        if (refundAmount !== depositAmount) {
+            return res.status(400).json({
+                success: false,
+                message: "Refund amount must equal the full held deposit amount",
             });
         }
 

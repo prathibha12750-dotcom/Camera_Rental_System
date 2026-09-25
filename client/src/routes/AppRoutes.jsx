@@ -522,6 +522,18 @@ const AppRoutes = () => {
                   }
                 />
 
+                <Route
+                  path="/clerk/deposits"
+                  element={
+                    <Deposits />
+                  }
+                />
+
+                <Route
+                  path="/clerk/refunds"
+                  element={<Refunds />}
+                />
+
               </Route>
 
             </Route>

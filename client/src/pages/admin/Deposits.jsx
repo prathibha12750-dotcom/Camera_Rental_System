@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import { useAuth } from "../../context/useAuth";
 
 const Deposits = () => {
+  const { user } = useAuth();
+  const isClerk = user?.role === "CLERK";
+
   const [invoices, setInvoices] = useState([]);
   const [deposits, setDeposits] = useState([]);
 
@@ -17,54 +21,9 @@ const Deposits = () => {
     amount: "",
   });
 
-  const fetchInvoices = async () => {
-    try {
-      setLoadingInvoices(true);
-      setError("");
-
-      const response = await api.get("/admin/invoices");
-
-      setInvoices(response.data?.data?.invoices || []);
-    } catch (error) {
-      handleApiError(
-        error,
-        setError,
-        "Failed to load invoices."
-      );
-    } finally {
-      setLoadingInvoices(false);
-    }
-  };
-
-  const fetchDeposits = async (invoiceId) => {
-    if (!invoiceId) {
-      setDeposits([]);
-      return;
-    }
-
-    try {
-      setLoadingDeposits(true);
-      setError("");
-
-      const response = await api.get(
-        `/admin/deposits/invoice/${invoiceId}`
-      );
-
-      setDeposits(response.data?.data?.deposits || []);
-    } catch (error) {
-      handleApiError(
-        error,
-        setError,
-        "Failed to load deposit information."
-      );
-    } finally {
-      setLoadingDeposits(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInvoices();
-  }, []);
+  // ==========================================
+  // API ERROR HANDLER
+  // ==========================================
 
   const handleApiError = (error, setter, defaultMessage) => {
     const status = error.response?.status;
@@ -89,6 +48,96 @@ const Deposits = () => {
       );
     }
   };
+
+  // ==========================================
+  // FETCH DEPOSITS
+  // ==========================================
+
+  const fetchDeposits = async (invoiceId) => {
+    if (!invoiceId) {
+      setDeposits([]);
+      return;
+    }
+
+    try {
+      setLoadingDeposits(true);
+      setError("");
+
+      const response = await api.get(
+        `/admin/deposits/invoice/${invoiceId}`
+      );
+
+      setDeposits(
+        response.data?.data?.deposits || []
+      );
+    } catch (error) {
+      handleApiError(
+        error,
+        setError,
+        "Failed to load deposit information."
+      );
+    } finally {
+      setLoadingDeposits(false);
+    }
+  };
+
+
+  // ==========================================
+  // INITIAL PAGE LOAD
+  // ==========================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchInitialInvoices = async () => {
+      try {
+        const response = await api.get("/admin/invoices");
+
+        if (!cancelled) {
+          setInvoices(
+            response.data?.data?.invoices || []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const status = error.response?.status;
+
+          if (status === 401) {
+            setError(
+              "Your session has expired. Please log in again."
+            );
+          } else if (status === 403) {
+            setError(
+              "You do not have permission to perform this action."
+            );
+          } else if (status === 404) {
+            setError(
+              "Requested resource was not found."
+            );
+          } else if (status >= 500) {
+            setError(
+              "Server error. Please try again later."
+            );
+          } else {
+            setError(
+              error.response?.data?.message ||
+                "Failed to load invoices."
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingInvoices(false);
+        }
+      }
+    };
+
+    fetchInitialInvoices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -238,7 +287,9 @@ const Deposits = () => {
         </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          Record and monitor customer security deposits.
+          {isClerk
+            ? "Record and monitor customer security deposits for rental operations."
+            : "Record and monitor customer security deposits."}
         </p>
       </div>
 
