@@ -65,6 +65,14 @@ import PhotographerChangePassword from "../pages/photographer/PhotographerChange
 
 
 // ==========================================
+// CLERK PAGES
+// ==========================================
+
+import ClerkHome from "../pages/clerk/ClerkHome";
+import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
+
+
+// ==========================================
 // ADMIN PAGES
 // ==========================================
 
@@ -451,6 +459,51 @@ const AppRoutes = () => {
                   path="/photographer/bookings"
                   element={
                     <PhotographerBookings />
+                  }
+                />
+
+              </Route>
+
+            </Route>
+
+
+            {/* ===============================
+                CLERK ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    "CLERK",
+                  ]}
+                />
+              }
+            >
+
+              {/* Clerk can access this before
+                  changing temporary password */}
+
+              <Route
+                path="/clerk/change-password"
+                element={
+                  <ClerkChangePassword />
+                }
+              />
+
+              {/* All normal Clerk routes require
+                  password change completion */}
+
+              <Route
+                element={
+                  <PasswordChangeRoute />
+                }
+              >
+
+                <Route
+                  path="/clerk"
+                  element={
+                    <ClerkHome />
                   }
                 />
 
