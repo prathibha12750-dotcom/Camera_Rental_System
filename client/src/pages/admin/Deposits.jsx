@@ -5,21 +5,16 @@ import { useAuth } from "../../context/useAuth";
 const Deposits = () => {
   const { user } = useAuth();
   const isClerk = user?.role === "CLERK";
-
   const [invoices, setInvoices] = useState([]);
   const [deposits, setDeposits] = useState([]);
-
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [loadingDeposits, setLoadingDeposits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
   const [error, setError] = useState("");
   const [formMessage, setFormMessage] = useState("");
-
-  const [formData, setFormData] = useState({
-    invoice: "",
-    amount: "",
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const depositsPerPage = 8;
+  const [formData, setFormData] = useState({invoice: "",amount: "",});
 
   // ==========================================
   // API ERROR HANDLER
@@ -150,6 +145,7 @@ const Deposits = () => {
     setFormMessage("");
 
     if (name === "invoice") {
+      setCurrentPage(1);
       setFormData((previous) => ({
         ...previous,
         invoice: value,
@@ -277,6 +273,22 @@ const Deposits = () => {
 
     return "bg-gray-100 text-gray-700";
   };
+
+  // ==========================================
+  // DEPOSIT HISTORY PAGINATION
+  // ==========================================
+
+  const totalPages = Math.ceil(
+    deposits.length / depositsPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) * depositsPerPage;
+
+  const paginatedDeposits = deposits.slice(
+    startIndex,
+    startIndex + depositsPerPage
+  );
 
   return (
     <div className="p-6">
@@ -523,7 +535,7 @@ const Deposits = () => {
                 </thead>
 
                 <tbody className="divide-y divide-gray-100">
-                  {deposits.map((deposit) => (
+                  {paginatedDeposits.map((deposit) => (
                     <tr
                       key={deposit._id}
                       className="hover:bg-gray-50"
@@ -559,6 +571,65 @@ const Deposits = () => {
                   ))}
                 </tbody>
               </table>
+              
+              {totalPages > 1 && (
+                <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-500">
+                    Showing{" "}
+                    <span className="font-medium text-gray-700">
+                      {startIndex + 1}
+                    </span>
+                    {" - "}
+                    <span className="font-medium text-gray-700">
+                      {Math.min(
+                        startIndex + depositsPerPage,
+                        deposits.length
+                      )}
+                    </span>
+                    {" of "}
+                    <span className="font-medium text-gray-700">
+                      {deposits.length}
+                    </span>{" "}
+                    deposits
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((page) =>
+                          Math.max(page - 1, 1)
+                        )
+                      }
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="px-2 text-sm text-gray-600">
+                      Page{" "}
+                      <span className="font-semibold text-gray-900">
+                        {currentPage}
+                      </span>{" "}
+                      of {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((page) =>
+                          Math.min(page + 1, totalPages)
+                        )
+                      }
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

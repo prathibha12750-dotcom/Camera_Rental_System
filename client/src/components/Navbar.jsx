@@ -175,23 +175,21 @@ const Navbar = () => {
             to="/"
             className="flex items-center gap-3"
           >
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-xs font-black text-white shadow-sm">
-              SCR
-            </div>
+            <img
+              src="/scr-logo.jpg"
+              alt="Southern Camera Rent"
+              className="h-14 w-auto object-contain"
+            />
 
             <div className="hidden sm:block">
-
               <p className="text-sm font-black tracking-tight text-gray-950">
-                Southern Camera Rental
+                Southern Camera Rent
               </p>
 
               <p className="text-[11px] text-gray-500">
                 Equipment & Photographer Services
               </p>
-
             </div>
-
           </Link>
 
 

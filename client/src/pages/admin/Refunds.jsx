@@ -22,6 +22,9 @@ const Refunds = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const refundsPerPage = 8;
+
   const { user } = useAuth();
   const isClerk = user?.role === "CLERK";
 
@@ -133,6 +136,7 @@ const Refunds = () => {
   const handleInvoiceChange = async (event) => {
     const invoiceId = event.target.value;
 
+    setCurrentPage(1);
     setSelectedInvoice(invoiceId);
     setSuccess("");
     setError("");
@@ -299,6 +303,22 @@ const Refunds = () => {
 
     return "bg-gray-100 text-gray-700";
   };
+
+  // ==========================================
+  // REFUND HISTORY PAGINATION
+  // ==========================================
+
+  const totalPages = Math.ceil(
+    refunds.length / refundsPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) * refundsPerPage;
+
+  const paginatedRefunds = refunds.slice(
+    startIndex,
+    startIndex + refundsPerPage
+  );
 
   return (
     <div className="p-6">
@@ -589,14 +609,15 @@ const Refunds = () => {
               <p className="mt-1 text-sm text-gray-500">
                 {selectedInvoice
                   ? `Refund records for ${
-                      selectedInvoiceData?.invoiceNumber || "selected invoice"
+                      selectedInvoiceData?.invoiceNumber ||
+                      "selected invoice"
                     }`
                   : "Select an invoice to view refund history."}
               </p>
             </div>
           </div>
 
-          <div className="mt-6 overflow-x-auto">
+          <div className="mt-6">
             {!selectedInvoice ? (
               <div className="rounded-xl border border-dashed border-gray-300 px-6 py-12 text-center">
                 <p className="text-sm font-medium text-gray-700">
@@ -625,74 +646,147 @@ const Refunds = () => {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Date
-                    </th>
+              <div>
+                {/* TABLE */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left">
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Date
+                        </th>
 
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Customer
-                    </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Customer
+                        </th>
 
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Amount
-                    </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Amount
+                        </th>
 
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Method
-                    </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Method
+                        </th>
 
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
 
-                <tbody>
-                  {refunds.map((refund) => (
-                    <tr
-                      key={refund._id}
-                      className="border-b border-gray-100 last:border-0"
-                    >
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {formatDate(refund.refundDate)}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <p className="text-sm font-medium text-gray-900">
-                          {refund.customer?.name || "-"}
-                        </p>
-
-                        <p className="mt-1 text-xs text-gray-500">
-                          {refund.customer?.email || "-"}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-4 text-sm font-semibold text-gray-900">
-                        {formatAmount(refund.amount)}
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-gray-700">
-                        {refund.refundMethod === "BANK_TRANSFER"
-                          ? "Bank Transfer"
-                          : refund.refundMethod}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                            refund.status
-                          )}`}
+                    <tbody>
+                      {paginatedRefunds.map((refund) => (
+                        <tr
+                          key={refund._id}
+                          className="border-b border-gray-100 last:border-0"
                         >
-                          {refund.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          {/* DATE */}
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            {formatDate(refund.refundDate)}
+                          </td>
+
+                          {/* CUSTOMER */}
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-medium text-gray-900">
+                              {refund.customer?.name || "-"}
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
+                              {refund.customer?.email || "-"}
+                            </p>
+                          </td>
+
+                          {/* AMOUNT */}
+                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                            {formatAmount(refund.amount)}
+                          </td>
+
+                          {/* METHOD */}
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            {refund.refundMethod === "BANK_TRANSFER"
+                              ? "Bank Transfer"
+                              : refund.refundMethod}
+                          </td>
+
+                          {/* STATUS */}
+                          <td className="px-4 py-4">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                                refund.status
+                              )}`}
+                            >
+                              {refund.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PAGINATION */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-gray-500">
+                      Showing{" "}
+                      <span className="font-medium text-gray-700">
+                        {startIndex + 1}
+                      </span>
+                      {" - "}
+                      <span className="font-medium text-gray-700">
+                        {Math.min(
+                          startIndex + refundsPerPage,
+                          refunds.length
+                        )}
+                      </span>
+                      {" of "}
+                      <span className="font-medium text-gray-700">
+                        {refunds.length}
+                      </span>{" "}
+                      refunds
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      {/* PREVIOUS */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage((page) =>
+                            Math.max(page - 1, 1)
+                          )
+                        }
+                        disabled={currentPage === 1}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+
+                      {/* PAGE NUMBER */}
+                      <span className="px-2 text-sm text-gray-600">
+                        Page{" "}
+                        <span className="font-semibold text-gray-900">
+                          {currentPage}
+                        </span>{" "}
+                        of {totalPages}
+                      </span>
+
+                      {/* NEXT */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage((page) =>
+                            Math.min(page + 1, totalPages)
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -58,6 +58,41 @@ const navigationByRole = {
   ],
 
 
+  CLERK: [
+    {
+      label: "Dashboard",
+      to: "/clerk",
+      end: true,
+      icon: "home",
+    },
+    {
+      label: "Rental Management",
+      to: "/clerk/rentals",
+      icon: "bookings",
+    },
+    {
+      label: "Equipment Status",
+      to: "/clerk/equipment",
+      icon: "equipment",
+    },
+    {
+      label: "Damage & Maintenance",
+      to: "/clerk/damage-maintenance",
+      icon: "maintenance",
+    },
+    {
+      label: "Security Deposits",
+      to: "/clerk/deposits",
+      icon: "payments",
+    },
+    {
+      label: "Refund Management",
+      to: "/clerk/refunds",
+      icon: "refund",
+    },
+  ],
+
+
   STAFF_ADMIN: [
     {
       label: "Dashboard",
@@ -87,6 +122,7 @@ const profileRoutes = {
 const roleLabels = {
   CUSTOMER: "Customer",
   PHOTOGRAPHER: "Photographer",
+  CLERK: "Clerk",
   STAFF_ADMIN: "Staff Admin",
 };
 
@@ -181,6 +217,61 @@ const Icon = ({ name }) => {
   }
 
 
+  // EQUIPMENT
+  if (name === "equipment") {
+    return (
+      <svg {...commonProps}>
+        <rect
+          x="3"
+          y="6"
+          width="18"
+          height="13"
+          rx="2"
+        />
+        <path d="M8 6l1.5-2h5L16 6" />
+        <circle cx="12" cy="12.5" r="3" />
+      </svg>
+    );
+  }
+
+  // MAINTENANCE
+  if (name === "maintenance") {
+    return (
+      <svg {...commonProps}>
+        <path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z" />
+      </svg>
+    );
+  }
+
+  // PAYMENTS / DEPOSITS
+  if (name === "payments") {
+    return (
+      <svg {...commonProps}>
+        <rect
+          x="3"
+          y="5"
+          width="18"
+          height="14"
+          rx="2"
+        />
+        <path d="M3 9h18" />
+        <path d="M7 15h4" />
+      </svg>
+    );
+  }
+
+  // REFUND
+  if (name === "refund") {
+    return (
+      <svg {...commonProps}>
+        <path d="M9 7H5v-4" />
+        <path d="M5 7a8 8 0 1 1-1 8" />
+        <path d="M8 12h8M12 9l-3 3 3 3" />
+      </svg>
+    );
+  }
+
+
   // HOME / DASHBOARD
   return (
     <svg {...commonProps}>
@@ -260,7 +351,7 @@ const AppSidebar = ({
           BRAND
       ====================================== */}
 
-      <div className="flex h-20 items-center border-b border-gray-200 px-5">
+      <div className="flex h-20 items-center px-5">
 
         <NavLink
           to={
@@ -277,18 +368,11 @@ const AppSidebar = ({
           "
         >
 
-          <div className="
-            flex h-10 w-10
-            items-center justify-center
-            rounded-xl
-            bg-orange-600
-            text-xs
-            font-bold
-            text-white
-            shadow-sm
-          ">
-            SCR
-          </div>
+        <img
+          src="/scr-logo.jpg"
+          alt="Southern Camera Rent"
+          className="h-12 w-12 rounded-xl object-contain"
+        />
 
 
           <div className="min-w-0">
@@ -300,7 +384,7 @@ const AppSidebar = ({
               tracking-tight
               text-gray-950
             ">
-              Southern Camera Rental
+              Southern Camera Rent
             </p>
 
             <p className="
@@ -308,7 +392,7 @@ const AppSidebar = ({
               text-[11px]
               text-gray-500
             ">
-              Rental & Booking System
+              Equipment & Photographer Services
             </p>
 
           </div>

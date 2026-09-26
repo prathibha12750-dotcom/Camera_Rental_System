@@ -9,6 +9,23 @@ const profileRoutes = {
   PHOTOGRAPHER: "/photographer/profile",
 };
 
+const roleHeaderContent = {
+  CUSTOMER: {
+    subtitle: "Manage your rentals, bookings, and account activity.",
+  },
+
+  PHOTOGRAPHER: {
+    subtitle: "Manage your bookings, availability, and portfolio.",
+  },
+
+  CLERK: {
+    subtitle: "Manage day-to-day rental and equipment operations.",
+  },
+
+  STAFF_ADMIN: {
+    subtitle: "Manage users, inventory, billing, and system operations.",
+  },
+};
 
 const AppHeader = ({
   onMenuClick,
@@ -19,9 +36,8 @@ const AppHeader = ({
 
   const { user } = useAuth();
 
-  const profilePath =
-    profileRoutes[user?.role];
-
+  const profilePath = profileRoutes[user?.role];
+  const headerContent = roleHeaderContent[user?.role] || {subtitle: "Manage your account activity."};
 
   // ==========================================
   // PROFILE NAVIGATION
@@ -119,7 +135,7 @@ const AppHeader = ({
             text-gray-500
             sm:block
           ">
-            Rental & Booking System
+            Equipment & Photographer Services
           </p>
 
         </div>
@@ -140,7 +156,7 @@ const AppHeader = ({
           </p>
 
           <p className="text-xs text-gray-500">
-            Manage your rental and booking activity.
+            {headerContent.subtitle}
           </p>
 
         </div>

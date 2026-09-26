@@ -8,8 +8,6 @@ import {
   returnRental,
   completeRental,
   getOverdueRentals,
-  getAllDamageRecords,
-  updateDamageRecordStatus,
 } from "../../services/rentalService";
 
 const RentalManagement = () => {
@@ -22,16 +20,9 @@ const RentalManagement = () => {
 
   const [returningRental, setReturningRental] = useState(null);
 
-    const [returnData, setReturnData] = useState({
-    condition: "GOOD",
-    damageDescription: "",
-    });
+  const [returnData, setReturnData] = useState({condition: "GOOD", damageDescription: "",});
 
-    const [showOverdueOnly, setShowOverdueOnly] = useState(false);
-
-    const [damageRecords, setDamageRecords] = useState([]);
-    const [showDamageRecords, setShowDamageRecords] = useState(false);
-    const [damageLoading, setDamageLoading] = useState(false);
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
   const loadRentals = async () => {
     try {
@@ -84,34 +75,17 @@ const RentalManagement = () => {
   }
 };
 
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const rentalsPerPage = 8;
 
   const { user } = useAuth();
 
   const isClerk = user?.role === "CLERK";
 
 
-  const loadDamageRecords = async () => {
-  try {
-    setDamageLoading(true);
-    setError("");
-
-    const result = await getAllDamageRecords();
-
-    console.log("DAMAGE RECORD RESULT:", result);
-
-    setDamageRecords(result?.data?.damageRecords || []);
-  } catch (err) {
-    setError(
-      err.response?.data?.message ||
-        "Failed to load damage records"
-    );
-  } finally {
-    setDamageLoading(false);
-  }
-};
-
-
   const handleOverdueFilter = async () => {
+    setCurrentPage(1);
     if (showOverdueOnly) {
         await loadRentals();
         setShowOverdueOnly(false);
@@ -120,57 +94,6 @@ const RentalManagement = () => {
         setShowOverdueOnly(true);
     }
  };
-
-
- const handleDamageRecords = async () => {
-  if (showDamageRecords) {
-    setShowDamageRecords(false);
-    return;
-  }
-
-  await loadDamageRecords();
-  setShowDamageRecords(true);
-};
-
-
-const handleDamageStatusUpdate = async (
-  damageRecord,
-  newStatus
-) => {
-  const confirmed = window.confirm(
-    `Change damage status to ${newStatus.replace("_", " ")}?`
-  );
-
-  if (!confirmed) return;
-
-  try {
-    setActionLoading(damageRecord._id);
-    setError("");
-    setSuccess("");
-
-    await updateDamageRecordStatus(
-      damageRecord._id,
-      newStatus
-    );
-
-    await loadDamageRecords();
-
-    setSuccess(
-      `Damage record updated to ${newStatus.replace("_", " ")}.`
-    );
-
-    setTimeout(() => {
-      setSuccess("");
-    }, 3000);
-  } catch (err) {
-    setError(
-      err.response?.data?.message ||
-        "Failed to update damage status"
-    );
-  } finally {
-    setActionLoading(null);
-  }
-};
 
 
   const handleApprove = async (rental) => {
@@ -404,6 +327,17 @@ const handleComplete = async (rental) => {
     return new Date(date).toLocaleDateString();
   };
 
+  const totalPages = Math.ceil(
+    rentals.length / rentalsPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) * rentalsPerPage;
+
+  const paginatedRentals = rentals.slice(
+    startIndex,
+    startIndex + rentalsPerPage
+  );
 
 
   const getRentalStatusClass = (status) => {
@@ -434,26 +368,6 @@ const handleComplete = async (rental) => {
   }
 };
 
-const getDamageStatusClass = (status) => {
-  switch (status) {
-    case "REPORTED":
-      return "bg-red-100 text-red-800";
-
-    case "UNDER_INSPECTION":
-      return "bg-yellow-100 text-yellow-800";
-
-    case "MAINTENANCE":
-      return "bg-orange-100 text-orange-800";
-
-    case "RESOLVED":
-      return "bg-green-100 text-green-800";
-
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
-};
-
-
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
@@ -472,7 +386,7 @@ const getDamageStatusClass = (status) => {
 
                 <p className="mt-2 text-gray-600">
                   {isClerk
-                    ? "Manage rental requests, equipment issue and return operations, overdue rentals, and damage records."
+                    ? "Manage rental requests, equipment issuing and returns, overdue rentals, and rental completion."
                     : "Manage equipment rental requests and rental status."}
                 </p>
             </div>
@@ -492,20 +406,6 @@ const getDamageStatusClass = (status) => {
                     {showOverdueOnly
                     ? "Show All Rentals"
                     : "Show Overdue Rentals"}
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleDamageRecords}
-                    className={
-                    showDamageRecords
-                        ? "rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white hover:bg-orange-700"
-                        : "rounded-xl border border-orange-300 bg-white px-5 py-3 font-semibold text-orange-600 hover:bg-orange-50"
-                    }
-                >
-                    {showDamageRecords
-                    ? "Hide Damage Records"
-                    : "Damage Records"}
                 </button>
             </div>
         </div>
@@ -640,181 +540,6 @@ const getDamageStatusClass = (status) => {
             )}
 
 
-
-        {showDamageRecords && (
-            <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-
-                <div className="border-b border-gray-200 px-6 py-5">
-                <h2 className="text-xl font-semibold text-gray-950">
-                    Damage Records
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                    Equipment damage reported during rental returns.
-                </p>
-                </div>
-
-                {damageLoading ? (
-                <p className="p-6 text-gray-600">
-                    Loading damage records...
-                </p>
-                ) : damageRecords.length === 0 ? (
-                <p className="p-6 text-gray-600">
-                    No damage records found.
-                </p>
-                ) : (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-
-                    <thead className="bg-gray-50">
-                        <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Equipment
-                        </th>
-
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Customer
-                        </th>
-
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Damage
-                        </th>
-
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Status
-                        </th>
-
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Reported
-                        </th>
-
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                            Actions
-                        </th>
-
-                        </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-gray-100">
-                        {damageRecords.map((record) => (
-                        <tr key={record._id}>
-
-                            <td className="px-6 py-4">
-                            <p className="font-semibold text-gray-950">
-                                {record.equipment?.name || "Unknown Equipment"}
-                            </p>
-
-                            <p className="text-sm text-gray-500">
-                                {record.equipment?.brand}{" "}
-                                {record.equipment?.model}
-                            </p>
-                            </td>
-
-                            <td className="px-6 py-4">
-                            <p className="font-medium text-gray-900">
-                                {record.customer?.name || "—"}
-                            </p>
-
-                            <p className="text-sm text-gray-500">
-                                {record.customer?.email || "—"}
-                            </p>
-                            </td>
-
-                            <td className="max-w-xs px-6 py-4 text-sm text-gray-700">
-                            {record.description || "—"}
-                            </td>
-
-                            <td className="px-6 py-4">
-                            <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${getDamageStatusClass(
-                                    record.status
-                                )}`}
-                            >
-                                        {record.status.replaceAll("_", " ")}
-                            </span>
-                            </td>
-
-                            <td className="px-6 py-4 text-sm text-gray-600">
-                            {formatDate(record.createdAt)}
-                            </td>
-
-
-                            <td className="px-6 py-4">
-
-                                {record.status === "REPORTED" && (
-                                    <button
-                                    type="button"
-                                    onClick={() =>
-                                        handleDamageStatusUpdate(
-                                        record,
-                                        "UNDER_INSPECTION"
-                                        )
-                                    }
-                                    disabled={actionLoading === record._id}
-                                    className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                    {actionLoading === record._id
-                                        ? "Updating..."
-                                        : "Start Inspection"}
-                                    </button>
-                                )}
-
-                                {record.status === "UNDER_INSPECTION" && (
-                                    <button
-                                    type="button"
-                                    onClick={() =>
-                                        handleDamageStatusUpdate(
-                                        record,
-                                        "MAINTENANCE"
-                                        )
-                                    }
-                                    disabled={actionLoading === record._id}
-                                    className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                    {actionLoading === record._id
-                                        ? "Updating..."
-                                        : "Send to Maintenance"}
-                                    </button>
-                                )}
-
-                                {record.status === "MAINTENANCE" && (
-                                    <button
-                                    type="button"
-                                    onClick={() =>
-                                        handleDamageStatusUpdate(
-                                        record,
-                                        "RESOLVED"
-                                        )
-                                    }
-                                    disabled={actionLoading === record._id}
-                                    className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                    {actionLoading === record._id
-                                        ? "Updating..."
-                                        : "Mark Resolved"}
-                                    </button>
-                                )}
-
-                                {record.status === "RESOLVED" && (
-                                    <span className="text-sm font-medium text-green-600">
-                                    Resolved ✓
-                                    </span>
-                                )}
-
-                                </td>
-
-
-                        </tr>
-                        ))}
-                    </tbody>
-                    </table>
-                </div>
-                )}
-            </div>
-            )}
-
-
-
         {/* Rental table */}
         {!loading && !error && rentals.length > 0 && (
           <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -851,7 +576,7 @@ const getDamageStatusClass = (status) => {
                 </thead>
 
                 <tbody className="divide-y divide-gray-100">
-                  {rentals.map((rental) => (
+                  {paginatedRentals.map((rental) => (
                     <tr key={rental._id}>
 
                       {/* Customer */}
@@ -992,6 +717,65 @@ const getDamageStatusClass = (status) => {
 
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-500">
+                  Showing{" "}
+                  <span className="font-medium text-gray-700">
+                    {startIndex + 1}
+                  </span>
+                  {" - "}
+                  <span className="font-medium text-gray-700">
+                    {Math.min(
+                      startIndex + rentalsPerPage,
+                      rentals.length
+                    )}
+                  </span>
+                  {" of "}
+                  <span className="font-medium text-gray-700">
+                    {rentals.length}
+                  </span>{" "}
+                  rentals
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.max(page - 1, 1)
+                      )
+                    }
+                    disabled={currentPage === 1}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+
+                  <span className="px-2 text-sm text-gray-600">
+                    Page{" "}
+                    <span className="font-semibold text-gray-900">
+                      {currentPage}
+                    </span>{" "}
+                    of {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.min(page + 1, totalPages)
+                      )
+                    }
+                    disabled={currentPage === totalPages}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

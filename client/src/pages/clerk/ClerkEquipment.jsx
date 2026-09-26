@@ -10,7 +10,8 @@ const ClerkEquipment = () => {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const equipmentPerPage = 8;
 
   // ==========================================
   // LOAD EQUIPMENT
@@ -100,10 +101,21 @@ const ClerkEquipment = () => {
     }
   };
 
+  // ==========================================
+  // PAGINATION
+  // ==========================================
 
-  // ==========================================
-  // UI
-  // ==========================================
+  const totalPages = Math.ceil(
+    equipment.length / equipmentPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) * equipmentPerPage;
+
+  const paginatedEquipment = equipment.slice(
+    startIndex,
+    startIndex + equipmentPerPage
+  );
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
@@ -218,7 +230,7 @@ const ClerkEquipment = () => {
 
                   <tbody className="divide-y divide-gray-100">
 
-                    {equipment.map((item) => (
+                    {paginatedEquipment.map((item) => (
                       <tr
                         key={item._id}
                         className="transition hover:bg-gray-50"
@@ -299,8 +311,67 @@ const ClerkEquipment = () => {
                     ))}
 
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-gray-500">
+                        Showing{" "}
+                        <span className="font-medium text-gray-700">
+                          {startIndex + 1}
+                        </span>
+                        {" - "}
+                        <span className="font-medium text-gray-700">
+                          {Math.min(
+                            startIndex + equipmentPerPage,
+                            equipment.length
+                          )}
+                        </span>
+                        {" of "}
+                        <span className="font-medium text-gray-700">
+                          {equipment.length}
+                        </span>{" "}
+                        equipment items
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage((page) =>
+                              Math.max(page - 1, 1)
+                            )
+                          }
+                          disabled={currentPage === 1}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+
+                        <span className="px-2 text-sm text-gray-600">
+                          Page{" "}
+                          <span className="font-semibold text-gray-900">
+                            {currentPage}
+                          </span>{" "}
+                          of {totalPages}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage((page) =>
+                              Math.min(page + 1, totalPages)
+                            )
+                          }
+                          disabled={currentPage === totalPages}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
             </div>
           )}
 

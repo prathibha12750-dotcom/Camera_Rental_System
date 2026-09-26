@@ -72,6 +72,7 @@ import PhotographerChangePassword from "../pages/photographer/PhotographerChange
 import ClerkHome from "../pages/clerk/ClerkHome";
 import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
 import ClerkEquipment from "../pages/clerk/ClerkEquipment";
+import DamageMaintenance from "../pages/clerk/DamageMaintenance";
 
 
 // ==========================================
@@ -543,6 +544,11 @@ const AppRoutes = () => {
                   path="/clerk/refunds"
                   element={<Refunds />}
                 />
+
+                <Route
+                  path="/clerk/damage-maintenance"
+                  element={<DamageMaintenance />}
+                />  
 
               </Route>
 
