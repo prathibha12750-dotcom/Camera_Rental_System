@@ -218,8 +218,40 @@ const getAllPayments = async (req, res, next) => {
     }
 };
 
+// =======================================
+// GET MY PAYMENTS
+// GET /api/customer/payments
+// CUSTOMER ONLY
+// =======================================
+
+const getMyPayments = async (req, res, next) => {
+    try {
+        const customerId = req.user.userId;
+
+        const payments = await Payment.find({
+            customer: customerId,
+        })
+            .populate(
+                "invoice",
+                "invoiceNumber serviceDetails serviceAmount securityDeposit totalAmount paymentStatus"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer payment history retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createPayment,
     getPaymentsByInvoice,
     getAllPayments,
+    getMyPayments,
 };

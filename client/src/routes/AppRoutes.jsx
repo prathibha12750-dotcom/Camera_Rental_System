@@ -40,6 +40,7 @@ import PhotographerDetails from "../pages/customer/PhotographerDetails";
 import PhotographerBooking from "../pages/customer/PhotographerBooking";
 import CustomerBookings from "../pages/customer/CustomerBookings";
 import PhotographerApplication from "../pages/customer/PhotographerApplication";
+import CustomerBilling from "../pages/customer/CustomerBilling";
 
 
 // ==========================================
@@ -384,6 +385,15 @@ const AppRoutes = () => {
                 path="/customer/rentals"
                 element={
                   <MyRentals />
+                }
+              />
+
+              {/* Customer Invoices & Payments */}
+
+              <Route
+                path="/customer/billing"
+                element={
+                  <CustomerBilling />
                 }
               />
 

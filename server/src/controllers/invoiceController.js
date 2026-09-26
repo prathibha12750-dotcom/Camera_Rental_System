@@ -158,6 +158,33 @@ const getInvoiceById = async (req, res, next) => {
     }
 };
 
+// ==================================
+// GET MY INVOICES
+// GET /api/customer/invoices
+// CUSTOMER ONLY
+// ==================================
+
+const getMyInvoices = async (req, res, next) => {
+    try {
+        const customerId = req.user.userId;
+
+        const invoices = await Invoice.find({
+            customer: customerId,
+        })
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer invoices retrieved successfully",
+            data: {
+                invoices,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 //-----------------------------------
 //EXPORT
 //-----------------------------------
@@ -166,4 +193,5 @@ module.exports = {
     createInvoice,
     getInvoices,
     getInvoiceById,
+    getMyInvoices,
 };

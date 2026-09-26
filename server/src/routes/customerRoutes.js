@@ -43,6 +43,14 @@ const {
   "../controllers/photographerNotificationController"
 );
 
+const {
+  getMyInvoices,
+} = require("../controllers/invoiceController");
+
+const {
+  getMyPayments,
+} = require("../controllers/paymentController");
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -200,5 +208,29 @@ router.patch(
   markNotificationAsRead
 );
 
+// ==========================================
+// CUSTOMER INVOICES
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/invoices",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyInvoices
+);
+
+
+// ==========================================
+// CUSTOMER PAYMENTS
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/payments",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyPayments
+);
 
 module.exports = router;

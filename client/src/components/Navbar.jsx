@@ -573,6 +573,16 @@ const Navbar = () => {
                               My Bookings
                             </Link>
 
+                            <Link
+                              to="/customer/billing"
+                              onClick={() =>
+                                setAccountOpen(false)
+                              }
+                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
+                            >
+                              Invoices & Payments
+                            </Link>
+
                           </div>
 
 {/* ==================================
