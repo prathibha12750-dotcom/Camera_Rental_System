@@ -100,6 +100,51 @@ const navigationByRole = {
       end: true,
       icon: "home",
     },
+    {
+      label: "Users",
+      to: "/admin/users",
+      icon: "users",
+    },
+    {
+      label: "Equipment",
+      to: "/admin/equipment",
+      icon: "equipment",
+    },
+    {
+      label: "Rentals",
+      to: "/admin/rentals",
+      icon: "bookings",
+    },
+    {
+      label: "Invoices",
+      to: "/admin/invoices",
+      icon: "invoice",
+    },
+    {
+      label: "Payments",
+      to: "/admin/payments",
+      icon: "payments",
+    },
+    {
+      label: "Deposits",
+      to: "/admin/deposits",
+      icon: "deposits",
+    },
+    {
+      label: "Refunds",
+      to: "/admin/refunds",
+      icon: "refund",
+    },
+    {
+      label: "Reports",
+      to: "/admin/reports",
+      icon: "reports",
+    },
+    {
+      label: "Notifications",
+      to: "/admin/notifications",
+      icon: "notifications",
+    },
   ],
 
 };
@@ -271,6 +316,52 @@ const Icon = ({ name }) => {
     );
   }
 
+  if (name === "users") {
+    return (
+      <svg {...commonProps}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+
+  if (name === "invoice") {
+    return (
+      <svg {...commonProps}>
+        <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+        <path d="M9 8h6M9 12h6M9 16h3" />
+      </svg>
+    );
+  }
+
+  if (name === "deposits") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M7 14h4" />
+      </svg>
+    );
+  }
+
+  if (name === "reports") {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 19V10M10 19V5M16 19v-7M22 19H2" />
+      </svg>
+    );
+  }
+
+  if (name === "notifications") {
+    return (
+      <svg {...commonProps}>
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M10 21h4" />
+      </svg>
+    );
+  }
 
   // HOME / DASHBOARD
   return (
@@ -280,6 +371,7 @@ const Icon = ({ name }) => {
       <path d="M5 9v11h14V9M9 20v-6h6v6" />
     </svg>
   );
+
 };
 
 

@@ -1,16 +1,78 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { useAuth } from "../../context/useAuth";
 import api from "../../services/api";
 
 const AdminHome = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const StatIcon = ({ type }) => {
+    const commonProps = {
+      className: "h-5 w-5",
+      fill: "none",
+      viewBox: "0 0 24 24",
+      stroke: "currentColor",
+      strokeWidth: 1.8,
+      "aria-hidden": true,
+    };
+
+    if (type === "users") {
+      return (
+        <svg {...commonProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    }
+
+    if (type === "equipment") {
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="6" width="18" height="13" rx="2" />
+          <path d="M8 6l1.5-2h5L16 6" />
+          <circle cx="12" cy="12.5" r="3" />
+        </svg>
+      );
+    }
+
+    if (type === "rental") {
+      return (
+        <svg {...commonProps}>
+          <path d="M7 3v3M17 3v3" />
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18" />
+        </svg>
+      );
+    }
+
+    if (type === "booking") {
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="18" height="17" rx="2" />
+          <path d="M8 2v4M16 2v4M3 9h18M8 13h3M13 13h3" />
+        </svg>
+      );
+    }
+
+    if (type === "payment") {
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M3 9h18M7 15h4" />
+        </svg>
+      );
+    }
+
+    return (
+      <svg {...commonProps}>
+        <path d="M4 19V9M10 19V5M16 19v-8M22 19H2" />
+      </svg>
+    );
+  };
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -67,41 +129,49 @@ const AdminHome = () => {
   };
 
   const statCards = [
-    {
-      title: "Total Customers",
-      value: formatNumber(stats?.totalCustomers),
-    },
-    {
-      title: "Total Photographers",
-      value: formatNumber(stats?.totalPhotographers),
-    },
-    {
-      title: "Total Equipment",
-      value: formatNumber(stats?.totalEquipment),
-    },
-    {
-      title: "Active Rentals",
-      value: formatNumber(stats?.activeRentals),
-    },
-    {
-      title: "Overdue Rentals",
-      value: formatNumber(stats?.overdueRentals),
-    },
-    {
-      title: "Upcoming Bookings",
-      value: formatNumber(
-        stats?.upcomingPhotographerBokings
-      ),
-    },
-    {
-      title: "Total Payments",
-      value: formatNumber(stats?.totalPayments),
-    },
-    {
-      title: "Monthly Revenue",
-      value: formatCurrency(stats?.monthlyRevenue),
-    },
-  ];
+  {
+    title: "Total Customers",
+    value: formatNumber(stats?.totalCustomers),
+    icon: "users",
+  },
+  {
+    title: "Total Photographers",
+    value: formatNumber(stats?.totalPhotographers),
+    icon: "users",
+  },
+  {
+    title: "Total Equipment",
+    value: formatNumber(stats?.totalEquipment),
+    icon: "equipment",
+  },
+  {
+    title: "Active Rentals",
+    value: formatNumber(stats?.activeRentals),
+    icon: "rental",
+  },
+  {
+    title: "Overdue Rentals",
+    value: formatNumber(stats?.overdueRentals),
+    icon: "rental",
+  },
+  {
+    title: "Upcoming Bookings",
+    value: formatNumber(
+      stats?.upcomingPhotographerBokings
+    ),
+    icon: "booking",
+  },
+  {
+    title: "Total Payments",
+    value: formatNumber(stats?.totalPayments),
+    icon: "payment",
+  },
+  {
+    title: "Monthly Revenue",
+    value: formatCurrency(stats?.monthlyRevenue),
+    icon: "revenue",
+  },
+];
 
   return (
     <main className="min-h-full bg-gray-100 px-6 py-8">
@@ -110,67 +180,70 @@ const AdminHome = () => {
         {/* Page Header */}
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-            Dashboard
+            Administration
           </p>
 
           <h1 className="mt-2 text-3xl font-bold text-gray-950">
-            Welcome, {user?.name || "Admin"}
+            System Overview
           </h1>
 
-          <p className="mt-2 text-gray-600">
-            Here's an overview of the CameraRent system.
+          <p className="mt-2 max-w-2xl text-gray-600">
+            Monitor users, equipment, rentals, bookings, payments,
+            and revenue across Southern Camera Rental.
           </p>
         </div>
 
         {/* Quick Management Links */}
         <div className="mb-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {[
-            [
-              "Users",
-              "Manage customer and system user accounts.",
-            ],
-            [
-              "Photographers",
-              "Create and manage photographer accounts.",
-            ],
-            [
-              "Equipment",
-              "Manage camera equipment and rental inventory.",
-            ],
-            [
-              "Rentals",
-              "Manage rental requests, issuing, returns and rental status.",
-            ],
-          ].map(([title, description]) => (
-            <div
-              key={title}
-              onClick={() => {
-                if (title === "Equipment") {
-                  navigate("/admin/equipment");
-                }
-
-                if (title === "Rentals") {
-                  navigate("/admin/rentals");
-                }
-              }}
-              className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ${
-                title === "Equipment" || title === "Rentals"
-                  ? "cursor-pointer transition hover:border-orange-300 hover:shadow-md"
-                  : ""
-              }`}
+            {
+              title: "Users",
+              description: "Manage customer and system user accounts.",
+              route: "/admin/users",
+              icon: "U",
+            },
+            {
+              title: "Photographers",
+              description: "Review and manage photographer accounts.",
+              route: "/admin/photographer-applications",
+              icon: "P",
+            },
+            {
+              title: "Equipment",
+              description: "Manage camera equipment and rental inventory.",
+              route: "/admin/equipment",
+              icon: "E",
+            },
+            {
+              title: "Rentals",
+              description:
+                "Manage rental requests, issuing, returns and rental status.",
+              route: "/admin/rentals",
+              icon: "R",
+            },
+          ].map((item) => (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => navigate(item.route)}
+              className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
-                {title.charAt(0)}
+                {item.icon}
               </div>
 
-              <h2 className="mt-5 text-lg font-semibold text-gray-950">
-                {title}
+              <h2 className="mt-5 text-lg font-semibold text-gray-950 transition group-hover:text-orange-600">
+                {item.title}
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                {description}
+                {item.description}
               </p>
-            </div>
+
+              <span className="mt-auto pt-5 text-sm font-semibold text-orange-600">
+                Manage {item.title} →
+              </span>
+            </button>
           ))}
         </div>
 
@@ -206,30 +279,53 @@ const AdminHome = () => {
                   key={card.title}
                   className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
                 >
-                  <p className="text-sm font-medium text-gray-500">
-                    {card.title}
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        {card.title}
+                      </p>
 
-                  <p className="mt-3 text-3xl font-bold text-gray-950">
-                    {card.value}
-                  </p>
+                      <p className="mt-3 text-3xl font-bold tracking-tight text-gray-950">
+                        {card.value}
+                      </p>
+                    </div>
+
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                      <StatIcon type={card.icon} />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Dashboard Information */}
             <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-950">
-                System Overview
-              </h2>
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 19V10M10 19V5M16 19v-7M22 19H2" />
+                  </svg>
+                </div>
 
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                Dashboard statistics are retrieved from the Staff
-                Admin dashboard API. Equipment, rental and
-                photographer booking statistics will appear
-                automatically when their respective modules
-                provide data.
-              </p>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-950">
+                    System Activity
+                  </h2>
+
+                  <p className="mt-1 text-sm leading-6 text-gray-600">
+                    Use the dashboard statistics and management modules to
+                    monitor customers, photographers, equipment, rentals,
+                    bookings, payments, and revenue across the system.
+                  </p>
+                </div>
+              </div>
             </div>
           </>
         )}
