@@ -131,6 +131,65 @@ const photographerSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    // ----------------------------------------
+    // Subscription status
+    // ----------------------------------------
+
+    subscriptionStatus: {
+      type: String,
+      enum: [
+        "TRIAL",
+        "ACTIVE",
+        "GRACE_PERIOD",
+        "EXPIRED",
+      ],
+      default: "TRIAL",
+      index: true,
+    },
+
+
+    // ----------------------------------------
+    // Free trial expiry
+    // New photographers receive 6 hours
+    // ----------------------------------------
+
+    trialEndsAt: {
+      type: Date,
+      default: null,
+    },
+
+
+    // ----------------------------------------
+    // Current paid subscription start
+    // ----------------------------------------
+
+    subscriptionStartDate: {
+      type: Date,
+      default: null,
+    },
+
+
+    // ----------------------------------------
+    // Current paid subscription expiry
+    // ----------------------------------------
+
+    subscriptionEndDate: {
+      type: Date,
+      default: null,
+    },
+
+
+    // ----------------------------------------
+    // Grace period expiry
+    // 1 day after subscription ends
+    // ----------------------------------------
+
+    gracePeriodEndsAt: {
+      type: Date,
+      default: null,
+    },
+
   },
   {
     timestamps: true,

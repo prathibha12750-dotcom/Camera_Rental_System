@@ -10,14 +10,22 @@ const MyRentals = () => {
   const [cancellingId, setCancellingId] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
 
+  // ==========================================
+  // REFRESH RENTALS
+  // ==========================================
+
   const loadRentals = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await api.get("/rentals/my-rentals");
+      const response = await api.get(
+        "/rentals/my-rentals"
+      );
 
-      setRentals(response.data?.data?.rentals || []);
+      setRentals(
+        response.data?.data?.rentals || []
+      );
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -28,38 +36,87 @@ const MyRentals = () => {
     }
   };
 
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInitialRentals = async () => {
+      try {
+        const response = await api.get(
+          "/rentals/my-rentals"
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setRentals(
+          response.data?.data?.rentals || []
+        );
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          err.response?.data?.message ||
+            "Failed to load your rentals"
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialRentals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ==========================================
+  // CANCEL RENTAL
+  // ==========================================
+
   const handleCancelRental = async (rentalId) => {
     const confirmed = window.confirm(
-        "Are you sure you want to cancel this rental request?"
+      "Are you sure you want to cancel this rental request?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
-        try {
-            setCancellingId(rentalId);
-            setError("");
-            setSuccessMessage("");
+    try {
+      setCancellingId(rentalId);
+      setError("");
+      setSuccessMessage("");
 
-        await cancelRental(rentalId);
+      await cancelRental(rentalId);
 
-        setSuccessMessage(
-            "Rental request cancelled successfully."
-        );
+      setSuccessMessage(
+        "Rental request cancelled successfully."
+      );
 
-        await loadRentals();
+      await loadRentals();
     } catch (err) {
-        setError(
-            err.response?.data?.message ||
-            "Failed to cancel rental request"
-        );
+      setError(
+        err.response?.data?.message ||
+          "Failed to cancel rental request"
+      );
     } finally {
-        setCancellingId(null);
+      setCancellingId(null);
     }
   };
 
-  useEffect(() => {
-    loadRentals();
-  }, []);
+  // ==========================================
+  // PAGE
+  // ==========================================
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
@@ -73,8 +130,11 @@ const MyRentals = () => {
         </h1>
 
         <p className="mt-2 text-gray-600">
-          View and manage your equipment rental requests.
+          View and manage your equipment rental
+          requests.
         </p>
+
+        {/* Loading */}
 
         {loading && (
           <p className="mt-8 text-gray-600">
@@ -82,25 +142,36 @@ const MyRentals = () => {
           </p>
         )}
 
+        {/* Error */}
+
         {error && (
           <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
             {error}
           </div>
         )}
 
-        {successMessage && (
-            <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
-                {successMessage}
-            </div>
-        )}
+        {/* Success */}
 
-        {!loading && !error && rentals.length === 0 && (
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-gray-600">
-              You do not have any rental requests yet.
-            </p>
+        {successMessage && (
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+            {successMessage}
           </div>
         )}
+
+        {/* Empty State */}
+
+        {!loading &&
+          !error &&
+          rentals.length === 0 && (
+            <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-8 text-center">
+              <p className="text-gray-600">
+                You do not have any rental
+                requests yet.
+              </p>
+            </div>
+          )}
+
+        {/* Rental List */}
 
         <div className="mt-8 space-y-4">
           {rentals.map((rental) => (
@@ -111,7 +182,8 @@ const MyRentals = () => {
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-950">
-                    {rental.equipment?.name || "Equipment"}
+                    {rental.equipment?.name ||
+                      "Equipment"}
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-600">
@@ -126,10 +198,13 @@ const MyRentals = () => {
               </div>
 
               <div className="mt-5 grid gap-4 border-t border-gray-100 pt-5 sm:grid-cols-3">
+                {/* Start Date */}
+
                 <div>
                   <p className="text-sm text-gray-500">
                     Start Date
                   </p>
+
                   <p className="font-medium text-gray-900">
                     {new Date(
                       rental.startDate
@@ -137,10 +212,13 @@ const MyRentals = () => {
                   </p>
                 </div>
 
+                {/* End Date */}
+
                 <div>
                   <p className="text-sm text-gray-500">
                     End Date
                   </p>
+
                   <p className="font-medium text-gray-900">
                     {new Date(
                       rental.endDate
@@ -148,31 +226,42 @@ const MyRentals = () => {
                   </p>
                 </div>
 
+                {/* Total Price */}
+
                 <div>
                   <p className="text-sm text-gray-500">
                     Total Price
                   </p>
+
                   <p className="font-semibold text-orange-600">
                     LKR{" "}
                     {rental.totalPrice?.toLocaleString()}
                   </p>
                 </div>
-
-                {rental.status === "PENDING" && (
-                    <div className="mt-5 border-t border-gray-100 pt-5">
-                        <button
-                            type="button"
-                            onClick={() => handleCancelRental(rental._id)}
-                            disabled={cancellingId === rental._id}
-                            className="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {cancellingId === rental._id
-                            ? "Cancelling..."
-                            : "Cancel Request"}
-                        </button>
-                    </div>
-                )}
               </div>
+
+              {/* Cancel Pending Rental */}
+
+              {rental.status === "PENDING" && (
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCancelRental(
+                        rental._id
+                      )
+                    }
+                    disabled={
+                      cancellingId === rental._id
+                    }
+                    className="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {cancellingId === rental._id
+                      ? "Cancelling..."
+                      : "Cancel Request"}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

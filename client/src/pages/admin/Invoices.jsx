@@ -101,7 +101,60 @@ const Invoices = () => {
   // ==========================================
 
   useEffect(() => {
-    fetchInvoices();
+    let cancelled = false;
+
+    const loadInitialInvoices = async () => {
+      try {
+        const response = await api.get("/admin/invoices");
+
+        if (cancelled) {
+          return;
+        }
+
+        setInvoices(
+          response.data?.data?.invoices || []
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const status = error.response?.status;
+
+        if (status === 401) {
+          setErrorMessage(
+            "Your session has expired. Please log in again."
+          );
+        } else if (status === 403) {
+          setErrorMessage(
+            "You do not have permission to view invoices."
+          );
+        } else if (status === 404) {
+          setErrorMessage(
+            "Invoice service was not found."
+          );
+        } else if (status >= 500) {
+          setErrorMessage(
+            "Server error. Please try again later."
+          );
+        } else {
+          setErrorMessage(
+            error.response?.data?.message ||
+              "Failed to load invoices."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialInvoices();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ==========================================
@@ -410,6 +463,14 @@ const Invoices = () => {
         <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
           <p className="text-sm font-medium text-green-700">
             {successMessage}
+          </p>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-medium text-red-700">
+            {errorMessage}
           </p>
         </div>
       )}

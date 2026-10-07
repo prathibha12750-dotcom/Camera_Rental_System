@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
+const {syncPhotographerSubscription,} = require("../services/photographerSubscriptionService");
 const { generateToken } = require("../utils/jwt");
 const {
   validateRegistration,
@@ -110,10 +111,37 @@ const login = async (req, res, next) => {
       });
     }
 
-    if (user.status !== "ACTIVE") {
+    // ==========================================
+    // SYNCHRONIZE PHOTOGRAPHER SUBSCRIPTION
+    // ==========================================
+
+    if (user.role === "PHOTOGRAPHER") {
+      await syncPhotographerSubscription(user);
+    }
+
+    // ==========================================
+    // ACCOUNT STATUS CHECK
+    // ==========================================
+
+    const subscriptionRenewalRequired =
+      user.role === "PHOTOGRAPHER" &&
+      user.status === "INACTIVE" &&
+      user.disabledReason ===
+        "SUBSCRIPTION_EXPIRED";
+
+
+    if (
+      user.status !== "ACTIVE" &&
+      !subscriptionRenewalRequired
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Your account is inactive",
+
+        message:
+          user.disabledReason ===
+          "ADMIN_DISABLED"
+            ? "Your account has been disabled by the administrator."
+            : "Your account is inactive",
       });
     }
 
@@ -133,9 +161,16 @@ const login = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: "Login successful",
+      message:
+        subscriptionRenewalRequired
+          ? "Subscription renewal required."
+          : "Login successful",
       data: {
         token,
+
+        renewalRequired:
+          subscriptionRenewalRequired,
+
         user: {
           id: user._id,
           name: user.name,

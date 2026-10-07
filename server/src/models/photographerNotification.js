@@ -24,6 +24,14 @@ const photographerNotificationSchema =
           "BOOKING_CANCELLED",
           "BOOKING_COMPLETED",
 
+          "SUBSCRIPTION_PAYMENT_APPROVED",
+          "SUBSCRIPTION_PAYMENT_REJECTED",
+
+          // Subscription lifecycle notifications
+          "SUBSCRIPTION_TRIAL_EXPIRED",
+          "SUBSCRIPTION_GRACE_PERIOD_STARTED",
+          "SUBSCRIPTION_EXPIRED",
+
           "GENERAL",
         ],
         default: "GENERAL",
@@ -61,16 +69,29 @@ const photographerNotificationSchema =
         ref: "Booking",
         default: null,
       },
+
+      relatedSubscriptionPayment: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+        ref: "PhotographerSubscriptionPayment",
+        default: null,
+      },
     },
     {
       timestamps: true,
     }
   );
 
+
+// ==========================================
+// INDEXES
+// ==========================================
+
 photographerNotificationSchema.index({
   user: 1,
   createdAt: -1,
 });
+
 
 module.exports =
   mongoose.model(

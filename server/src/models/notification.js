@@ -29,8 +29,17 @@ const notificationSchema = new mongoose.Schema(
                 "BOOKING_CONFIRMATION",
                 "BOOKING_STATUS_CHANGE",
                 "PAYMENT_RECORDED",
+                "SUBSCRIPTION_PAYMENT_SUBMITTED",
+                "SUBSCRIPTION_PAYMENT_APPROVED",
+                "SUBSCRIPTION_PAYMENT_REJECTED",
             ],
             required: true,
+        },
+
+        relatedSubscriptionPayment: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PhotographerSubscriptionPayment",
+        default: null,
         },
         
         isRead: {

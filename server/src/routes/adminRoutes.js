@@ -7,6 +7,8 @@ const {
   getPhotographerApplications,
   getPhotographerApplicationById,
   reviewPhotographerApplication,
+  updateStaffAccountStatus,
+  getStaffAccounts,
 } = require("../controllers/adminController");
 
 
@@ -39,6 +41,7 @@ const {
 const {
     createNotification,
     getNotificationByUser,
+    getMyNotifications,
     markNotificationAsRead,
 } = require("../controllers/notificationController");
 
@@ -52,6 +55,17 @@ const {
 } = require("../controllers/dashboardController");
 
 // imports by Abilash ends here
+
+const {
+  getAllSubscriptionPayments,
+  getSubscriptionPaymentsForVerification,
+  approveSubscriptionPayment,
+  rejectSubscriptionPayment,
+  viewSubscriptionPaymentReceipt,
+  getPhotographersSubscriptionOverview,
+} = require(
+  "../controllers/photographerSubscriptionController"
+);
 
 
 const authenticate = require("../middleware/authenticate");
@@ -370,5 +384,104 @@ router.patch(
   reviewPhotographerApplication
 );
 
+// ==========================================
+// ENABLE / DISABLE CLERK OR PHOTOGRAPHER
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.patch(
+  "/users/:userId/status",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  updateStaffAccountStatus
+);
+
+// ==========================================
+// GET CLERK / PHOTOGRAPHER ACCOUNTS
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/staff-accounts",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getStaffAccounts
+);
+
+// ==========================================
+// GET ALL SUBSCRIPTION PAYMENTS
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/subscription-payments",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getAllSubscriptionPayments
+);
+
+router.get(
+  "/subscription-payments/verification",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  getSubscriptionPaymentsForVerification
+);
+
+router.patch(
+  "/subscription-payments/:paymentId/approve",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  approveSubscriptionPayment
+);
+
+router.patch(
+  "/subscription-payments/:paymentId/reject",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  rejectSubscriptionPayment
+);
+
+router.get(
+  "/subscription-payments/:paymentId/receipt",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  viewSubscriptionPaymentReceipt
+);
+
+router.get(
+  "/photographers/subscriptions",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  getPhotographersSubscriptionOverview
+);
+
+router.get(
+  "/clerk/notifications",
+  authenticate,
+  authorizeRoles("CLERK"),
+  getMyNotifications
+);
+
+router.patch(
+  "/clerk/notifications/:notificationId/read",
+  authenticate,
+  authorizeRoles("CLERK"),
+  markNotificationAsRead
+);
 
 module.exports = router;

@@ -54,18 +54,6 @@ const EquipmentManagement = () => {
 
     };
 
-    const loadCategories = async () => {
-        try {
-            const result = await getAllCategories();
-
-            console.log("CATEGORY RESULT:", result);
-
-            setCategories(result?.data?.categories || []);
-        } catch (err) {
-            console.error("Failed to load categories", err);
-        }
-    };
-
 
     const handleCreateEquipment = async () => {
   try {
@@ -265,10 +253,52 @@ const resetEquipmentForm = () => {
     };
 
 
-  useEffect(() => {
-    loadEquipment();
-    loadCategories();
-}, []);
+    useEffect(() => {
+      let cancelled = false;
+
+      const loadInitialData = async () => {
+        try {
+          const [
+            equipmentResult,
+            categoryResult,
+          ] = await Promise.all([
+            getAllEquipment(),
+            getAllCategories(),
+          ]);
+
+          if (cancelled) {
+            return;
+          }
+
+          setEquipment(
+            equipmentResult?.data?.equipment || []
+          );
+
+          setCategories(
+            categoryResult?.data?.categories || []
+          );
+        } catch (err) {
+          if (cancelled) {
+            return;
+          }
+
+          setError(
+            err.response?.data?.message ||
+              "Failed to load equipment"
+          );
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      };
+
+      loadInitialData();
+
+      return () => {
+        cancelled = true;
+      };
+    }, []);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">

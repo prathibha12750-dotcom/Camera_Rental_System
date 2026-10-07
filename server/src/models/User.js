@@ -38,6 +38,16 @@ const userSchema = new mongoose.Schema(
       default: "ACTIVE",
     },
 
+    disabledReason: {
+      type: String,
+      enum: [
+        "NONE",
+        "ADMIN_DISABLED",
+        "SUBSCRIPTION_EXPIRED",
+      ],
+      default: "NONE",
+    },
+
     mustChangePassword: {
       type: Boolean,
       default: false,

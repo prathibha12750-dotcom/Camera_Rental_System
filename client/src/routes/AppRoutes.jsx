@@ -63,6 +63,7 @@ import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
 import PhotographerAvailability from "../pages/photographer/PhotographerAvailability";
 import PhotographerBookings from "../pages/photographer/PhotographerBookings";
 import PhotographerChangePassword from "../pages/photographer/PhotographerChangePassword";
+import PhotographerSubscription from "../pages/photographer/PhotographerSubscription";
 
 
 // ==========================================
@@ -73,6 +74,8 @@ import ClerkHome from "../pages/clerk/ClerkHome";
 import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
 import ClerkEquipment from "../pages/clerk/ClerkEquipment";
 import DamageMaintenance from "../pages/clerk/DamageMaintenance";
+import SubscriptionPayments from "../pages/clerk/SubscriptionPayments";
+import PhotographerSubscriptions from "../pages/clerk/PhotographerSubscriptions";
 
 
 // ==========================================
@@ -107,6 +110,7 @@ import RentalManagement from "../pages/admin/RentalManagement";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 import PasswordChangeRoute from "./PasswordChangeRoute";
+import PhotographerSubscriptionRoute from "./PhotographerSubscriptionRoute";
 
 
 // ==========================================
@@ -426,14 +430,31 @@ const AppRoutes = () => {
               />
 
 
+              {/* Photographer Subscription
+                  Accessible for active and renewal-required
+                  photographer sessions */}
+
+              <Route
+                path="/photographer/subscription"
+                element={
+                  <PhotographerSubscription />
+                }
+              />
+
+
               {/* All normal photographer routes
                   require password change completion */}
 
               <Route
                 element={
-                  <PasswordChangeRoute />
+                  <PhotographerSubscriptionRoute />
                 }
               >
+                <Route
+                  element={
+                    <PasswordChangeRoute />
+                  }
+                >
 
                 <Route
                   path="/photographer"
@@ -477,7 +498,8 @@ const AppRoutes = () => {
               </Route>
 
             </Route>
-
+            
+            </Route>
 
             {/* ===============================
                 CLERK ROUTES
@@ -549,6 +571,16 @@ const AppRoutes = () => {
                   path="/clerk/damage-maintenance"
                   element={<DamageMaintenance />}
                 />  
+
+                <Route
+                  path="subscription-payments"
+                  element={<SubscriptionPayments />}
+                />
+
+                <Route
+                  path="photographer-subscriptions"
+                  element={<PhotographerSubscriptions />}
+                />
 
               </Route>
 

@@ -19,6 +19,19 @@ const generateTemporaryPassword = () => {
   return `${randomPart}Aa1!`;
 };
 
+// ==========================================
+// CALCULATE PHOTOGRAPHER TRIAL END
+// ==========================================
+
+const getPhotographerTrialEnd = () => {
+  const trialEnd = new Date();
+
+  trialEnd.setHours(
+    trialEnd.getHours() + 6
+  );
+
+  return trialEnd;
+};
 
 // ==========================================
 // CREATE PHOTOGRAPHER ACCOUNT
@@ -133,15 +146,19 @@ const createPhotographer = async (req, res, next) => {
       await Photographer.create({
         user: createdUser._id,
 
-        // Professional information starts
-        // empty and can be completed later
-        // by the photographer.
         bio: "",
         specialization: "",
         location: "",
         hourlyRate: null,
         packageRates: [],
         profileImage: "",
+
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: getPhotographerTrialEnd(),
+
+        subscriptionStartDate: null,
+        subscriptionEndDate: null,
+        gracePeriodEndsAt: null,
       });
 
 
@@ -562,6 +579,13 @@ const reviewPhotographerApplication =
             packageRates: [],
 
             profileImage: "",
+
+            subscriptionStatus: "TRIAL",
+            trialEndsAt: getPhotographerTrialEnd(),
+
+            subscriptionStartDate: null,
+            subscriptionEndDate: null,
+            gracePeriodEndsAt: null,
           });
       }
 
@@ -1260,7 +1284,144 @@ Southern Camera Rental
   }
 };
 
-// Adding controller by Abilash started here
+// ==========================================
+// UPDATE CLERK / PHOTOGRAPHER ACCOUNT STATUS
+// PATCH /api/admin/users/:userId/status
+// STAFF_ADMIN ONLY
+// ==========================================
+
+const updateStaffAccountStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+
+    // ----------------------------------------
+    // Validate status
+    // ----------------------------------------
+
+    if (!["ACTIVE", "INACTIVE"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Status must be either ACTIVE or INACTIVE.",
+      });
+    }
+
+    // ----------------------------------------
+    // Find user
+    // ----------------------------------------
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User account not found.",
+      });
+    }
+
+    // ----------------------------------------
+    // Only Clerk and Photographer accounts
+    // can be managed using this operation
+    // ----------------------------------------
+
+    if (
+      user.role !== "CLERK" &&
+      user.role !== "PHOTOGRAPHER"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only Clerk and Photographer accounts can be enabled or disabled.",
+      });
+    }
+
+    // ----------------------------------------
+    // Avoid unnecessary update
+    // ----------------------------------------
+
+    if (user.status === status) {
+      return res.status(200).json({
+        success: true,
+        message: `Account is already ${status}.`,
+        data: {
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            status: user.status,
+          },
+        },
+      });
+    }
+
+    // ----------------------------------------
+    // Update account status
+    // ----------------------------------------
+
+    user.status = status;
+
+    if (status === "INACTIVE") {
+      user.disabledReason = "ADMIN_DISABLED";
+    } else {
+      user.disabledReason = "NONE";
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        status === "ACTIVE"
+          ? "Account enabled successfully."
+          : "Account disabled successfully.",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// GET CLERK / PHOTOGRAPHER ACCOUNTS
+// GET /api/admin/staff-accounts
+// STAFF_ADMIN ONLY
+// ==========================================
+
+const getStaffAccounts = async (req, res, next) => {
+  try {
+    const users = await User.find({
+      role: {
+        $in: ["PHOTOGRAPHER", "CLERK"],
+      },
+    })
+      .select(
+        "name email role status mustChangePassword createdAt"
+      )
+      .sort({
+        createdAt: -1,
+      });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        users,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   createPhotographer,
@@ -1269,4 +1430,6 @@ module.exports = {
   getPhotographerApplications,  
   getPhotographerApplicationById,
   reviewPhotographerApplication,
+  updateStaffAccountStatus,
+  getStaffAccounts,
 };

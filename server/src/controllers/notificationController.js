@@ -98,41 +98,80 @@ const getNotificationByUser = async (req, res, next) => {
 }
 
 // ----------------------------------------------------
-// MARK NOTIFICATION AS READ
-// PATCH /api/admin/notification/:notificationId/read
+// MARK MY NOTIFICATION AS READ
+// PATCH /api/admin/clerk/notifications/:notificationId/read
 // ----------------------------------------------------
 
 const markNotificationAsRead = async (req, res, next) => {
-    try {
-        const {notificationId} = req.params;
+  try {
+    const { notificationId } = req.params;
 
-        const notification = await Notification.findById(notificationId);
+    // Only allow the logged-in user to update
+    // a notification that belongs to them.
+    const notification = await Notification.findOne({
+      _id: notificationId,
+      recipient: req.user.userId,
+    });
 
-        if(!notification){
-            return res.status(404).json({
-                success: false,
-                message: "Noification not found",
-            });
-        }
-
-        notification.isRead = true;
-
-        await notification.save();
-
-        return res.status(200).json({
-            success: true,
-            message: "Notification marked as read",
-            data: {
-                notification,
-            },
-        });
-    } catch(error){
-        next(error);
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
     }
-}
+
+    // Avoid unnecessary database writes.
+    if (!notification.isRead) {
+      notification.isRead = true;
+      await notification.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification marked as read",
+      data: {
+        notification,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMyNotifications = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const notifications =
+      await Notification.find({
+        recipient: req.user.userId,
+      })
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+    const unreadCount =
+      await Notification.countDocuments({
+        recipient: req.user.userId,
+        isRead: false,
+      });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        notifications,
+        unreadCount,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
     createNotification,
     getNotificationByUser,
+    getMyNotifications,
     markNotificationAsRead,
 };

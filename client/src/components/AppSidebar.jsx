@@ -55,6 +55,11 @@ const navigationByRole = {
       to: "/photographer/portfolio",
       icon: "portfolio",
     },
+    {
+      label: "Subscription",
+      to: "/photographer/subscription",
+      icon: "subscription",
+    },
   ],
 
 
@@ -89,6 +94,16 @@ const navigationByRole = {
       label: "Refund Management",
       to: "/clerk/refunds",
       icon: "refund",
+    },
+    {
+      label: "Photographer Subscriptions",
+      to: "/photographer-subscriptions",
+      icon: "photographers",
+    },
+    {
+      label: "Subscription Payments",
+      to: "subscription-payments",
+      icon: "subscription",
     },
   ],
 
@@ -261,6 +276,31 @@ const Icon = ({ name }) => {
     );
   }
 
+  // SUBSCRIPTION
+
+  if (name === "subscription") {
+    return (
+      <svg {...commonProps}>
+        <rect
+          x="3"
+          y="5"
+          width="18"
+          height="14"
+          rx="2"
+        />
+
+        <path d="M3 9h18" />
+
+        <path d="M7 14h4" />
+
+        <circle
+          cx="17"
+          cy="14"
+          r="1.5"
+        />
+      </svg>
+    );
+  }
 
   // EQUIPMENT
   if (name === "equipment") {

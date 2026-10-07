@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const {syncPhotographerSubscription,} = require("../services/photographerSubscriptionService");
 
 const authenticate = async (req, res, next) => {
   try {
@@ -35,10 +36,26 @@ const authenticate = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // SYNCHRONIZE PHOTOGRAPHER SUBSCRIPTION
+    // ==========================================
+
+    if (user.role === "PHOTOGRAPHER") {
+      await syncPhotographerSubscription(user);
+    }
+
     if (user.status !== "ACTIVE") {
       return res.status(403).json({
         success: false,
-        message: "User account is inactive",
+
+        message:
+          user.disabledReason ===
+          "ADMIN_DISABLED"
+            ? "Your account has been disabled by the administrator."
+            : user.disabledReason ===
+                "SUBSCRIPTION_EXPIRED"
+              ? "Your photographer subscription has expired."
+              : "User account is inactive",
       });
     }
 
