@@ -489,18 +489,16 @@ const paginatedPayments =
                             : "Approve"}
                         </button>
                     )}
-                    <button
-                    type="button"
-                    onClick={() =>
-                        handleReject(payment)
-                    }
-                    disabled={
-                        processingId === payment._id
-                    }
-                    className="inline-flex h-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                    Reject
-                    </button>
+                        {payment.paymentStatus === "PENDING" && (
+                        <button
+                            type="button"
+                            onClick={() => handleReject(payment)}
+                            disabled={processingId === payment._id}
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Reject
+                        </button>
+                        )}
 
                     </div>
                 ) : (
