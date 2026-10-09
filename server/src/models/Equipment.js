@@ -75,6 +75,13 @@ const equipmentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
+
+    rentalScheduleVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
   },
   {
     timestamps: true,

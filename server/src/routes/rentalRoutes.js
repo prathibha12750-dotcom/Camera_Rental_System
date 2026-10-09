@@ -34,14 +34,11 @@ router.post(
 );
 
 
-// ==========================================
-// CREATE RENTAL REQUEST
-// AUTHENTICATED USERS
-// ==========================================
-
+// CREATE RENTAL REQUEST — CUSTOMER ONLY
 router.post(
   "/",
   authenticate,
+  authorizeRoles("CUSTOMER"),
   createRentalRequest
 );
 
@@ -85,14 +82,11 @@ router.get(
 );
 
 
-// ==========================================
-// CUSTOMER RENTAL HISTORY
-// AUTHENTICATED USERS
-// ==========================================
-
+// VIEW OWN RENTALS — CUSTOMER ONLY
 router.get(
   "/my-rentals",
   authenticate,
+  authorizeRoles("CUSTOMER"),
   getMyRentals
 );
 
@@ -162,14 +156,11 @@ router.patch(
 );
 
 
-// ==========================================
-// CANCEL RENTAL
-// AUTHENTICATED USERS
-// ==========================================
-
+// CANCEL OWN RENTAL — CUSTOMER ONLY
 router.patch(
   "/:id/cancel",
   authenticate,
+  authorizeRoles("CUSTOMER"),
   cancelRental
 );
 

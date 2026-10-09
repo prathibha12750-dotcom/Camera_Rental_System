@@ -16,6 +16,7 @@ const router = express.Router();
 
 // ==========================================
 // GET ALL EQUIPMENT
+// AUTHENTICATED USERS
 // ==========================================
 
 router.get(
@@ -24,9 +25,9 @@ router.get(
   getAllEquipment
 );
 
-
 // ==========================================
 // GET ONE EQUIPMENT
+// AUTHENTICATED USERS
 // ==========================================
 
 router.get(
@@ -35,36 +36,33 @@ router.get(
   getEquipmentById
 );
 
-
 // ==========================================
 // CREATE EQUIPMENT
-// STAFF ADMIN ONLY
+// ADMIN AND CLERK
 // ==========================================
 
 router.post(
   "/",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("STAFF_ADMIN", "CLERK"),
   createEquipment
 );
 
-
 // ==========================================
 // UPDATE EQUIPMENT
-// STAFF ADMIN ONLY
+// ADMIN AND CLERK
 // ==========================================
 
 router.put(
   "/:id",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("STAFF_ADMIN", "CLERK"),
   updateEquipment
 );
 
-
 // ==========================================
 // DELETE EQUIPMENT
-// STAFF ADMIN ONLY
+// ADMIN ONLY
 // ==========================================
 
 router.delete(
@@ -73,6 +71,5 @@ router.delete(
   authorizeRoles("STAFF_ADMIN"),
   deleteEquipment
 );
-
 
 module.exports = router;
