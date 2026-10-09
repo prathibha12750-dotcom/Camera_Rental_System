@@ -288,6 +288,20 @@ router.post(
   createNotification
 );
 
+
+ // ==========================================
+ // GET MY NOTIFICATIONS - ADMIN
+ // GET /api/admin/notifications
+ // ==========================================
+
+ router.get(
+   "/notifications",
+   authenticate,
+   authorizeRoles("STAFF_ADMIN"),
+   getMyNotifications
+ );
+
+
 // ==========================================
 // GET USER NOTIFICATION
 // POST /api/admin/notification/user/:userId

@@ -1,6 +1,7 @@
 const express = require("express");
 
 const {
+  getRentalCalendar,
   checkAvailability,
   createRentalRequest,
   getAllRentals,
@@ -22,16 +23,28 @@ const authorizeRoles = require("../middleware/authorizeRoles");
 const router = express.Router();
 
 
-// ==========================================
-// EQUIPMENT AVAILABILITY
-// AUTHENTICATED USERS
-// ==========================================
 
-router.post(
-  "/check-availability",
-  authenticate,
-  checkAvailability
-);
+ // ==========================================
+ // GET EQUIPMENT RENTAL CALENDAR
+ // AUTHENTICATED USERS
+ // ==========================================
+
+ router.get(
+   "/calendar/:equipmentId",
+   authenticate,
+   getRentalCalendar
+ );
+
+ // ==========================================
+ // CHECK EQUIPMENT AVAILABILITY
+ // AUTHENTICATED USERS
+ // ==========================================
+
+ router.post(
+   "/check-availability",
+   authenticate,
+   checkAvailability
+ );
 
 
 // CREATE RENTAL REQUEST — CUSTOMER ONLY

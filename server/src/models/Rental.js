@@ -63,6 +63,22 @@ const rentalSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    
+    // ==========================================
+    // RENTAL REMINDER TRACKING
+    // ==========================================
+
+    returnDueReminderSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    overdueReminderSentAt: {
+      type: Date,
+      default: null,
+    },
+
   },
   {
     timestamps: true,

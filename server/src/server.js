@@ -44,6 +44,14 @@ const {
   "./services/photographerSubscriptionScheduler"
 );
 
+ // ==========================================
+ // RENTAL REMINDER SCHEDULER
+ // ==========================================
+
+ const {
+   startRentalReminderScheduler,
+ } = require("./services/rentalReminderScheduler");
+
 
 const PORT =
   process.env.PORT || 5000;
@@ -63,9 +71,14 @@ const startServer = async () => {
         `Server running on http://localhost:${PORT}`
       );
 
-      // Start subscription checks only after
-      // the database connection succeeds.
+
+      // Start background schedulers after
+      // MongoDB connects successfully.
+
       startPhotographerSubscriptionScheduler();
+
+      startRentalReminderScheduler();
+
     });
   } catch (error) {
     console.error(

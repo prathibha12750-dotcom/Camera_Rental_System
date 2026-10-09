@@ -50,14 +50,18 @@ const NotificationBell = () => {
   // ROLE-BASED NOTIFICATION CONFIGURATION
   // ==========================================
 
+
   const notificationBasePath =
     user?.role === "PHOTOGRAPHER"
       ? "/photographer"
       : user?.role === "CLERK"
         ? "/admin/clerk"
-        : user?.role === "CUSTOMER"
-          ? "/customer"
-          : null;
+        : user?.role === "STAFF_ADMIN"
+          ? "/admin"
+          : user?.role === "CUSTOMER"
+            ? "/customer"
+            : null;
+
 
 
   const dashboardPath =
@@ -232,9 +236,7 @@ const NotificationBell = () => {
   // VISIBLE NOTIFICATIONS
   // ==========================================
 
-  const visibleNotifications =
-    notifications.slice(0, 5);
-
+  const visibleNotifications = notifications;
 
   // ==========================================
   // NOTIFICATION STYLE
@@ -318,7 +320,41 @@ const NotificationBell = () => {
     async (notification) => {
       await markAsRead(notification);
 
+      // ==========================================
+      // RENTAL NOTIFICATION NAVIGATION
+      // ==========================================
 
+      const rentalNotificationTypes = [
+        "RENTAL_REQUEST",
+        "RENTAL_APPROVED",
+        "RENTAL_REJECTED",
+        "RENTAL_ISSUED",
+        "RENTAL_RETURNED",
+        "RENTAL_COMPLETED",
+        "RENTAL_CANCELLED",
+        "RENTAL_RETURN_DUE",
+        "RENTAL_OVERDUE",
+      ];
+
+      if (rentalNotificationTypes.includes(notification.type)) {
+        setOpen(false);
+
+        if (user?.role === "CLERK") {
+          navigate("/clerk/rentals");
+          return;
+        }
+
+        if (user?.role === "STAFF_ADMIN") {
+          navigate("/admin/rentals");
+          return;
+        }
+
+        if (user?.role === "CUSTOMER") {
+          navigate("/customer/rentals");
+          return;
+        }
+      }
+      
       // ----------------------------------------
       // Clerk subscription payment notification
       // ----------------------------------------

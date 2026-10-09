@@ -4,6 +4,10 @@ const Return = require("../models/Return");
 const Rental = require("../models/Rental");
 const Equipment = require("../models/Equipment");
 
+const Notification = require("../models/notification");
+const User = require("../models/User");
+
+
 // ============================================================
 // SHARED HELPERS
 // ============================================================
@@ -88,6 +92,103 @@ const optionalText = (value, label) => {
 
   return text;
 };
+
+
+ // ============================================================
+ // GET RENTAL CALENDAR - CUSTOMER
+ // ============================================================
+
+ const getRentalCalendar = async (req, res, next) => {
+   try {
+     const { equipmentId } = req.params;
+
+     validId(equipmentId, "equipment");
+
+     const equipment = await Equipment.findById(equipmentId);
+
+     if (!equipment) {
+       return res.status(404).json({
+         success: false,
+         message: "Equipment not found",
+       });
+     }
+
+     const blocked =
+       equipment.status === "DAMAGED" ||
+       equipment.status === "MAINTENANCE";
+
+     const overdueRental = await Rental.findOne({
+       equipment: equipmentId,
+       status: "ACTIVE",
+       endDate: { $lt: new Date() },
+     }).select("_id");
+
+     const unavailableRentals = await Rental.find({
+       equipment: equipmentId,
+       status: {
+         $in: ["PENDING", "CONFIRMED", "ACTIVE"],
+       },
+       endDate: { $gt: new Date() },
+     })
+       .select("startDate endDate")
+       .sort({ startDate: 1 })
+       .lean();
+
+     const unavailablePeriods = unavailableRentals.map(
+       (rental) => ({
+         startDate: rental.startDate,
+         endDate: rental.endDate,
+       })
+     );
+
+     const isBlocked = blocked || Boolean(overdueRental);
+
+     return res.status(200).json({
+       success: true,
+       data: {
+         equipmentId,
+         blocked: isBlocked,
+         message: blocked
+           ? "Equipment is currently unavailable due to damage or maintenance."
+           : overdueRental
+             ? "Equipment has an overdue rental and cannot be booked until it is returned."
+             : "",
+         unavailablePeriods,
+       },
+     });
+   } catch (error) {
+     return handleError(error, res, next);
+   }
+ };
+
+ 
+ // ============================================================
+ // NOTIFY CLERK AND ADMIN ABOUT A NEW RENTAL REQUEST
+ // ============================================================
+
+ const notifyRentalRequest = async (rental) => {
+   const staffUsers = await User.find({
+     role: { $in: ["CLERK", "STAFF_ADMIN"] },
+     status: "ACTIVE",
+   }).select("_id");
+
+   if (staffUsers.length === 0) {
+     return;
+   }
+
+   const notifications = staffUsers.map((staff) => ({
+     recipient: staff._id,
+     title: "New Equipment Rental Request",
+     message:
+       "A customer has submitted a new equipment rental request. " +
+       "Please review it in Rental Management.",
+     type: "RENTAL_REQUEST",
+     isRead: false,
+   }));
+
+   await Notification.insertMany(notifications);
+ };
+
 
 // ============================================================
 // CHECK EQUIPMENT AVAILABILITY
@@ -323,6 +424,20 @@ const createRentalRequest = async (req, res, next) => {
       return createdRental;
     });
 
+
+    // Create in-app notifications after the rental
+    // transaction has completed successfully.
+    try {
+      await notifyRentalRequest(rental);
+    } catch (notificationError) {
+      // Notification failure must not undo a successful rental.
+      console.error(
+        "Failed to create rental request notifications:",
+        notificationError
+      );
+    }
+
+
     return res.status(201).json({
       success: true,
       message: "Rental request created successfully",
@@ -484,11 +599,35 @@ const approveRental = async (req, res, next) => {
       }
     );
 
+
+    // ============================================================
+    // NOTIFY CUSTOMER AFTER SUCCESSFUL RENTAL APPROVAL
+    // ============================================================
+
+    try {
+      await Notification.create({
+        recipient: approvedRental.customer,
+        title: "Rental Request Approved",
+        message:
+          "Your equipment rental request has been approved. " +
+          "Please check My Rentals for details.",
+        type: "RENTAL_APPROVED",
+        isRead: false,
+      });
+    } catch (notificationError) {
+      // Do not fail an already successful rental approval.
+      console.error(
+        "Failed to create rental approval notification:",
+        notificationError
+      );
+    }
+
     return res.status(200).json({
       success: true,
       message: "Rental approved successfully",
       data: { rental: approvedRental },
     });
+
   } catch (error) {
     if (error.isRentalApprovalError) {
       return res.status(error.statusCode).json({
@@ -505,39 +644,61 @@ const approveRental = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// REJECT RENTAL - ADMIN / CLERK
-// ============================================================
+ // ============================================================
+ // REJECT RENTAL - ADMIN / CLERK
+ // ============================================================
 
-const rejectRental = async (req, res, next) => {
-  try {
-    validId(req.params.id);
+ const rejectRental = async (req, res, next) => {
+   try {
+     validId(req.params.id);
 
-    const filter = { _id: req.params.id };
+     const filter = { _id: req.params.id };
 
-    const rental = await Rental.findOneAndUpdate(
-      { ...filter, status: "PENDING" },
-      { $set: { status: "REJECTED" } },
-      { new: true, runValidators: true }
-    );
+     const rental = await Rental.findOneAndUpdate(
+       { ...filter, status: "PENDING" },
+       { $set: { status: "REJECTED" } },
+       { new: true, runValidators: true }
+     );
 
-    if (!rental) {
-      if (!(await Rental.exists(filter))) {
-        fail(404, "Rental not found");
-      }
+     if (!rental) {
+       if (!(await Rental.exists(filter))) {
+         fail(404, "Rental not found");
+       }
 
-      fail(400, "Only pending rental requests can be rejected");
-    }
+       fail(400, "Only pending rental requests can be rejected");
+     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Rental rejected successfully",
-      data: { rental },
-    });
-  } catch (error) {
-    return handleError(error, res, next);
-  }
-};
+     // ============================================================
+     // NOTIFY CUSTOMER AFTER SUCCESSFUL RENTAL REJECTION
+     // ============================================================
+
+     try {
+       await Notification.create({
+         recipient: rental.customer,
+         title: "Rental Request Rejected",
+         message:
+           "Your equipment rental request has been rejected. " +
+           "Please check My Rentals for details.",
+         type: "RENTAL_REJECTED",
+         isRead: false,
+       });
+     } catch (notificationError) {
+       // A notification failure must not undo a successful rejection.
+       console.error(
+         "Failed to create rental rejection notification:",
+         notificationError
+       );
+     }
+
+     return res.status(200).json({
+       success: true,
+       message: "Rental rejected successfully",
+       data: { rental },
+     });
+   } catch (error) {
+     return handleError(error, res, next);
+   }
+ };
 
 // ============================================================
 // ISSUE EQUIPMENT - ADMIN / CLERK
@@ -653,6 +814,28 @@ const issueRental = async (req, res, next) => {
         writeConcern: { w: "majority" },
       }
     );
+
+
+    // ============================================================
+    // NOTIFY CUSTOMER AFTER SUCCESSFUL EQUIPMENT ISSUE
+    // ============================================================
+
+    try {
+      await Notification.create({
+        recipient: result.rental.customer,
+        title: "Equipment Issued Successfully",
+        message:
+          "Your rented equipment has been issued successfully. " +
+          "Please check My Rentals for details.",
+        type: "RENTAL_ISSUED",
+        isRead: false,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create equipment issued notification:",
+        notificationError
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -812,6 +995,29 @@ const returnRental = async (req, res, next) => {
         damageRecord,
       };
     });
+
+
+    // ============================================================
+    // NOTIFY CUSTOMER AFTER SUCCESSFUL EQUIPMENT RETURN
+    // ============================================================
+
+    try {
+      await Notification.create({
+        recipient: result.rental.customer,
+        title: "Equipment Return Recorded",
+        message:
+          "Your equipment return has been recorded successfully. " +
+          "Please check My Rentals for details.",
+        type: "RENTAL_RETURNED",
+        isRead: false,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create equipment return notification:",
+        notificationError
+      );
+    }
+
 
     return res.status(200).json({
       success: true,
@@ -1070,6 +1276,38 @@ const cancelRental = async (req, res, next) => {
       fail(400, "Only pending rental requests can be cancelled");
     }
 
+
+    // ============================================================
+    // NOTIFY CLERK AND ADMIN AFTER SUCCESSFUL RENTAL CANCELLATION
+    // ============================================================
+
+    try {
+      const staffUsers = await User.find({
+        role: { $in: ["CLERK", "STAFF_ADMIN"] },
+        status: "ACTIVE",
+      }).select("_id");
+
+      if (staffUsers.length > 0) {
+        const notifications = staffUsers.map((staff) => ({
+          recipient: staff._id,
+          title: "Equipment Rental Cancelled",
+          message:
+            "A customer has cancelled an equipment rental request. " +
+            "Please check Rental Management for details.",
+          type: "RENTAL_CANCELLED",
+          isRead: false,
+        }));
+
+        await Notification.insertMany(notifications);
+      }
+    } catch (notificationError) {
+      console.error(
+        "Failed to create rental cancellation notifications:",
+        notificationError
+      );
+    }
+
+
     return res.status(200).json({
       success: true,
       message: "Rental cancelled successfully",
@@ -1104,6 +1342,29 @@ const completeRental = async (req, res, next) => {
       fail(400, "Only returned rentals can be completed");
     }
 
+
+    // ============================================================
+    // NOTIFY CUSTOMER AFTER SUCCESSFUL RENTAL COMPLETION
+    // ============================================================
+
+    try {
+      await Notification.create({
+        recipient: rental.customer,
+        title: "Equipment Rental Completed",
+        message:
+          "Your equipment rental has been completed successfully. " +
+          "Thank you for choosing our service.",
+        type: "RENTAL_COMPLETED",
+        isRead: false,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create rental completion notification:",
+        notificationError
+      );
+    }
+
+
     return res.status(200).json({
       success: true,
       message: "Rental completed successfully",
@@ -1119,6 +1380,7 @@ const completeRental = async (req, res, next) => {
 // ============================================================
 
 module.exports = {
+  getRentalCalendar,
   checkAvailability,
   createRentalRequest,
   getAllRentals,

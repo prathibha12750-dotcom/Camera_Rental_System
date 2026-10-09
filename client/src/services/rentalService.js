@@ -90,3 +90,15 @@ export const updateDamageRecordStatus = async (
 
   return response.data;
 };
+
+ // ==========================================
+ // GET EQUIPMENT RENTAL CALENDAR
+ // ==========================================
+
+ export const getRentalCalendar = async (equipmentId) => {
+   const response = await api.get(
+     `/rentals/calendar/${equipmentId}`
+   );
+
+   return response.data;
+ };
