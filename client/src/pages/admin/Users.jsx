@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../services/api";
 
 const Users = () => {
   const [showCreatePhotographer, setShowCreatePhotographer] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [customerError, setCustomerError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -14,6 +17,28 @@ const Users = () => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const fetchCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      setCustomerError("");
+
+      const response = await api.get("/admin/customers");
+
+      setCustomers(response.data?.data?.customers || []);
+    } catch (error) {
+      setCustomerError(
+        error.response?.data?.message ||
+          "Failed to load customers."
+      );
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  useEffect(() => {
+  fetchCustomers();
+}, []);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -175,12 +200,18 @@ const Users = () => {
 
             <div className="mt-5 rounded-xl bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-500">
-                Customer management
+                Active customers
               </p>
 
-              <p className="mt-1 text-sm font-semibold text-gray-700">
-                Coming soon
+              <p className="mt-1 text-2xl font-bold text-gray-950">
+                {loadingCustomers ? "Loading..." : customers.length}
               </p>
+
+              {customerError && (
+                <p className="mt-2 text-sm text-red-600">
+                  {customerError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -236,6 +267,74 @@ const Users = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Customer List */}
+        <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold text-gray-950">
+              Customer Accounts
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              View registered active customers.
+            </p>
+          </div>
+
+          {loadingCustomers ? (
+            <p className="py-6 text-sm text-gray-500">
+              Loading customers...
+            </p>
+          ) : customerError ? (
+            <p className="py-6 text-sm text-red-600">
+              {customerError}
+            </p>
+          ) : customers.length === 0 ? (
+            <p className="py-6 text-sm text-gray-500">
+              No active customers found.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold text-gray-700">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-gray-700">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-gray-700">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {customers.map((customer) => (
+                    <tr
+                      key={customer._id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="px-4 py-3 text-gray-900">
+                        {customer.name}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-600">
+                        {customer.email}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                          {customer.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Create Photographer Form */}
