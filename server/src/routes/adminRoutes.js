@@ -162,7 +162,12 @@ router.get(
   getPaymentsByInvoice
 );
 
-router.get("/payments", getAllPayments);
+router.get(
+"/payments",
+authenticate,
+authorizeRoles("STAFF_ADMIN"),
+getAllPayments
+);
 
 // ==========================================
 // RECORD SECURITY DEPOSIT

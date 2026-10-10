@@ -158,7 +158,7 @@ const Payments = () => {
         invoice: formData.invoice,
         amount,
         paymentMethod: formData.paymentMethod,
-        notes: formData.notes.trim(),
+        note: formData.notes.trim(),
       });
 
       setFormMessage(

@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Payment = require("../models/payment");
+const Equipment = require("../models/Equipment");
 
 // ================================
 // ADMIN DASHBOARD STATISTICS
@@ -23,6 +24,8 @@ const getDashboardStats = async (req, res, next) => {
         const totalPhotographers = await User.countDocuments({
             role: "PHOTOGRAPHER",
         });
+
+        const totalEquipment = await Equipment.countDocuments();
 
         // -------------------------------
         // 3. Total payments
@@ -93,8 +96,7 @@ const getDashboardStats = async (req, res, next) => {
                 totalPayments,
                 monthlyRevenue,
 
-                //These will be added after member 1,2 finishes
-                totalEquipment: null,
+                totalEquipment,
                 activeRentals: null,
                 overdueRentals: null,
                 upcomingPhotographerBookings: null,
