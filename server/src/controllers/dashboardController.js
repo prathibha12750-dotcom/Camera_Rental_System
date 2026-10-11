@@ -32,6 +32,11 @@ const getDashboardStats = async (req, res, next) => {
             status: "ACTIVE",
         });
 
+        const overdueRentals = await Rental.countDocuments({
+            status: { $in: ["CONFIRMED", "ACTIVE"] },
+            endDate: { $lt: new Date() },
+        });
+
         // -------------------------------
         // 3. Total payments
         // -------------------------------
@@ -102,7 +107,7 @@ const getDashboardStats = async (req, res, next) => {
                 monthlyRevenue,
                 totalEquipment,
                 activeRentals,
-                overdueRentals: null,
+                overdueRentals,
                 upcomingPhotographerBookings: null,
             
             }
