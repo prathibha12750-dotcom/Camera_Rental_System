@@ -2,6 +2,7 @@ const User = require("../models/User");
 const Payment = require("../models/payment");
 const Equipment = require("../models/Equipment");
 const Rental = require("../models/Rental");
+const Booking = require("../models/Booking");
 
 // ================================
 // ADMIN DASHBOARD STATISTICS
@@ -35,6 +36,11 @@ const getDashboardStats = async (req, res, next) => {
         const overdueRentals = await Rental.countDocuments({
             status: { $in: ["CONFIRMED", "ACTIVE"] },
             endDate: { $lt: new Date() },
+        });
+
+        const upcomingPhotographerBookings = await Booking.countDocuments({
+            date: { $gte: new Date() },
+            status: { $in: ["REQUESTED", "CONFIRMED"] },
         });
 
         // -------------------------------
@@ -108,7 +114,7 @@ const getDashboardStats = async (req, res, next) => {
                 totalEquipment,
                 activeRentals,
                 overdueRentals,
-                upcomingPhotographerBookings: null,
+                upcomingPhotographerBookings,
             
             }
         });
