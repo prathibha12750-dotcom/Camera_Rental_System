@@ -4,6 +4,7 @@ import api from "../../services/api";
 const Reports = () => {
   const [dailyReport, setDailyReport] = useState(null);
   const [monthlyReport, setMonthlyReport] = useState(null);
+  const [rentalReport, setRentalReport] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,13 +14,18 @@ const Reports = () => {
       setLoading(true);
       setError("");
 
-      const [dailyResponse, monthlyResponse] = await Promise.all([
-        api.get("/admin/reports/revenue/daily"),
-        api.get("/admin/reports/revenue/monthly"),
-      ]);
 
-      setDailyReport(dailyResponse.data?.data || null);
-      setMonthlyReport(monthlyResponse.data?.data || null);
+  const [dailyResponse, monthlyResponse, rentalResponse] =
+    await Promise.all([
+      api.get("/admin/reports/revenue/daily"),
+      api.get("/admin/reports/revenue/monthly"),
+      api.get("/admin/reports/rentals"),
+    ]);
+
+  setDailyReport(dailyResponse.data?.data || null);
+  setMonthlyReport(monthlyResponse.data?.data || null);
+  setRentalReport(rentalResponse.data?.data || null);
+
     } catch (error) {
       const status = error.response?.status;
 
@@ -295,6 +301,44 @@ const Reports = () => {
                 </div>
               </div>
             </div>
+            
+            {/* RENTAL REPORTS */}
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold text-gray-950">
+                  Rental Reports
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Overview of rental statuses and overdue rentals.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { label: "Total Rentals", value: rentalReport?.totalRentals },
+                  { label: "Pending Rentals", value: rentalReport?.pendingRentals },
+                  { label: "Confirmed Rentals", value: rentalReport?.confirmedRentals },
+                  { label: "Active Rentals", value: rentalReport?.activeRentals },
+                  { label: "Returned Rentals", value: rentalReport?.returnedRentals },
+                  { label: "Completed Rentals", value: rentalReport?.completedRentals },
+                  { label: "Rejected Rentals", value: rentalReport?.rejectedRentals },
+                  { label: "Cancelled Rentals", value: rentalReport?.cancelledRentals },
+                  { label: "Overdue Rentals", value: rentalReport?.overdueRentals },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl bg-gray-50 p-4"
+                  >
+                    <p className="text-sm font-medium text-gray-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      {item.value ?? 0}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* ==================================
@@ -307,10 +351,9 @@ const Reports = () => {
             </h3>
 
             <p className="mt-1 text-sm text-orange-800">
-              Revenue reporting is currently available for daily
-              and monthly periods. Additional rental, equipment,
-              and photographer reports can be added when their
-              corresponding backend APIs are implemented.
+              Daily and monthly revenue reports and rental status reports
+              are available. Equipment and photographer reports can be
+              added next.
             </p>
           </div>
         </>

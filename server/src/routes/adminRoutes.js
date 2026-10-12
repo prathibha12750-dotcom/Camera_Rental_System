@@ -43,7 +43,8 @@ const {
 
 const {
   getDailyRevenue,
-  getMonthlyRevenue
+  getMonthlyRevenue,
+  getRentalReport,
 } = require("../controllers/reportController");
 
 const {
@@ -300,6 +301,13 @@ router.get(
     authenticate,
     authorizeRoles("STAFF_ADMIN"),
     getMonthlyRevenue
+);
+
+router.get(
+  "/reports/rentals",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRentalReport
 );
 
 // ==========================================

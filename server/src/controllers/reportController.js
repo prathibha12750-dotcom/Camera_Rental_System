@@ -1,5 +1,6 @@
 const payment = require("../models/payment");
 const Payment = require("../models/payment");
+const Rental = require("../models/Rental");
 
 // =====================================
 // DAILY REVENUE REPORT
@@ -129,7 +130,69 @@ const getMonthlyRevenue = async (req, res, next) => {
     }
 }
 
+// ========================================
+// Rental REPORT
+// ========================================
+
+const getRentalReport = async (req, res, next) => {
+    try {
+        const totalRentals = await Rental.countDocuments();
+
+        const pendingRentals = await Rental.countDocuments({
+            status: "PENDING",
+        });
+
+        const confirmedRentals = await Rental.countDocuments({
+            status: "CONFIRMED",
+        });
+
+        const activeRentals = await Rental.countDocuments({
+            status: "ACTIVE",
+        });
+
+        const returnedRentals = await Rental.countDocuments({
+            status: "RETURNED",
+        });
+
+        const completedRentals = await Rental.countDocuments({
+            status: "COMPLETED",
+        });
+
+        const rejectedRentals = await Rental.countDocuments({
+            status: "REJECTED",
+        });
+
+        const cancelledRentals = await Rental.countDocuments({
+            status: "CANCELLED",
+        });
+
+        const overdueRentals = await Rental.countDocuments({
+            status: { $in: ["CONFIRMED", "ACTIVE"] },
+            endDate: { $lt: new Date() },
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Rental report retrieved successfully",
+            data: {
+                totalRentals,
+                pendingRentals,
+                confirmedRentals,
+                activeRentals,
+                returnedRentals,
+                completedRentals,
+                rejectedRentals,
+                cancelledRentals,
+                overdueRentals,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getDailyRevenue,
-    getMonthlyRevenue
+    getMonthlyRevenue,
+    getRentalReport,
 };
