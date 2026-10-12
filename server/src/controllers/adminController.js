@@ -46,186 +46,239 @@ const getPhotographerTrialEnd = () => {
   return trialEnd;
 };
 
+
 // ==========================================
 // CREATE PHOTOGRAPHER ACCOUNT
 // POST /api/admin/photographers
+// STAFF_ADMIN ONLY
 // ==========================================
+
 const createPhotographer = async (req, res, next) => {
   let createdUser = null;
+  let createdPhotographer = null;
 
   try {
-    const {
-      name,
-      email,
-      password,
-    } = req.body;
+    // 1. Validate input
+    const { name, email } = req.body;
 
-
-    // --------------------------------------
-    // 1. Validate required fields
-    // --------------------------------------
-
-    if (!name || !name.trim()) {
+    if (
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Name is required",
+        message: "Name is required.",
       });
     }
 
-
-    if (!email || !email.trim()) {
+    if (
+      typeof email !== "string" ||
+      !email.trim()
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Email is required",
+        message: "Email is required.",
       });
     }
 
+    // 2. Normalize email
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
-      });
-    }
-
-
-    // --------------------------------------
-    // 2. Validate password length
-    // --------------------------------------
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 8 characters long",
-      });
-    }
-
-
-    // --------------------------------------
-    // 3. Normalize email
-    // --------------------------------------
-
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-
-    // --------------------------------------
-    // 4. Check existing user
-    // --------------------------------------
-
+    // 3. Check for an existing account
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
 
-
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: "An account with this email already exists",
+        message: "An account with this email already exists.",
       });
     }
 
+    // 4. Generate a secure temporary password
+    const temporaryPassword = generateTemporaryPassword();
 
-    // --------------------------------------
-    // 5. Hash password
-    // --------------------------------------
+    // 5. Hash the temporary password
+    const passwordHash = await bcrypt.hash(
+      temporaryPassword,
+      12
+    );
 
-    const passwordHash =
-      await bcrypt.hash(password, 12);
-
-
-    // --------------------------------------
-    // 6. Create User account
-    // --------------------------------------
-
+    // 6. Create photographer login account
     createdUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
-
-      // This endpoint can only create
-      // Photographer accounts.
       role: "PHOTOGRAPHER",
-
       status: "ACTIVE",
+      mustChangePassword: true,
     });
 
+    // 7. Create photographer profile
+    createdPhotographer = await Photographer.create({
+      user: createdUser._id,
+      bio: "",
+      specialization: "",
+      location: "",
+      hourlyRate: null,
+      packageRates: [],
+      profileImage: "",
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: getPhotographerTrialEnd(),
+      subscriptionStartDate: null,
+      subscriptionEndDate: null,
+      gracePeriodEndsAt: null,
+    });
 
-    // --------------------------------------
-    // 7. Create Photographer profile
-    // --------------------------------------
+    // 8. Send temporary credentials by email
+    let emailSent = false;
 
-    const photographer =
-      await Photographer.create({
-        user: createdUser._id,
+    try {
+      await sendEmail({
+        to: createdUser.email,
+        subject: "Your Southern Camera Rental Photographer Account",
 
-        bio: "",
-        specialization: "",
-        location: "",
-        hourlyRate: null,
-        packageRates: [],
-        profileImage: "",
+        text: `
+Hello ${createdUser.name},
 
-        subscriptionStatus: "TRIAL",
-        trialEndsAt: getPhotographerTrialEnd(),
+Your photographer account for Southern Camera Rental has been created successfully.
 
-        subscriptionStartDate: null,
-        subscriptionEndDate: null,
-        gracePeriodEndsAt: null,
+Photographer Login Email:
+${createdUser.email}
+
+Temporary Password:
+${temporaryPassword}
+
+Please use these credentials to log in.
+
+You will be required to change your temporary password after your first login.
+
+For security, please do not share your login credentials with anyone.
+
+Regards,
+Southern Camera Rental
+        `.trim(),
+
+        html: `
+          <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">
+            <div style="padding:24px;background:#111827;color:#ffffff;border-radius:12px 12px 0 0;">
+              <h1 style="margin:0;font-size:22px;">
+                Southern Camera Rental
+              </h1>
+            </div>
+
+            <div style="padding:30px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;">
+              <h2 style="margin-top:0;color:#111827;">
+                Photographer Account Created
+              </h2>
+
+              <p>Hello ${createdUser.name},</p>
+
+              <p>
+                Your photographer account has been created successfully.
+              </p>
+
+              <div style="margin:24px 0;padding:20px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;">
+                <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+                  PHOTOGRAPHER LOGIN EMAIL
+                </p>
+
+                <p style="margin:0 0 20px;font-weight:bold;">
+                  ${createdUser.email}
+                </p>
+
+                <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+                  TEMPORARY PASSWORD
+                </p>
+
+                <p style="margin:0;font-weight:bold;">
+                  ${temporaryPassword}
+                </p>
+              </div>
+
+              <p>
+                Please log in using these credentials.
+                You will be required to change your temporary
+                password after your first login.
+              </p>
+
+              <p style="font-size:13px;color:#6b7280;">
+                For security, please do not share your login
+                credentials with anyone.
+              </p>
+
+              <p style="margin-top:28px;">
+                Regards,<br />
+                <strong>Southern Camera Rental</strong>
+              </p>
+            </div>
+          </div>
+        `,
       });
 
+      emailSent = true;
 
-    // --------------------------------------
-    // 8. Return safe response
-    // --------------------------------------
+      console.log(
+        `Photographer credentials email sent to ${createdUser.email}`
+      );
+    } catch (emailError) {
+      console.error(
+        "Failed to send photographer credentials email:",
+        emailError
+      );
+    }
 
+    // 9. Return safe response
     return res.status(201).json({
       success: true,
-      message: "Photographer account created successfully",
+      message: emailSent
+        ? "Photographer account created successfully. Temporary credentials have been emailed."
+        : "Photographer account created, but the credentials email could not be sent. Contact the administrator.",
 
       data: {
+        emailSent,
         photographer: {
-          id: photographer._id,
+          id: createdPhotographer._id,
           userId: createdUser._id,
-
           name: createdUser.name,
           email: createdUser.email,
-
           role: createdUser.role,
           status: createdUser.status,
-
+          mustChangePassword: createdUser.mustChangePassword,
           profile: {
-            bio: photographer.bio,
-            specialization:
-              photographer.specialization,
-            location:
-              photographer.location,
-            hourlyRate:
-              photographer.hourlyRate,
-            packageRates:
-              photographer.packageRates,
-            profileImage:
-              photographer.profileImage,
+            bio: createdPhotographer.bio,
+            specialization: createdPhotographer.specialization,
+            location: createdPhotographer.location,
+            hourlyRate: createdPhotographer.hourlyRate,
+            packageRates: createdPhotographer.packageRates,
+            profileImage: createdPhotographer.profileImage,
           },
         },
       },
     });
 
   } catch (error) {
-
-    // --------------------------------------
-    // Roll back User if Photographer
-    // profile creation failed.
-    // --------------------------------------
-
-    if (createdUser) {
+    // Roll back partially created records
+    if (createdPhotographer) {
       try {
-        await User.findByIdAndDelete(
-          createdUser._id
+        await Photographer.findByIdAndDelete(
+          createdPhotographer._id
         );
       } catch (cleanupError) {
         console.error(
-          "Failed to clean up User after Photographer creation error:",
+          "Failed to clean up Photographer profile:",
+          cleanupError
+        );
+      }
+    }
+
+    if (createdUser) {
+      try {
+        await User.findByIdAndDelete(createdUser._id);
+      } catch (cleanupError) {
+        console.error(
+          "Failed to clean up Photographer user:",
           cleanupError
         );
       }

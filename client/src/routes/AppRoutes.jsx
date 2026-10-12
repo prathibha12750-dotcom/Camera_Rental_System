@@ -566,6 +566,12 @@ const AppRoutes = () => {
                   }
                 />
 
+                {/* Clerk Photographer Application Management */}
+                <Route
+                  path="/clerk/photographer-applications"
+                  element={<AdminPhotographerApplications />}
+                />
+
                 <Route
                   path="/clerk/deposits"
                   element={

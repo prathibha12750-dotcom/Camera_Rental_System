@@ -310,7 +310,7 @@ const PhotographerApplication = () => {
               <p className="mt-3 max-w-2xl leading-7 text-gray-600">
                 Your photographer enrolment
                 application has been submitted
-                successfully. A staff administrator
+                successfully. an authorized Admin or Clerk.
                 will review the information you
                 provided.
               </p>
@@ -513,7 +513,7 @@ const PhotographerApplication = () => {
               <InfoItem
                 number="02"
                 title="Administrator Review"
-                description="A staff administrator reviews your application before approval."
+                description="Our administration team will review the information you provided."
               />
 
               <InfoItem
@@ -565,7 +565,7 @@ const PhotographerApplication = () => {
                   <div className="mt-4 border-t border-red-200 pt-4">
 
                     <p className="text-xs font-bold uppercase tracking-wider text-red-500">
-                      Administrator Note
+                      Reviewer Note
                     </p>
 
                     <p className="mt-1 text-sm leading-6 text-red-800">
@@ -742,7 +742,7 @@ const PhotographerApplication = () => {
                   Please ensure the information
                   you provided is accurate. Your
                   application will be reviewed by
-                  a staff administrator.
+                  an authorized Admin or Clerk..
                 </p>
 
               </div>

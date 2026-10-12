@@ -76,6 +76,11 @@ const navigationByRole = {
       icon: "users",
     },
     {
+      label: "Photographer Applications",
+      to: "/clerk/photographer-applications",
+      icon: "photographer-applications",
+    },
+    {
       label: "Rental Management",
       to: "/clerk/rentals",
       icon: "bookings",
@@ -303,6 +308,23 @@ const Icon = ({ name }) => {
           cy="14"
           r="1.5"
         />
+      </svg>
+    );
+  }
+  
+  // PHOTOGRAPHER APPLICATIONS
+  if (name === "photographer-applications") {
+    return (
+      <svg {...commonProps}>
+        {/* Camera body */}
+        <path d="M3 8a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v6" />
+
+        {/* Camera lens */}
+        <circle cx="12" cy="11" r="3" />
+
+        {/* Approval checkmark */}
+        <circle cx="18" cy="18" r="4" />
+        <path d="m16.5 18 1 1 2-2" />
       </svg>
     );
   }

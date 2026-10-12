@@ -816,7 +816,7 @@ const AdminPhotographerApplications = () => {
                     <label className="mt-5 block">
 
                       <span className="text-sm font-semibold text-gray-700">
-                        Administrator Note
+                        Reviewer Note
                         {decision ===
                           "REJECTED" &&
                           " *"}

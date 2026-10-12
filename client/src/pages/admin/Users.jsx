@@ -17,7 +17,7 @@ const Users = () => {
   const [clerkSuccessMessage, setClerkSuccessMessage] = useState("");
   const [clerkErrorMessage, setClerkErrorMessage] = useState("");
 
-  const [formData, setFormData] = useState({name: "", email: "", password: "", confirmPassword: "",});
+  const [formData, setFormData] = useState({name: "", email: "",});
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -395,28 +395,12 @@ const Users = () => {
       return;
     }
 
-    if (!formData.password) {
-      setErrorMessage("Password is required.");
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters long.");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage("Passwords do not match.");
-      return;
-    }
-
     try {
       setLoading(true);
 
       const response = await api.post("/admin/photographers", {
         name: formData.name.trim(),
         email: formData.email.trim(),
-        password: formData.password,
       });
 
       const createdPhotographer =
@@ -429,7 +413,8 @@ const Users = () => {
           email: createdPhotographer.email,
           role: createdPhotographer.role,
           status: createdPhotographer.status,
-          mustChangePassword: false,
+          mustChangePassword:
+            createdPhotographer.mustChangePassword ?? true,
           createdAt: new Date().toISOString(),
         };
 
@@ -454,8 +439,6 @@ const Users = () => {
       setFormData({
         name: "",
         email: "",
-        password: "",
-        confirmPassword: "",
       });
 
       setShowCreatePhotographer(false);
@@ -1278,7 +1261,10 @@ const Users = () => {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Create a new photographer account for the system.
+                  Create a new photographer account by entering their name and
+                  email address. A temporary password will be generated
+                  automatically and sent to the photographer by email.
+                  The photographer must change this password upon first login.
                 </p>
               </div>
 
@@ -1352,48 +1338,6 @@ const Users = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Enter photographer email"
-                  disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
-                />
-              </div>
-
-              {/* Password */}
-              <div>
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </label>
-
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Minimum 8 characters"
-                  disabled={loading}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
-                />
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="mb-2 block text-sm font-medium text-gray-700"
-                >
-                  Confirm Password
-                </label>
-
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Re-enter password"
                   disabled={loading}
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
                 />
