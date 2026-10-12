@@ -3,7 +3,11 @@ const express = require("express");
 const {
   createPhotographer,
   createClerk,
-  getCustomers, //imported by abilash
+  getCustomers,
+  getCustomerById,
+  getCustomerActivityHistory,
+  updateCustomerStatus,
+  deleteCustomer,
   getPhotographerApplications,
   getPhotographerApplicationById,
   reviewPhotographerApplication,
@@ -99,7 +103,7 @@ router.get(
 router.post(
   "/photographers",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createPhotographer
 );
 
@@ -126,9 +130,50 @@ router.post(
 router.get(
   "/customers",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getCustomers
 );
+
+// ==========================================
+// GET CUSTOMER DETAILS BY ID
+// CLERK AND ADMIN
+// GET /api/admin/customers/:id
+// ==========================================
+
+router.get(
+  "/customers/:id",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getCustomerById
+);
+
+// ==========================================
+// GET CUSTOMER BOOKING AND RENTAL HISTORY
+// ADMIN AND CLERK
+// GET /api/admin/customers/:id/history
+// ==========================================
+
+router.get(
+  "/customers/:id/history",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getCustomerActivityHistory
+);
+
+
+// ==========================================
+// UPDATE CUSTOMER ACCOUNT STATUS
+// ADMIN AND CLERK
+// PATCH /api/admin/customers/:id/status
+// ==========================================
+
+router.patch(
+  "/customers/:id/status",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  updateCustomerStatus
+);
+
 
 // ==========================================
 // CREATE INVOICE
@@ -372,9 +417,7 @@ router.get(
 router.get(
   "/photographer-applications",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPhotographerApplications
 );
 
@@ -382,9 +425,7 @@ router.get(
 router.get(
   "/photographer-applications/:id",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPhotographerApplicationById
 );
 
@@ -392,9 +433,7 @@ router.get(
 router.patch(
   "/photographer-applications/:id/status",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   reviewPhotographerApplication
 );
 
@@ -406,7 +445,7 @@ router.patch(
 router.patch(
   "/users/:userId/status",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   updateStaffAccountStatus
 );
 
@@ -418,7 +457,7 @@ router.patch(
 router.get(
   "/staff-accounts",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getStaffAccounts
 );
 
@@ -496,6 +535,16 @@ router.patch(
   authenticate,
   authorizeRoles("CLERK"),
   markNotificationAsRead
+);
+
+// ==========================================
+// DELETE CUSTOMER ACCOUNT - ADMIN ONLY
+// ==========================================
+router.delete(
+  "/customers/:id",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  deleteCustomer
 );
 
 module.exports = router;

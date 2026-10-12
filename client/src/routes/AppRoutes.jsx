@@ -86,6 +86,7 @@ import AdminHome from "../pages/admin/AdminHome";
 import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
 
 import Users from "../pages/admin/Users";
+import CustomerDetails from "../pages/admin/CustomerDetails";
 import Invoices from "../pages/admin/Invoices";
 import Payments from "../pages/admin/Payments";
 import Deposits from "../pages/admin/Deposits";
@@ -515,6 +516,16 @@ const AppRoutes = () => {
               }
             >
 
+            <Route
+              path="/clerk/users"
+              element={<Users />}
+            />
+
+            <Route
+              path="/clerk/customers/:customerId"
+              element={<CustomerDetails />}
+            />
+
               {/* Clerk can access this before
                   changing temporary password */}
 
@@ -624,6 +635,11 @@ const AppRoutes = () => {
                   element={
                     <Users />
                   }
+                />
+
+                <Route
+                  path="/admin/customers/:customerId"
+                  element={<CustomerDetails />}
                 />
 
 

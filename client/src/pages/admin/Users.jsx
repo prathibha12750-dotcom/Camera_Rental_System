@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../services/api";
+import { useAuth } from "../../context/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const Users = () => {
+  const { user } = useAuth();
+
+  const navigate = useNavigate();
+
+  const isAdmin = user?.role === "STAFF_ADMIN";
+
   const [showCreatePhotographer, setShowCreatePhotographer] = useState(false);
   const [showCreateClerk, setShowCreateClerk] = useState(false);
   const [clerkFormData, setClerkFormData] = useState({name: "", email: "",});
@@ -14,6 +22,28 @@ const Users = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // ==========================================
+  // CUSTOMER MANAGEMENT STATE
+  // ==========================================
+
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customersError, setCustomersError] = useState("");
+
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerStatus, setCustomerStatus] = useState("ALL");
+  const [customerPage, setCustomerPage] = useState(1);
+
+  const [customerPagination, setCustomerPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+
+  const [showCustomerManagement, setShowCustomerManagement] =
+    useState(false);
+
   const [staffAccounts, setStaffAccounts] = useState([]);
   const [staffAccountsLoading, setStaffAccountsLoading] = useState(true);
   const [staffAccountsError, setStaffAccountsError] = useState("");
@@ -25,6 +55,7 @@ const Users = () => {
   const [updatingAccountId, setUpdatingAccountId] = useState(null);
   const [accountActionError, setAccountActionError] = useState("");
 
+  const customerManagementRef = useRef(null);
   const staffManagementRef = useRef(null);
   const createPhotographerRef = useRef(null);
   const createClerkRef = useRef(null);
@@ -72,6 +103,88 @@ const Users = () => {
       isMounted = false;
     };
   }, []);
+
+  // ==========================================
+  // AUTO LOAD CUSTOMERS
+  // ==========================================
+
+  useEffect(() => {
+    if (!showCustomerManagement) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadCustomers = async () => {
+      try {
+        setCustomersLoading(true);
+        setCustomersError("");
+
+        const response = await api.get("/admin/customers", {
+          params: {
+            search: customerSearch.trim(),
+            status: customerStatus,
+            page: customerPage,
+            limit: 10,
+          },
+        });
+
+        if (!isActive) return;
+
+        const data = response.data?.data;
+
+        console.log("Customer API data:", data);
+        console.log("Customer pagination:", data?.pagination);
+
+        setCustomers(data?.customers || []);
+
+        setCustomerPagination({
+          page: data?.pagination?.currentPage ?? 1,
+          limit: data?.pagination?.limit ?? 10,
+          total: data?.pagination?.totalCustomers ?? 0,
+          totalPages: data?.pagination?.totalPages ?? 1,
+        });
+      } catch (error) {
+        if (!isActive) return;
+
+        console.error("Fetch customers error:", error);
+
+        setCustomersError(
+          error.response?.data?.message ||
+            "Failed to load customers."
+        );
+
+        setCustomers([]);
+      } finally {
+        if (isActive) {
+          setCustomersLoading(false);
+        }
+      }
+    };
+
+    loadCustomers();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    showCustomerManagement,
+    customerSearch,
+    customerStatus,
+    customerPage,
+  ]);
+
+  // ==========================================
+  // CUSTOMER DETAILS NAVIGATION
+  // ==========================================
+
+  const handleCustomerClick = (customerId) => {
+    if (!customerId) return;
+
+    const basePath = isAdmin ? "/admin" : "/clerk";
+
+    navigate(`${basePath}/customers/${customerId}`);
+  };
 
   const scrollToSection = (ref) => {
     window.requestAnimationFrame(() => {
@@ -459,6 +572,55 @@ const Users = () => {
         {/* User Categories */}
         <div className="mt-8 grid gap-5 md:grid-cols-2">
 
+        {/* Customers */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+            </svg>
+          </div>
+
+          <h2 className="mt-5 text-lg font-semibold text-gray-950">
+            Customers
+          </h2>
+
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            View, search, and manage registered customer accounts.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowCustomerManagement(true);
+              setSelectedStaffType(null);
+              setCustomerSearch("");
+              setCustomerStatus("ALL");
+              setCustomerPage(1);
+              setShowCreatePhotographer(false);
+              setShowCreateClerk(false);
+              
+              scrollToSection(customerManagementRef);
+            }}
+            className={`mt-5 w-full rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+              showCustomerManagement
+                ? "border-orange-600 bg-orange-600 text-white"
+                : "border-orange-200 text-orange-600 hover:bg-orange-50"
+            }`}
+          >
+            {showCustomerManagement
+              ? "Viewing Customers"
+              : "Manage Customers"}
+          </button>
+        </div>
+
           {/* Photographers */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
@@ -483,6 +645,7 @@ const Users = () => {
                 setShowCreateClerk(false);
                 setSuccessMessage("");
                 setErrorMessage("");
+                setShowCustomerManagement(false);
 
                 scrollToSection(staffManagementRef);
               }}
@@ -499,6 +662,7 @@ const Users = () => {
           </div>
 
           {/* Clerks */}
+          {isAdmin && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 font-bold text-orange-600">
               C
@@ -522,6 +686,7 @@ const Users = () => {
                 setShowCreatePhotographer(false);
                 setClerkSuccessMessage("");
                 setClerkErrorMessage("");
+                setShowCustomerManagement(false);
 
                 scrollToSection(staffManagementRef);
               }}
@@ -536,14 +701,272 @@ const Users = () => {
                 : "Manage Clerks"}
             </button>
           </div>
+          )}
 
         </div>
+
+        {/* ==========================================
+            CUSTOMER MANAGEMENT
+        ========================================== */}
+
+        {showCustomerManagement && (
+          <div
+            ref={customerManagementRef}
+            className="scroll-mt-6 mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+          >
+
+            {/* Header */}
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
+                Customer Management
+              </p>
+
+              <h2 className="mt-2 text-xl font-semibold text-gray-950">
+                Customer Accounts
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                View and manage registered customers.
+              </p>
+            </div>
+
+            {/* ==========================================
+                CUSTOMER SEARCH AND STATUS FILTER
+            ========================================== */}
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+              {/* Search Customers */}
+              <div>
+                <label
+                  htmlFor="customerSearch"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
+                  Search Customers
+                </label>
+
+                <input
+                  id="customerSearch"
+                  type="search"
+                  value={customerSearch}
+                  onChange={(event) => {
+                    setCustomerSearch(event.target.value);
+                    setCustomerPage(1);
+                  }}
+                  placeholder="Search by name or email..."
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+              </div>
+
+              {/* Filter by Status */}
+              <div>
+                <label
+                  htmlFor="customerStatus"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
+                  Account Status
+                </label>
+
+                <select
+                  id="customerStatus"
+                  value={customerStatus}
+                  onChange={(event) => {
+                    setCustomerStatus(event.target.value);
+                    setCustomerPage(1);
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                >
+                  <option value="ALL">All Customers</option>
+                  <option value="ACTIVE">Active Customers</option>
+                  <option value="INACTIVE">Inactive Customers</option>
+                </select>
+              </div>
+
+            </div>
+
+            {/* Loading */}
+            {customersLoading && (
+              <p className="mt-6 text-sm text-gray-500">
+                Loading customers...
+              </p>
+            )}
+
+            {/* Error */}
+            {!customersLoading && customersError && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-700">
+                  {customersError}
+                </p>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!customersLoading &&
+              !customersError &&
+              customers.length === 0 && (
+                <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center">
+                  <p className="text-sm text-gray-500">
+                    No customers found.
+                  </p>
+                </div>
+              )}
+
+            {/* Customer Table */}
+            {!customersLoading &&
+              !customersError &&
+              customers.length > 0 && (
+                <div className="mt-6 overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-left">
+
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="px-4 py-3 text-xs font-semibold uppercase text-gray-500">
+                          Customer
+                        </th>
+
+                        <th className="px-4 py-3 text-xs font-semibold uppercase text-gray-500">
+                          Status
+                        </th>
+
+                        <th className="px-4 py-3 text-xs font-semibold uppercase text-gray-500">
+                          Registered
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100">
+                      {customers.map((customer) => (
+                          <tr
+                            key={customer._id}
+                            onClick={() => handleCustomerClick(customer._id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleCustomerClick(customer._id);
+                              }
+                            }}
+                            tabIndex={0}
+                            role="link"
+                            aria-label={`View details for ${customer.name}`}
+                            className="cursor-pointer transition hover:bg-orange-50 focus:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-400"
+                          >
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {customer.name}
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
+                              {customer.email}
+                            </p>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                customer.status === "ACTIVE"
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-red-50 text-red-700"
+                              }`}
+                            >
+                              {customer.status === "ACTIVE"
+                                ? "Active"
+                                : "Inactive"}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-gray-600">
+                            {customer.createdAt
+                              ? new Date(
+                                  customer.createdAt
+                                ).toLocaleDateString()
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+
+                  </table>
+
+                  {/* ==========================================
+                      CUSTOMER PAGINATION
+                  ========================================== */}
+
+                  {customerPagination.total > 0 && (
+                    <div className="mt-6 flex flex-col gap-4 border-t border-gray-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+
+                      <p className="text-sm text-gray-500">
+                        Showing{" "}
+                        <span className="font-medium text-gray-700">
+                          {(customerPage - 1) * 10 + 1}
+                        </span>
+                        {" - "}
+                        <span className="font-medium text-gray-700">
+                          {Math.min(
+                            customerPage * 10,
+                            customerPagination.total
+                          )}
+                        </span>
+                        {" of "}
+                        <span className="font-medium text-gray-700">
+                          {customerPagination.total}
+                        </span>
+                        {" customers"}
+                      </p>
+
+                      <div className="flex items-center gap-3">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCustomerPage((previous) =>
+                              Math.max(previous - 1, 1)
+                            )
+                          }
+                          disabled={customerPage === 1 || customersLoading}
+                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+
+                        <span className="text-sm font-medium text-gray-600">
+                          Page {customerPage} of {customerPagination.totalPages}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCustomerPage((previous) =>
+                              Math.min(
+                                previous + 1,
+                                customerPagination.totalPages
+                              )
+                            )
+                          }
+                          disabled={
+                            customerPage >= customerPagination.totalPages ||
+                            customersLoading
+                          }
+                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+          </div>
+        )}
 
         {/* ==========================================
             STAFF ACCOUNT MANAGEMENT
         ========================================== */}
 
-        {selectedStaffType && (
+        {selectedStaffType &&
+          (selectedStaffType !== "CLERK" || isAdmin) && (
           <>
         <div
           ref={staffManagementRef}
@@ -997,7 +1420,7 @@ const Users = () => {
             CREATE CLERK FORM
         ========================================== */}
 
-        {showCreateClerk && (
+        {isAdmin && showCreateClerk && (
           <div
             ref={createClerkRef}
             className="scroll-mt-6 mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"

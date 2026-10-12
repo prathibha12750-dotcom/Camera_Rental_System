@@ -71,6 +71,11 @@ const navigationByRole = {
       icon: "home",
     },
     {
+      label: "User Management",
+      to: "/clerk/users",
+      icon: "users",
+    },
+    {
       label: "Rental Management",
       to: "/clerk/rentals",
       icon: "bookings",

@@ -37,4 +37,6 @@ const depositSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("Deposit", depositSchema);
+module.exports =
+  mongoose.models.Deposit ||
+  mongoose.model("Deposit", depositSchema);

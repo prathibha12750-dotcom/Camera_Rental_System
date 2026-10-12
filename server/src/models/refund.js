@@ -54,4 +54,6 @@ const refundSchema = new mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model("Refund", refundSchema);
+module.exports =
+  mongoose.models.Refund ||
+  mongoose.model("Refund", refundSchema);

@@ -1,11 +1,24 @@
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
 const User = require("../models/User");
 const Photographer = require("../models/Photographer");
 const PhotographerApplication = require("../models/PhotographerApplication");
+const Booking = require("../models/Booking");
+const Rental = require("../models/Rental");
 const PhotographerNotification = require("../models/photographerNotification");
 const sendEmail = require("../utils/sendEmail");
+
+const Invoice = require("../models/invoice");
+const Payment = require("../models/payment");
+const Deposit = require("../models/deposit");
+const Refund = require("../models/refund");
+const Notification = require("../models/notification");
+const Review = require("../models/Review");
+const DamageRecord = require("../models/DamageRecord");
+const Return = require("../models/Return");
+const PhotographerSubscriptionPayment = require("../models/PhotographerSubscriptionPayment");
 
 // ==========================================
 // GENERATE TEMPORARY PASSWORD
@@ -978,31 +991,469 @@ const reviewPhotographerApplication =
 // GET ALL CUSTOMERS
 // GET /api/admin/customers
 // ==========================================
-const getCustomers = async (req, res, next) => {
+
+ // ==========================================
+ // GET ALL CUSTOMERS
+ // CLERK AND ADMIN
+ // GET /api/admin/customers
+ // ==========================================
+
+ const getCustomers = async (req, res, next) => {
+   try {
+     const {
+       search = "",
+       status = "ALL",
+       page = "1",
+       limit = "10",
+     } = req.query;
+
+     // --------------------------------------
+     // VALIDATE PAGINATION
+     // --------------------------------------
+
+     const pageNumber = Number(page);
+     const limitNumber = Number(limit);
+
+     if (
+       !Number.isInteger(pageNumber) ||
+       pageNumber < 1 ||
+       !Number.isInteger(limitNumber) ||
+       limitNumber < 1 ||
+       limitNumber > 100
+     ) {
+       return res.status(400).json({
+         success: false,
+         message:
+           "Page must be a positive integer and limit must be between 1 and 100.",
+       });
+     }
+
+     // --------------------------------------
+     // VALIDATE STATUS
+     // --------------------------------------
+
+     const normalizedStatus = String(status).toUpperCase();
+
+     if (
+       !["ALL", "ACTIVE", "INACTIVE"].includes(
+         normalizedStatus
+       )
+     ) {
+       return res.status(400).json({
+         success: false,
+         message: "Invalid customer status filter.",
+       });
+     }
+
+     // --------------------------------------
+     // BUILD FILTER
+     // --------------------------------------
+
+     const filter = {
+       role: "CUSTOMER",
+     };
+
+     if (normalizedStatus !== "ALL") {
+       filter.status = normalizedStatus;
+     }
+
+     const searchText = String(search).trim();
+
+     if (searchText) {
+       if (searchText.length > 100) {
+         return res.status(400).json({
+           success: false,
+           message: "Search must not exceed 100 characters.",
+         });
+       }
+
+       // Escape regex special characters.
+       const escapedSearch = searchText.replace(
+         /[.*+?^${}()|[\]\\]/g,
+         "\\$&"
+       );
+
+       filter.$or = [
+         {
+           name: {
+             $regex: escapedSearch,
+             $options: "i",
+           },
+         },
+         {
+           email: {
+             $regex: escapedSearch,
+             $options: "i",
+           },
+         },
+       ];
+     }
+
+     // --------------------------------------
+     // FETCH CUSTOMERS
+     // --------------------------------------
+
+     const skip = (pageNumber - 1) * limitNumber;
+
+     const [customers, totalCustomers] =
+       await Promise.all([
+         User.find(filter)
+           .select("name email role status createdAt")
+           .sort({ createdAt: -1, _id: -1 })
+           .skip(skip)
+           .limit(limitNumber)
+           .lean(),
+
+         User.countDocuments(filter),
+       ]);
+
+     const totalPages = Math.ceil(
+       totalCustomers / limitNumber
+     );
+
+     // --------------------------------------
+     // RESPONSE
+     // --------------------------------------
+
+     return res.status(200).json({
+       success: true,
+       message: "Customers retrieved successfully",
+       data: {
+         customers,
+         pagination: {
+           currentPage: pageNumber,
+           totalPages,
+           totalCustomers,
+           limit: limitNumber,
+           hasNextPage: pageNumber < totalPages,
+           hasPreviousPage: pageNumber > 1,
+         },
+       },
+     });
+   } catch (error) {
+     next(error);
+   }
+ };
+
+// ==========================================
+// GET CUSTOMER BY ID
+// CLERK AND ADMIN
+// GET /api/admin/customers/:id
+// ==========================================
+
+const getCustomerById = async (req, res, next) => {
   try {
-    const customers = await User.find(
-      {
-        role: "CUSTOMER",
-        status: "ACTIVE",
-      },
-      {
-        name: 1,
-        email: 1,
-        status: 1,
-      }
-    ).sort({ name: 1 });
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer ID.",
+      });
+    }
+
+    // Only retrieve CUSTOMER accounts
+    const customer = await User.findOne({
+      _id: id,
+      role: "CUSTOMER",
+    })
+      .select("name email role status createdAt updatedAt")
+      .lean();
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found.",
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Customers retrieved successfully",
+      message: "Customer retrieved successfully.",
       data: {
-        customers,
+        customer,
       },
     });
   } catch (error) {
     next(error);
   }
 };
+
+
+// ==========================================
+// UPDATE CUSTOMER ACCOUNT STATUS
+// ADMIN AND CLERK
+// ==========================================
+
+const updateCustomerStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate customer ID
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer ID.",
+      });
+    }
+
+    // Validate requested status
+    if (!["ACTIVE", "INACTIVE"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be ACTIVE or INACTIVE.",
+      });
+    }
+
+    // Only update CUSTOMER accounts
+    const customer = await User.findOne({
+      _id: id,
+      role: "CUSTOMER",
+    });
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found.",
+      });
+    }
+
+    if (customer.status === status) {
+      return res.status(200).json({
+        success: true,
+        message: `Customer account is already ${status}.`,
+        data: {
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            status: customer.status,
+          },
+        },
+      });
+    }
+
+    customer.status = status;
+
+    customer.disabledReason =
+      status === "INACTIVE"
+        ? "ADMIN_DISABLED"
+        : "NONE";
+
+    await customer.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        status === "ACTIVE"
+          ? "Customer account activated successfully."
+          : "Customer account deactivated successfully.",
+      data: {
+        customer: {
+          id: customer._id,
+          name: customer.name,
+          email: customer.email,
+          status: customer.status,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ==========================================
+// DELETE CUSTOMER ACCOUNT - ADMIN ONLY
+// ==========================================
+
+const deleteCustomer = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer ID.",
+      });
+    }
+
+    const customer = await User.findOne({
+      _id: id,
+      role: "CUSTOMER",
+    });
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found.",
+      });
+    }
+
+    
+    const [
+      hasBookings,
+      hasRentals,
+      hasApplications,
+      hasInvoices,
+      hasPayments,
+      hasDeposits,
+      hasRefunds,
+      hasNotifications,
+      hasPhotographerNotifications,
+      hasReviews,
+      hasDamageRecords,
+      hasReturnRecords,
+      hasSubscriptionPayments,
+    ] = await Promise.all([
+      Booking.exists({ customer: id }),
+      Rental.exists({$or: [{ customer: id },{ approvedBy: id },],}),
+      PhotographerApplication.exists({ customer: id }),
+      Invoice.exists({ customer: id }),
+      Payment.exists({ customer: id }),
+      Deposit.exists({ customer: id }),
+      Refund.exists({ customer: id }),
+      Notification.exists({ recipient: id }),
+      PhotographerNotification.exists({ user: id }),
+      Review.exists({ customer: id }),
+      DamageRecord.exists({$or: [{ customer: id },{ reportedBy: id },],}),
+      Return.exists({$or: [{ customer: id },{ receivedBy: id },],}),
+      PhotographerSubscriptionPayment.exists({$or: [{ user: id },{ verifiedBy: id },],}),]);
+
+    const hasLinkedRecords = Boolean(
+      hasBookings ||
+      hasRentals ||
+      hasApplications ||
+      hasInvoices ||
+      hasPayments ||
+      hasDeposits ||
+      hasRefunds ||
+      hasNotifications ||
+      hasPhotographerNotifications ||
+      hasReviews ||
+      hasReturnRecords ||
+      hasDamageRecords ||
+      hasSubscriptionPayments
+
+    );
+
+    if (hasLinkedRecords) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This customer has linked records and cannot be permanently deleted. Deactivate the account instead.",
+      });
+    }
+
+    // Permanently delete an eligible customer
+    const deletedCustomer = await User.findOneAndDelete({
+      _id: id,
+      role: "CUSTOMER",
+    });
+
+    if (!deletedCustomer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer account deleted successfully.",
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ==========================================
+// GET CUSTOMER ACTIVITY HISTORY
+// ADMIN AND CLERK
+// GET /api/admin/customers/:id/history
+// ==========================================
+
+const getCustomerActivityHistory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validate Customer ID
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer ID.",
+      });
+    }
+
+    // Ensure the account belongs to a customer
+    const customer = await User.findOne({
+      _id: id,
+      role: "CUSTOMER",
+    })
+      .select("_id name email")
+      .lean();
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found.",
+      });
+    }
+
+    // Retrieve booking and rental histories
+    const [bookings, rentals] = await Promise.all([
+      Booking.find({ customer: id })
+        .select(
+          "photographer date startTime endTime pricingType " +
+          "durationHours packageNameAtBooking totalAmount " +
+          "status createdAt"
+        )
+        .populate({
+          path: "photographer",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "name",
+          },
+        })
+        .sort({ createdAt: -1 })
+        .lean(),
+
+      Rental.find({ customer: id })
+        .select(
+          "equipment startDate endDate totalPrice status " +
+          "issuedAt returnedAt createdAt"
+        )
+        .populate({
+          path: "equipment",
+          select: "name",
+        })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer activity history retrieved successfully.",
+      data: {
+        customer,
+        summary: {
+          totalBookings: bookings.length,
+          totalRentals: rentals.length,
+        },
+        bookings,
+        rentals,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 // ==========================================
 // CREATE CLERK ACCOUNT
@@ -1337,6 +1788,21 @@ const updateStaffAccountStatus = async (req, res, next) => {
     }
 
     // ----------------------------------------
+    // Clerk can manage Photographer accounts only
+    // ----------------------------------------
+
+    if (
+      req.user.role === "CLERK" &&
+      user.role !== "PHOTOGRAPHER"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Clerks can only enable or disable Photographer accounts.",
+      });
+    }
+
+    // ----------------------------------------
     // Avoid unnecessary update
     // ----------------------------------------
 
@@ -1401,7 +1867,10 @@ const getStaffAccounts = async (req, res, next) => {
   try {
     const users = await User.find({
       role: {
-        $in: ["PHOTOGRAPHER", "CLERK"],
+        $in:
+          req.user.role === "STAFF_ADMIN"
+            ? ["CLERK", "PHOTOGRAPHER"]
+            : ["PHOTOGRAPHER"],
       },
     })
       .select(
@@ -1426,7 +1895,11 @@ const getStaffAccounts = async (req, res, next) => {
 module.exports = {
   createPhotographer,
   createClerk,
-  getCustomers, //exported by Abilash
+  getCustomers, 
+  getCustomerById,
+  updateCustomerStatus,
+  deleteCustomer,
+  getCustomerActivityHistory,
   getPhotographerApplications,  
   getPhotographerApplicationById,
   reviewPhotographerApplication,
