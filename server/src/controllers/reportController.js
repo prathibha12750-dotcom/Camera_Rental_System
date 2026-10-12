@@ -1,6 +1,7 @@
 const payment = require("../models/payment");
 const Payment = require("../models/payment");
 const Rental = require("../models/Rental");
+const Equipment = require("../models/Equipment");
 
 // =====================================
 // DAILY REVENUE REPORT
@@ -191,8 +192,75 @@ const getRentalReport = async (req, res, next) => {
     }
 };
 
+// ========================================
+// Equipment REPORT
+// ========================================
+
+const getEquipmentReport = async (req, res, next) => {
+    try {
+        const totalEquipment = await Equipment.countDocuments();
+
+        const availableEquipment = await Equipment.countDocuments({
+            status: "AVAILABLE",
+        });
+
+        const reservedEquipment = await Equipment.countDocuments({
+            status: "RESERVED",
+        });
+
+        const rentedEquipment = await Equipment.countDocuments({
+            status: "RENTED",
+        });
+
+        const equipmentUnderMaintenance = await Equipment.countDocuments({
+            status: "MAINTENANCE",
+        });
+
+        const damagedEquipment = await Equipment.countDocuments({
+            status: "DAMAGED",
+        });
+
+        const excellentCondition = await Equipment.countDocuments({
+            condition: "EXCELLENT",
+        });
+
+        const goodCondition = await Equipment.countDocuments({
+            condition: "GOOD",
+        });
+
+        const fairCondition = await Equipment.countDocuments({
+            condition: "FAIR",
+        });
+
+        const damagedCondition = await Equipment.countDocuments({
+            condition: "DAMAGED",
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Equipment report retrieved successfully",
+            data: {
+                totalEquipment,
+                availableEquipment,
+                reservedEquipment,
+                rentedEquipment,
+                equipmentUnderMaintenance,
+                damagedEquipment,
+                excellentCondition,
+                goodCondition,
+                fairCondition,
+                damagedCondition,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 module.exports = {
     getDailyRevenue,
     getMonthlyRevenue,
     getRentalReport,
+    getEquipmentReport,
 };
