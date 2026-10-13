@@ -87,6 +87,22 @@ const AdminHome = () => {
       title: "Overdue Rentals",
       value: formatNumber(stats?.overdueRentals),
     },
+        {
+      title: "Total Clerks",
+      value: formatNumber(stats?.totalClerks),
+    },
+    {
+      title: "Available Equipment",
+      value: formatNumber(stats?.availableEquipment),
+    },
+    {
+      title: "Damaged Equipment",
+      value: formatNumber(stats?.damagedEquipment),
+    },
+    {
+      title: "Equipment Under Maintenance",
+      value: formatNumber(stats?.equipmentUnderMaintenance),
+    },
     {
       title: "Upcoming Bookings",
       value: formatNumber(

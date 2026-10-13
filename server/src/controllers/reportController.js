@@ -2,6 +2,8 @@ const payment = require("../models/payment");
 const Payment = require("../models/payment");
 const Rental = require("../models/Rental");
 const Equipment = require("../models/Equipment");
+const Photographer = require("../models/Photographer");
+const Booking = require("../models/Booking");
 
 // =====================================
 // DAILY REVENUE REPORT
@@ -258,9 +260,65 @@ const getEquipmentReport = async (req, res, next) => {
 };
 
 
+const getPhotographerReport = async (req, res) => {
+  try {
+    const totalPhotographers = await Photographer.countDocuments();
+
+    const totalBookings = await Booking.countDocuments();
+
+    const requestedBookings = await Booking.countDocuments({
+      status: "REQUESTED",
+    });
+
+    const confirmedBookings = await Booking.countDocuments({
+      status: "CONFIRMED",
+    });
+
+    const completedBookings = await Booking.countDocuments({
+      status: "COMPLETED",
+    });
+
+    const rejectedBookings = await Booking.countDocuments({
+      status: "REJECTED",
+    });
+
+    const cancelledBookings = await Booking.countDocuments({
+      status: "CANCELLED",
+    });
+
+    const upcomingBookings = await Booking.countDocuments({
+      date: { $gte: new Date() },
+      status: { $in: ["REQUESTED", "CONFIRMED"] },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalPhotographers,
+        totalBookings,
+        requestedBookings,
+        confirmedBookings,
+        completedBookings,
+        rejectedBookings,
+        cancelledBookings,
+        upcomingBookings,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching photographer report:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch photographer report",
+    });
+  }
+};
+
+
 module.exports = {
     getDailyRevenue,
     getMonthlyRevenue,
     getRentalReport,
     getEquipmentReport,
+    getPhotographerReport,
 };

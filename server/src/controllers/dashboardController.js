@@ -43,6 +43,27 @@ const getDashboardStats = async (req, res, next) => {
             status: { $in: ["REQUESTED", "CONFIRMED"] },
         });
 
+        // Total clerks
+        const totalClerks = await User.countDocuments({
+            role: "CLERK",
+        });
+
+        // Available equipment
+        const availableEquipment = await Equipment.countDocuments({
+            status: "AVAILABLE",
+        });
+
+        // Damaged equipment
+        const damagedEquipment = await Equipment.countDocuments({
+            status: "DAMAGED",
+        });
+
+        // Equipment under maintenance
+        const equipmentUnderMaintenance =
+            await Equipment.countDocuments({
+                status: "MAINTENANCE",
+            });
+
         // -------------------------------
         // 3. Total payments
         // -------------------------------
@@ -109,12 +130,19 @@ const getDashboardStats = async (req, res, next) => {
             data: {
                 totalCustomers,
                 totalPhotographers,
-                totalPayments,
-                monthlyRevenue,
+                totalClerks,
+
                 totalEquipment,
+                availableEquipment,
+                damagedEquipment,
+                equipmentUnderMaintenance,
+
                 activeRentals,
                 overdueRentals,
                 upcomingPhotographerBookings,
+
+                totalPayments,
+                monthlyRevenue,
             
             }
         });

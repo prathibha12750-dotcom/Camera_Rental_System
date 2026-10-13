@@ -46,6 +46,7 @@ const {
   getMonthlyRevenue,
   getRentalReport,
   getEquipmentReport,
+  getPhotographerReport,
 } = require("../controllers/reportController");
 
 const {
@@ -317,6 +318,14 @@ router.get(
   authorizeRoles("STAFF_ADMIN"),
   getEquipmentReport
 );
+
+router.get(
+  "/reports/photographers",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getPhotographerReport
+);
+
 
 // ==========================================
 // ADMIN DASHBOARD

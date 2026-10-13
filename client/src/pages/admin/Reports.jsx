@@ -6,6 +6,7 @@ const Reports = () => {
   const [monthlyReport, setMonthlyReport] = useState(null);
   const [rentalReport, setRentalReport] = useState(null);
   const [equipmentReport, setEquipmentReport] = useState(null);
+  const [photographerReport, setPhotographerReport] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -16,24 +17,26 @@ const Reports = () => {
       setError("");
 
 
-
   const [
     dailyResponse,
     monthlyResponse,
     rentalResponse,
     equipmentResponse,
+    photographerResponse,
   ] = await Promise.all([
     api.get("/admin/reports/revenue/daily"),
     api.get("/admin/reports/revenue/monthly"),
     api.get("/admin/reports/rentals"),
     api.get("/admin/reports/equipment"),
+    api.get("/admin/reports/photographers"),
   ]);
+
 
   setDailyReport(dailyResponse.data?.data || null);
   setMonthlyReport(monthlyResponse.data?.data || null);
   setRentalReport(rentalResponse.data?.data || null);
   setEquipmentReport(equipmentResponse.data?.data || null);
-
+  setPhotographerReport(photographerResponse.data?.data || null);
 
     } catch (error) {
       const status = error.response?.status;
@@ -349,46 +352,103 @@ const Reports = () => {
               </div>
             </div>
 
+            {/* EQUIPMENT REPORTS */}
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold text-gray-950">
+                  Equipment Reports
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Overview of equipment availability, status, and condition.
+                </p>
+              </div>
 
-            
-{/* EQUIPMENT REPORTS */}
-<div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-  <div className="mb-5">
-    <h2 className="text-lg font-semibold text-gray-950">
-      Equipment Reports
-    </h2>
-    <p className="mt-1 text-sm text-gray-500">
-      Overview of equipment availability, status, and condition.
-    </p>
-  </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { label: "Total Equipment", value: equipmentReport?.totalEquipment },
+                  { label: "Available Equipment", value: equipmentReport?.availableEquipment },
+                  { label: "Reserved Equipment", value: equipmentReport?.reservedEquipment },
+                  { label: "Rented Equipment", value: equipmentReport?.rentedEquipment },
+                  { label: "Under Maintenance", value: equipmentReport?.equipmentUnderMaintenance },
+                  { label: "Damaged Equipment", value: equipmentReport?.damagedEquipment },
+                  { label: "Excellent Condition", value: equipmentReport?.excellentCondition },
+                  { label: "Good Condition", value: equipmentReport?.goodCondition },
+                  { label: "Fair Condition", value: equipmentReport?.fairCondition },
+                  { label: "Damaged Condition", value: equipmentReport?.damagedCondition },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl bg-gray-50 p-4"
+                  >
+                    <p className="text-sm font-medium text-gray-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      {item.value ?? 0}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {[
-      { label: "Total Equipment", value: equipmentReport?.totalEquipment },
-      { label: "Available Equipment", value: equipmentReport?.availableEquipment },
-      { label: "Reserved Equipment", value: equipmentReport?.reservedEquipment },
-      { label: "Rented Equipment", value: equipmentReport?.rentedEquipment },
-      { label: "Under Maintenance", value: equipmentReport?.equipmentUnderMaintenance },
-      { label: "Damaged Equipment", value: equipmentReport?.damagedEquipment },
-      { label: "Excellent Condition", value: equipmentReport?.excellentCondition },
-      { label: "Good Condition", value: equipmentReport?.goodCondition },
-      { label: "Fair Condition", value: equipmentReport?.fairCondition },
-      { label: "Damaged Condition", value: equipmentReport?.damagedCondition },
-    ].map((item) => (
-      <div
-        key={item.label}
-        className="rounded-xl bg-gray-50 p-4"
-      >
-        <p className="text-sm font-medium text-gray-500">
-          {item.label}
-        </p>
-        <p className="mt-2 text-2xl font-bold text-gray-950">
-          {item.value ?? 0}
-        </p>
-      </div>
-    ))}
-  </div>
-</div>
+            {/* Photographer Reports */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Photographer Reports
+              </h2>
+
+              {!photographerReport ? (
+                <p className="text-gray-500">No photographer report data available.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      label: "Total Photographers",
+                      value: photographerReport.totalPhotographers,
+                    },
+                    {
+                      label: "Total Bookings",
+                      value: photographerReport.totalBookings,
+                    },
+                    {
+                      label: "Requested Bookings",
+                      value: photographerReport.requestedBookings,
+                    },
+                    {
+                      label: "Confirmed Bookings",
+                      value: photographerReport.confirmedBookings,
+                    },
+                    {
+                      label: "Completed Bookings",
+                      value: photographerReport.completedBookings,
+                    },
+                    {
+                      label: "Rejected Bookings",
+                      value: photographerReport.rejectedBookings,
+                    },
+                    {
+                      label: "Cancelled Bookings",
+                      value: photographerReport.cancelledBookings,
+                    },
+                    {
+                      label: "Upcoming Bookings",
+                      value: photographerReport.upcomingBookings,
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-100"
+                    >
+                      <p className="text-sm text-gray-500">{item.label}</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-2">
+                        {item.value ?? 0}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
 
           </div>
 
@@ -402,9 +462,7 @@ const Reports = () => {
             </h3>
 
             <p className="mt-1 text-sm text-orange-800">
-              Daily and monthly revenue reports, rental reports, and
-              equipment reports are available. Photographer reports
-              can be added next.
+              Daily and monthly revenue reports, rental reports, equipment reports, and photographer reports are available.
             </p>
           </div>
         </>
