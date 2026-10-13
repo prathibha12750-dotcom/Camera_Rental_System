@@ -1,3 +1,7 @@
+// import added by abilash
+import CategoryManagement from "../pages/admin/CategoryManagement";
+// Abilash's import ends
+
 // ==========================================
 // REACT ROUTER
 // ==========================================
@@ -580,6 +584,14 @@ const AppRoutes = () => {
                     <EquipmentManagement />
                   }
                 />
+
+                
+                {/* CATEGORY MANAGEMENT (Added by Abilash) */}
+                <Route
+                  path="/admin/categories"
+                  element={<CategoryManagement />}
+                />
+
 
 
                 {/* =============================

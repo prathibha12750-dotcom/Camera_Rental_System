@@ -65,6 +65,13 @@ const navigationByRole = {
       end: true,
       icon: "home",
     },
+    //added by abilash
+    {
+      label: "Categories",
+      to: "/admin/categories",
+      icon: "categories",
+    },
+    //end
   ],
 
 };
@@ -180,6 +187,21 @@ const Icon = ({ name }) => {
     );
   }
 
+  
+  // ==========================================
+  // CATEGORIES ICON added by Abilash
+  // ==========================================
+
+  if (name === "categories") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+        <path d="M3 10h18" />
+      </svg>
+    );
+  }
+
+  //end
 
   // HOME / DASHBOARD
   return (
