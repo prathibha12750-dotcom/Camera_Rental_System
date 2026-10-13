@@ -389,6 +389,79 @@ const Reports = () => {
                   </div>
                 ))}
               </div>
+              
+              {/* =====================================
+                  MOST RENTED EQUIPMENT - FR-103
+              ===================================== */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Most Rented Equipment
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Top 10 equipment items ranked by completed or
+                  accepted rental transactions.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rank
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Equipment
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Brand
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rental Count
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(equipmentReport?.mostRentedEquipment ?? [])
+                        .length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No rental data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        equipmentReport.mostRentedEquipment.map(
+                          (item, index) => (
+                            <tr key={item.equipmentId}>
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {index + 1}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {item.equipmentName || "Unknown"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {item.brand || "-"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                {item.rentalCount}
+                              </td>
+                            </tr>
+                          )
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
 
             {/* Photographer Reports */}

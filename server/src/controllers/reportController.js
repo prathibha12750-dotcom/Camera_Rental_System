@@ -238,6 +238,64 @@ const getEquipmentReport = async (req, res, next) => {
             condition: "DAMAGED",
         });
 
+        
+        // ========================================
+        // MOST RENTED EQUIPMENT REPORT
+        // FR-103
+        // ========================================
+
+        const mostRentedEquipment = await Rental.aggregate([
+            {
+                $match: {
+                    status: {
+                        $in: [
+                            "CONFIRMED",
+                            "ACTIVE",
+                            "RETURNED",
+                            "COMPLETED",
+                        ],
+                    },
+                },
+            },
+            {
+                $group: {
+                    _id: "$equipment",
+                    rentalCount: { $sum: 1 },
+                },
+            },
+            {
+                $lookup: {
+                    from: Equipment.collection.name,
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "equipmentDetails",
+                },
+            },
+            {
+                $unwind: "$equipmentDetails",
+            },
+            {
+                $project: {
+                    _id: 0,
+                    equipmentId: "$_id",
+                    equipmentName: "$equipmentDetails.name",
+                    brand: "$equipmentDetails.brand",
+                    model: "$equipmentDetails.model",
+                    rentalCount: 1,
+                },
+            },
+            {
+                $sort: {
+                    rentalCount: -1,
+                    equipmentName: 1,
+                },
+            },
+            {
+                $limit: 10,
+            },
+        ]);
+
+
         return res.status(200).json({
             success: true,
             message: "Equipment report retrieved successfully",
@@ -252,6 +310,7 @@ const getEquipmentReport = async (req, res, next) => {
                 goodCondition,
                 fairCondition,
                 damagedCondition,
+                mostRentedEquipment,
             },
         });
     } catch (error) {
