@@ -371,8 +371,6 @@ const getPhotographerReport = async (req, res) => {
   try {
     const totalPhotographers = await Photographer.countDocuments();
 
-    const totalBookings = await Booking.countDocuments();
-
     const requestedBookings = await Booking.countDocuments({
       status: "REQUESTED",
     });
@@ -381,16 +379,8 @@ const getPhotographerReport = async (req, res) => {
       status: "CONFIRMED",
     });
 
-    const completedBookings = await Booking.countDocuments({
-      status: "COMPLETED",
-    });
-
     const rejectedBookings = await Booking.countDocuments({
       status: "REJECTED",
-    });
-
-    const cancelledBookings = await Booking.countDocuments({
-      status: "CANCELLED",
     });
 
     const upcomingBookings = await Booking.countDocuments({
@@ -398,17 +388,86 @@ const getPhotographerReport = async (req, res) => {
       status: { $in: ["REQUESTED", "CONFIRMED"] },
     });
 
+
+    // ========================================
+    // MOST BOOKED PHOTOGRAPHERS REPORT
+    // FR-112
+    // ========================================
+
+    const mostBookedPhotographers = await Booking.aggregate([
+      {
+        $match: {
+          status: {
+            $in: ["CONFIRMED", "COMPLETED"],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$photographer",
+          bookingCount: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: Photographer.collection.name,
+          localField: "_id",
+          foreignField: "_id",
+          as: "photographerDetails",
+        },
+      },
+      {
+        $unwind: "$photographerDetails",
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "photographerDetails.user",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          photographerId: "$_id",
+          photographerName: {
+            $ifNull: [
+              "$userDetails.name",
+              "Unknown Photographer",
+            ],
+          },
+          specialization: "$photographerDetails.specialization",
+          bookingCount: 1,
+        },
+      },
+      {
+        $sort: {
+          bookingCount: -1,
+          photographerName: 1,
+        },
+      },
+      {
+        $limit: 10,
+      },
+    ]);
+
+
     return res.status(200).json({
       success: true,
       data: {
         totalPhotographers,
-        totalBookings,
         requestedBookings,
         confirmedBookings,
-        completedBookings,
         rejectedBookings,
-        cancelledBookings,
         upcomingBookings,
+        mostBookedPhotographers
       },
     });
   } catch (error) {

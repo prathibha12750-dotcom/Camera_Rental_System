@@ -536,10 +536,6 @@ const Reports = () => {
                       value: photographerReport.totalPhotographers,
                     },
                     {
-                      label: "Total Bookings",
-                      value: photographerReport.totalBookings,
-                    },
-                    {
                       label: "Requested Bookings",
                       value: photographerReport.requestedBookings,
                     },
@@ -548,16 +544,8 @@ const Reports = () => {
                       value: photographerReport.confirmedBookings,
                     },
                     {
-                      label: "Completed Bookings",
-                      value: photographerReport.completedBookings,
-                    },
-                    {
                       label: "Rejected Bookings",
                       value: photographerReport.rejectedBookings,
-                    },
-                    {
-                      label: "Cancelled Bookings",
-                      value: photographerReport.cancelledBookings,
                     },
                     {
                       label: "Upcoming Bookings",
@@ -576,6 +564,82 @@ const Reports = () => {
                   ))}
                 </div>
               )}
+              
+              {/* =====================================
+                  MOST BOOKED PHOTOGRAPHERS - FR-112
+              ===================================== */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Most Booked Photographers
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Top 10 photographers ranked by confirmed and
+                  completed bookings.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rank
+                        </th>
+
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Photographer
+                        </th>
+
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Specialization
+                        </th>
+
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
+                          Booking Count
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(photographerReport?.mostBookedPhotographers ?? [])
+                        .length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No booking data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        photographerReport.mostBookedPhotographers.map(
+                          (item, index) => (
+                            <tr key={item.photographerId ?? index}>
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {index + 1}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {item.photographerName || "Unknown Photographer"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {item.specialization || "-"}
+                              </td>
+
+                              <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                                {item.bookingCount}
+                              </td>
+                            </tr>
+                          )
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </section>
 
 
