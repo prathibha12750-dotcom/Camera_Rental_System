@@ -241,7 +241,6 @@ const getEquipmentReport = async (req, res, next) => {
         
         // ========================================
         // MOST RENTED EQUIPMENT REPORT
-        // FR-103
         // ========================================
 
         const mostRentedEquipment = await Rental.aggregate([
@@ -296,6 +295,54 @@ const getEquipmentReport = async (req, res, next) => {
         ]);
 
 
+        // ========================================
+        // EQUIPMENT BY CATEGORY REPORT
+        // ========================================
+
+        const equipmentByCategory = await Equipment.aggregate([
+            {
+                $group: {
+                    _id: "$category",
+                    totalEquipment: { $sum: 1 },
+                },
+            },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "categoryDetails",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$categoryDetails",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    categoryId: "$_id",
+                    categoryName: {
+                        $ifNull: [
+                            "$categoryDetails.name",
+                            "Unknown Category",
+                        ],
+                    },
+                    totalEquipment: 1,
+                },
+            },
+            {
+                $sort: {
+                    totalEquipment: -1,
+                    categoryName: 1,
+                },
+            },
+        ]);
+
+
+
         return res.status(200).json({
             success: true,
             message: "Equipment report retrieved successfully",
@@ -311,6 +358,7 @@ const getEquipmentReport = async (req, res, next) => {
                 fairCondition,
                 damagedCondition,
                 mostRentedEquipment,
+                equipmentByCategory,
             },
         });
     } catch (error) {

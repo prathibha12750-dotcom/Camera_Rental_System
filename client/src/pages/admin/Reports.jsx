@@ -390,9 +390,9 @@ const Reports = () => {
                 ))}
               </div>
               
-              {/* =====================================
-                  MOST RENTED EQUIPMENT - FR-103
-              ===================================== */}
+              {/* =============================
+                  MOST RENTED EQUIPMENT
+              ================================= */}
 
               <div className="mt-8">
                 <h3 className="text-base font-semibold text-gray-900">
@@ -461,6 +461,62 @@ const Reports = () => {
                   </table>
                 </div>
               </div>
+
+
+              {/* ===========================
+                  EQUIPMENT BY CATEGORY 
+              =============================== */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Equipment by Category
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Distribution of equipment across categories.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Category
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
+                          Total Equipment
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(equipmentReport?.equipmentByCategory ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={2}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No category data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        equipmentReport.equipmentByCategory.map((item, index) => (
+                          <tr key={item.categoryId ?? index}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {item.categoryName || "Unknown Category"}
+                            </td>
+
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                              {item.totalEquipment}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
 
             </div>
 
