@@ -52,6 +52,7 @@ import EquipmentDetails from "../pages/customer/EquipmentDetails";
 import MyRentals from "../pages/customer/MyRentals";
 
 
+
 // ==========================================
 // PHOTOGRAPHER PAGES
 // ==========================================
@@ -87,6 +88,7 @@ import Notifications from "../pages/admin/Notifications";
 
 import EquipmentManagement from "../pages/admin/EquipmentManagement";
 import RentalManagement from "../pages/admin/RentalManagement";
+import CategoryManagement from "../pages/admin/CategoryManagement";
 
 
 // ==========================================
@@ -256,6 +258,21 @@ const AppRoutes = () => {
 
 
         {/* ==================================
+            PUBLIC EQUIPMENT BROWSING
+        ================================== */}
+
+        <Route
+          path="/customer/equipment"
+          element={<EquipmentBrowse />}
+        />
+
+        <Route
+          path="/customer/equipment/:id"
+          element={<EquipmentDetails />}
+        />
+
+
+        {/* ==================================
             PROTECTED ROUTES
         ================================== */}
 
@@ -350,20 +367,7 @@ const AppRoutes = () => {
                   Added by Thasindu
               ============================= */}
 
-              <Route
-                path="/customer/equipment"
-                element={
-                  <EquipmentBrowse />
-                }
-              />
-
-
-              <Route
-                path="/customer/equipment/:id"
-                element={
-                  <EquipmentDetails />
-                }
-              />
+              
 
 
               {/* =============================
@@ -582,6 +586,17 @@ const AppRoutes = () => {
                 />
 
 
+                  {/* =============================
+                    CATEGORY MANAGEMENT
+                    Added by Thasindu
+                ============================= */}
+                <Route
+                  path="/admin/categories"
+                  element={<CategoryManagement />}
+                />
+
+
+
                 {/* =============================
                     RENTAL MANAGEMENT
                     Added by Thasindu
@@ -593,6 +608,12 @@ const AppRoutes = () => {
                     <RentalManagement />
                   }
                 />
+
+
+                  
+
+
+
 
               </Route>
 
