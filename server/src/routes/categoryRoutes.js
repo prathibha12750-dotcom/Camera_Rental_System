@@ -12,7 +12,8 @@ const authorizeRoles = require("../middleware/authorizeRoles");
 
 const router = express.Router();
 
-router.get("/", authenticate, getAllCategories);
+// Public - anyone can view categories
+router.get("/", getAllCategories);
 
 router.post(
   "/",
