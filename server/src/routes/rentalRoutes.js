@@ -23,10 +23,19 @@ const authorizeRoles = require("../middleware/authorizeRoles");
 const router = express.Router();
 
 // Check equipment availability
+
+ // Check equipment availability - PUBLIC
 router.post(
   "/check-availability",
-  authenticate,
   checkAvailability
+);
+
+// Create rental request - CUSTOMER ONLY
+router.post(
+  "/",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  createRentalRequest
 );
 
 //create rental request
