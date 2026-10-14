@@ -7,6 +7,13 @@ const AdminLayout = () => {
 
   const navigation = [
     { name: "Dashboard", path: "/admin" },
+
+      // Equipment Rental Management by Thasindu ==============
+    { name: "Equipment Management", path: "/admin/equipment" },
+    { name: "Category Management", path: "/admin/categories" },
+    { name: "Rental Management", path: "/admin/rentals" },
+    //==========================================================
+
     { name: "Users", path: "/admin/users" },
     { name: "Invoices", path: "/admin/invoices" },
     { name: "Payments", path: "/admin/payments" },
