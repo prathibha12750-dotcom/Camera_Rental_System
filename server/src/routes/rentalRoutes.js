@@ -17,6 +17,23 @@ const {
   completeRental,
 } = require("../controllers/rentalController");
 
+const {
+  approveRentalPayment,
+  rejectRentalPayment,
+  getPendingRentalPayments,
+  getRentalPaymentHistory,
+  viewRentalPaymentReceipt,
+} = require("../controllers/rentalPaymentController");
+
+const {
+  settleRentalDeposit,
+  prepareRentalDepositRefund,
+  reviewDamageDeduction,
+  createPendingRentalRefund,
+  confirmRentalRefundPayout,
+  settleFullRentalDepositDeduction,
+} = require("../controllers/rentalDepositSettlementController");
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -103,6 +120,116 @@ router.get(
   getMyRentals
 );
 
+ // ==========================================
+ // GET PENDING RENTAL PAYMENTS
+ // CLERK OR STAFF_ADMIN
+ // ==========================================
+
+router.get(
+  "/payments/pending",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getPendingRentalPayments
+);
+
+
+ // ==========================================
+ // RENTAL PAYMENT HISTORY
+ // CLERK / STAFF ADMIN
+ // ==========================================
+
+router.get(
+  "/payments/history",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getRentalPaymentHistory
+);
+
+
+ // ==========================================
+ // VIEW RENTAL PAYMENT RECEIPT
+ // CLERK OR STAFF_ADMIN
+ // ==========================================
+
+router.get(
+  "/payments/:paymentId/receipt",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  viewRentalPaymentReceipt
+);
+
+
+// ==========================================
+// APPROVE RENTAL PAYMENT RECEIPT
+// CLERK OR STAFF_ADMIN
+// ==========================================
+
+router.patch(
+  "/payments/:paymentId/approve",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  approveRentalPayment
+);
+
+
+ // ==========================================
+ // REJECT RENTAL PAYMENT RECEIPT
+ // CLERK OR STAFF_ADMIN
+ // ==========================================
+
+router.patch(
+  "/payments/:paymentId/reject",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  rejectRentalPayment
+);
+
+
+ // ==========================================
+ // PREPARE RENTAL DEPOSIT REFUND
+ // VALIDATION ONLY - NO FINANCIAL CHANGES
+ // ==========================================
+
+router.post(
+  "/:id/deposit-refund/prepare",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  prepareRentalDepositRefund
+);
+
+
+// ==========================================
+// CREATE PENDING RENTAL DEPOSIT REFUND
+// CLERK OR STAFF ADMIN
+// ==========================================
+
+router.post(
+  "/:id/deposit-refund/pending",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  createPendingRentalRefund
+);
+
+
+router.patch(
+  "/:id/deposit-refund/:refundId/confirm",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  confirmRentalRefundPayout
+);
+
+
+ // ==========================================
+ // FULL SECURITY DEPOSIT DEDUCTION
+ // CLERK OR STAFF ADMIN
+ // ==========================================
+
+router.post(
+  "/:id/deposit-deduction/full",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  settleFullRentalDepositDeduction
+);
 
 // ==========================================
 // APPROVE RENTAL
@@ -156,6 +283,19 @@ router.patch(
 );
 
 
+ // ==========================================
+ // SETTLE RENTAL SECURITY DEPOSIT
+ // CLERK OR STAFF ADMIN
+ // ==========================================
+
+router.patch(
+  "/:id/deposit-settlement",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  settleRentalDeposit
+);
+
+
 // ==========================================
 // UPDATE DAMAGE RECORD STATUS
 // CLERK OR ADMIN
@@ -166,6 +306,19 @@ router.patch(
   authenticate,
   authorizeRoles("CLERK", "STAFF_ADMIN"),
   updateDamageRecordStatus
+);
+
+
+// ==========================================
+// REVIEW DAMAGE DEPOSIT DEDUCTION
+// CLERK OR STAFF ADMIN
+// ==========================================
+
+router.patch(
+  "/damage-records/:damageId/deduction-review",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  reviewDamageDeduction
 );
 
 

@@ -107,6 +107,22 @@ const createRefund = async(req, res, next) => {
                 message: "Invoice not found",
             });
         }
+                
+        // ==========================================
+        // RENTAL DEPOSIT SETTLEMENT PROTECTION
+        // ==========================================
+
+        // Rental deposits must use the dedicated
+        // settlement workflow so damage deductions,
+        // return checks, and refund confirmation
+        // cannot be bypassed.
+        if (existingInvoice.rental) {
+        return res.status(409).json({
+            success: false,
+            message:
+            "Rental security deposits must be processed through the rental deposit settlement workflow.",
+        });
+        }
 
         // ----------------------------------------
         // 6. Create refund record

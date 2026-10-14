@@ -3,6 +3,8 @@ const DamageRecord = require("../models/DamageRecord");
 const Return = require("../models/Return");
 const Rental = require("../models/Rental");
 const Equipment = require("../models/Equipment");
+const Invoice = require("../models/invoice");
+const Deposit = require("../models/deposit");
 
 const Notification = require("../models/notification");
 const User = require("../models/User");
@@ -461,12 +463,51 @@ const getAllRentals = async (req, res, next) => {
         "name brand model serialNumber rentalPricePerDay status"
       )
       .populate("approvedBy", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Find invoices associated with the loaded rentals.
+    const rentalIds = rentals.map((rental) => rental._id);
+
+    const invoices = await Invoice.find({
+      rental: { $in: rentalIds },
+    })
+      .select(
+        "rental invoiceNumber totalAmount paymentStatus"
+      )
+      .lean();
+
+    // Create an invoice lookup for efficient matching.
+    const invoiceMap = new Map(
+      invoices.map((invoice) => [
+        String(invoice.rental),
+        invoice,
+      ])
+    );
+
+    // Attach invoice details to each rental.
+    const rentalsWithInvoices = rentals.map((rental) => {
+      const invoice = invoiceMap.get(String(rental._id));
+
+      return {
+        ...rental,
+        invoice: invoice
+          ? {
+              _id: invoice._id,
+              invoiceNumber: invoice.invoiceNumber,
+              totalAmount: invoice.totalAmount,
+              paymentStatus: invoice.paymentStatus,
+            }
+          : null,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      count: rentals.length,
-      data: { rentals },
+      count: rentalsWithInvoices.length,
+      data: {
+        rentals: rentalsWithInvoices,
+      },
     });
   } catch (error) {
     return handleError(error, res, next);
@@ -587,6 +628,56 @@ const approveRental = async (req, res, next) => {
           throw approvalError(
             409,
             "Rental status changed. Refresh the rental list and try again."
+          );
+        }
+
+        // ============================================================
+        // AUTOMATICALLY GENERATE RENTAL INVOICE
+        // ============================================================
+
+        // Check whether an invoice already exists for this rental.
+        const existingInvoice = await Invoice.findOne({
+          rental: updatedRental._id,
+        }).session(session);
+
+        if (!existingInvoice) {
+          const serviceAmount = Number(updatedRental.totalPrice);
+          const securityDeposit = Number(equipment.securityDeposit);
+
+          // Validate invoice amounts.
+          if (
+            !Number.isFinite(serviceAmount) ||
+            serviceAmount < 0 ||
+            !Number.isFinite(securityDeposit) ||
+            securityDeposit < 0
+          ) {
+            throw approvalError(
+              400,
+              "Invalid rental price or security deposit. Invoice cannot be generated."
+            );
+          }
+
+          // Generate a unique invoice number.
+          const invoiceNumber =
+            `INV-${Date.now()}-${updatedRental._id.toString().slice(-6)}`;
+
+          // Create invoice inside the existing transaction.
+          await Invoice.create(
+            [
+              {
+                invoiceNumber,
+                customer: updatedRental.customer,
+                rental: updatedRental._id,
+                booking: null,
+                serviceDetails:
+                  `Equipment rental: ${equipment.name} (${equipment.model})`,
+                serviceAmount,
+                securityDeposit,
+                totalAmount: serviceAmount + securityDeposit,
+                paymentStatus: "PENDING",
+              },
+            ],
+            { session }
           );
         }
 
@@ -735,6 +826,31 @@ const issueRental = async (req, res, next) => {
         if (rental.status !== "CONFIRMED") {
           throw issueError(400, "Only confirmed rentals can be issued");
         }
+
+
+        // ============================================================
+        // VERIFY RENTAL INVOICE PAYMENT BEFORE EQUIPMENT ISSUE
+        // ============================================================
+
+        const invoice = await Invoice.findOne({
+          rental: rental._id,
+          customer: rental.customer,
+        }).session(session);
+
+        if (!invoice) {
+          throw issueError(
+            400,
+            "Equipment cannot be issued because the rental invoice was not found."
+          );
+        }
+
+        if (invoice.paymentStatus !== "PAID") {
+          throw issueError(
+            409,
+            "Equipment cannot be issued until the rental invoice is fully paid and the payment is verified."
+          );
+        }
+
 
         const equipment = await Equipment.findOneAndUpdate(
           { _id: rental.equipment },
@@ -1098,9 +1214,84 @@ const updateDamageRecordStatus = async (req, res, next) => {
       const damageRecord = await DamageRecord.findById(
         req.params.id
       ).session(session);
+     
+        // ==========================================
+        // VALIDATE DAMAGE RECORD EXISTS
+        // ==========================================
 
-      if (!damageRecord) {
-        fail(404, "Damage record not found");
+        if (!damageRecord) {
+          fail(404, "Damage record not found");
+        }
+
+        // ==========================================
+        // PROTECT REVIEWED DAMAGE DEDUCTIONS
+        // ==========================================
+
+        if (
+          ["APPROVED", "REJECTED"].includes(
+            damageRecord.deductionApprovalStatus
+          )
+        ) {
+          fail(
+            409,
+            "This damage deduction has already been reviewed. Its repair cost and status cannot be modified."
+          );
+        }
+
+      // ==========================================
+      // COORDINATE WITH DEPOSIT SETTLEMENT
+      // ==========================================
+
+      const rentalInvoice = await Invoice.findOne({
+        rental: damageRecord.rental,
+      }).session(session);
+
+      if (rentalInvoice) {
+        const settlementDeposit = await Deposit.findOne({
+          invoice: rentalInvoice._id,
+        }).session(session);
+
+        if (settlementDeposit) {
+          if (
+            [
+              "REFUND_PENDING",
+              "REFUNDED",
+              "PARTIALLY_REFUNDED",
+              "DEDUCTED",
+            ].includes(settlementDeposit.status)
+          ) {
+            fail(
+              409,
+              "Damage records cannot be modified after deposit settlement begins."
+            );
+          }
+
+          if (settlementDeposit.status === "HELD") {
+            const depositLock = await Deposit.findOneAndUpdate(
+              {
+                _id: settlementDeposit._id,
+                status: "HELD",
+              },
+              {
+                $inc: {
+                  settlementVersion: 1,
+                },
+              },
+              {
+                new: true,
+                runValidators: true,
+                session,
+              }
+            );
+
+            if (!depositLock) {
+              fail(
+                409,
+                "Deposit settlement changed. Refresh and try again."
+              );
+            }
+          }
+        }
       }
 
       const equipment = await lockEquipment(
@@ -1122,18 +1313,43 @@ const updateDamageRecordStatus = async (req, res, next) => {
 
       const previouslyResolved = damageRecord.status === "RESOLVED";
 
-      damageRecord.status = status;
 
-      if (cost !== undefined) {
-        damageRecord.repairCost = cost;
-      }
+        // ==========================================
+        // ATOMIC DAMAGE RECORD UPDATE
+        // ==========================================
 
-      damageRecord.resolvedAt =
-        status === "RESOLVED"
-          ? damageRecord.resolvedAt || new Date()
-          : null;
+        const updatedDamageRecord =
+          await DamageRecord.findOneAndUpdate(
+            {
+              _id: damageRecord._id,
+              deductionApprovalStatus: "PENDING",
+            },
+            {
+              $set: {
+                status,
+                repairCost:
+                  cost !== undefined
+                    ? cost
+                    : damageRecord.repairCost,
+                resolvedAt:
+                  status === "RESOLVED"
+                    ? damageRecord.resolvedAt || new Date()
+                    : null,
+              },
+            },
+            {
+              new: true,
+              runValidators: true,
+              session,
+            }
+          );
 
-      await damageRecord.save({ session });
+        if (!updatedDamageRecord) {
+          fail(
+            409,
+            "Damage deduction has already been reviewed. Refresh and try again."
+          );
+        }
 
       const maintenance = await DamageRecord.exists({
         equipment: equipment._id,
@@ -1159,7 +1375,7 @@ const updateDamageRecordStatus = async (req, res, next) => {
       await equipment.save({ session });
 
       return {
-        damageRecord,
+        damageRecord: updatedDamageRecord,
         equipment,
       };
     });
@@ -1318,62 +1534,181 @@ const cancelRental = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// COMPLETE RENTAL - ADMIN / CLERK
-// ============================================================
 
-const completeRental = async (req, res, next) => {
-  try {
-    validId(req.params.id);
+ // ============================================================
+ // COMPLETE RENTAL - ADMIN / CLERK
+ // ============================================================
 
-    const filter = { _id: req.params.id };
+ const completeRental = async (req, res, next) => {
+   try {
+     validId(req.params.id);
 
-    const rental = await Rental.findOneAndUpdate(
-      { ...filter, status: "RETURNED" },
-      { $set: { status: "COMPLETED" } },
-      { new: true, runValidators: true }
-    );
+     const rental = await inTransaction(async (session) => {
+       // ==========================================
+       // VALIDATE RENTAL STATUS
+       // ==========================================
 
-    if (!rental) {
-      if (!(await Rental.exists(filter))) {
-        fail(404, "Rental not found");
-      }
+       const existingRental = await Rental.findById(
+         req.params.id
+       ).session(session);
 
-      fail(400, "Only returned rentals can be completed");
-    }
+       if (!existingRental) {
+         fail(404, "Rental not found");
+       }
 
+       if (existingRental.status !== "RETURNED") {
+         fail(409, "Only returned rentals can be completed");
+       }
 
-    // ============================================================
-    // NOTIFY CUSTOMER AFTER SUCCESSFUL RENTAL COMPLETION
-    // ============================================================
+       // ==========================================
+       // VERIFY INVOICE
+       // ==========================================
 
-    try {
-      await Notification.create({
-        recipient: rental.customer,
-        title: "Equipment Rental Completed",
-        message:
-          "Your equipment rental has been completed successfully. " +
-          "Thank you for choosing our service.",
-        type: "RENTAL_COMPLETED",
-        isRead: false,
-      });
-    } catch (notificationError) {
-      console.error(
-        "Failed to create rental completion notification:",
-        notificationError
-      );
-    }
+       const invoice = await Invoice.findOne({
+         rental: existingRental._id,
+       }).session(session);
 
+       if (!invoice) {
+         fail(409, "Rental invoice not found");
+       }
 
-    return res.status(200).json({
-      success: true,
-      message: "Rental completed successfully",
-      data: { rental },
-    });
-  } catch (error) {
-    return handleError(error, res, next);
-  }
-};
+       if (invoice.paymentStatus !== "PAID") {
+         fail(
+           409,
+           "Rental invoice must be fully paid before completion"
+         );
+       }
+
+       // ==========================================
+       // VERIFY SECURITY DEPOSIT SETTLEMENT
+       // ==========================================
+
+       const deposit = await Deposit.findOne({
+         invoice: invoice._id,
+       }).session(session);
+
+       if (!deposit) {
+         fail(
+           409,
+           "Security deposit record not found. Rental cannot be completed."
+         );
+       }
+
+       const settledStatuses = [
+         "REFUNDED",
+         "PARTIALLY_REFUNDED",
+         "DEDUCTED",
+       ];
+
+       if (!settledStatuses.includes(deposit.status)) {
+         fail(
+           409,
+           "Security deposit must be fully settled before completing the rental."
+         );
+       }
+
+       // ==========================================
+       // COORDINATE WITH DEPOSIT SETTLEMENT
+       // ==========================================
+
+       const settlementLock = await Deposit.findOneAndUpdate(
+         {
+           _id: deposit._id,
+           status: { $in: settledStatuses },
+         },
+         {
+           $inc: {
+             settlementVersion: 1,
+           },
+         },
+         {
+           new: true,
+           runValidators: true,
+           session,
+         }
+       );
+
+       if (!settlementLock) {
+         fail(
+           409,
+           "Security deposit settlement changed. Refresh and try again."
+         );
+       }
+
+       // ==========================================
+       // COMPLETE RENTAL ATOMICALLY
+       // ==========================================
+
+       const completedRental = await Rental.findOneAndUpdate(
+         {
+           _id: existingRental._id,
+           status: "RETURNED",
+         },
+         {
+           $set: {
+             status: "COMPLETED",
+           },
+         },
+         {
+           new: true,
+           runValidators: true,
+           session,
+         }
+       );
+
+       if (!completedRental) {
+         fail(
+           409,
+           "Rental status changed. Refresh and try again."
+         );
+       }
+
+       return completedRental;
+     });
+
+     // ==========================================
+     // NOTIFY CUSTOMER AFTER SUCCESSFUL COMMIT
+     // ==========================================
+
+     try {
+       await Notification.create({
+         recipient: rental.customer,
+         title: "Equipment Rental Completed",
+         message:
+           "Your equipment rental has been completed successfully. " +
+           "Thank you for choosing our service.",
+         type: "RENTAL_COMPLETED",
+         isRead: false,
+       });
+     } catch (notificationError) {
+       console.error(
+         "Failed to create rental completion notification:",
+         notificationError
+       );
+     }
+
+     return res.status(200).json({
+       success: true,
+       message: "Rental completed successfully",
+       data: { rental },
+     });
+   } catch (error) {
+     if (
+       error.code === 112 ||
+       error.codeName === "WriteConflict" ||
+       error.hasErrorLabel?.("TransientTransactionError")
+     ) {
+       return res.status(409).json({
+         success: false,
+         message:
+           "Rental or deposit was modified by another operation. Please refresh and try again.",
+       });
+     }
+
+     return handleError(error, res, next);
+   }
+ };
+
 
 // ============================================================
 // EXPORTS

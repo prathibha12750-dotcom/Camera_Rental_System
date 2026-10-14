@@ -48,6 +48,18 @@ const DashboardIcon = ({ name }) => {
     );
   }
 
+  if (name === "payments") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M7 15h4" />
+        <circle cx="18" cy="17" r="4" fill="white" />
+        <path d="m16.5 17 1 1 2-2" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...commonProps}>
       <path d="M9 7H5V3" />
@@ -107,6 +119,30 @@ const ClerkHome = () => {
 
             <span className="mt-auto inline-flex pt-5 text-sm font-semibold text-orange-600 transition group-hover:text-orange-700">
               Manage Rentals →
+            </span>
+          </Link>
+          
+          {/* Rental Payment Verification */}
+          <Link
+            to="/clerk/payment-verification"
+            className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+              <DashboardIcon name="payments" />
+            </div>
+
+            <h2 className="mt-5 text-xl font-bold text-gray-950 transition group-hover:text-orange-600">
+              Payment Verification
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Review customer bank transfer receipts,
+              verify rental payments, approve valid
+              transactions, and reject incorrect receipts.
+            </p>
+
+            <span className="mt-auto inline-flex pt-5 text-sm font-semibold text-orange-600 transition group-hover:text-orange-700">
+              Verify Payments →
             </span>
           </Link>
 

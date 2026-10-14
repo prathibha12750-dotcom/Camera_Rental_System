@@ -254,4 +254,5 @@ module.exports = {
     getPaymentsByInvoice,
     getAllPayments,
     getMyPayments,
+    updateInvoicePaymentStatus,
 };

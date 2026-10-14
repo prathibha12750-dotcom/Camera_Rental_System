@@ -72,6 +72,7 @@ import PhotographerSubscription from "../pages/photographer/PhotographerSubscrip
 
 import ClerkHome from "../pages/clerk/ClerkHome";
 import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
+import ClerkPaymentVerification from "../pages/clerk/ClerkPaymentVerification";
 import ClerkEquipment from "../pages/clerk/ClerkEquipment";
 import DamageMaintenance from "../pages/clerk/DamageMaintenance";
 import SubscriptionPayments from "../pages/clerk/SubscriptionPayments";
@@ -557,6 +558,12 @@ const AppRoutes = () => {
                   element={
                     <RentalManagement />
                   }
+                />
+              
+                {/* Clerk Rental Payment Verification */}
+                <Route
+                  path="/clerk/payment-verification"
+                  element={<ClerkPaymentVerification />}
                 />
 
                 <Route

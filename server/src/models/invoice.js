@@ -54,6 +54,18 @@ const invoiceSchema = new mongoose.Schema(
     }
 );
 
-module.exports =
-  mongoose.models.Invoice ||
-  mongoose.model("Invoice", invoiceSchema);
+// ==========================================
+// PREVENT DUPLICATE RENTAL INVOICES
+// ==========================================
+
+invoiceSchema.index(
+  { rental: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      rental: { $type: "objectId" },
+    },
+  }
+);
+
+module.exports = mongoose.models.Invoice || mongoose.model("Invoice", invoiceSchema);

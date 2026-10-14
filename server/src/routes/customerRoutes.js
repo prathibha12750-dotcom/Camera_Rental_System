@@ -51,6 +51,14 @@ const {
   getMyPayments,
 } = require("../controllers/paymentController");
 
+const {
+  submitRentalPaymentReceipt,
+} = require("../controllers/rentalPaymentController");
+
+const uploadRentalPaymentReceipt = require(
+  "../middleware/uploadRentalPaymentReceipt"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -231,6 +239,19 @@ router.get(
   authenticate,
   authorizeRoles("CUSTOMER"),
   getMyPayments
+);
+
+// ==========================================
+// CUSTOMER RENTAL PAYMENT RECEIPT
+// CUSTOMER ONLY
+// ==========================================
+
+router.post(
+  "/rental-payments/submit",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  uploadRentalPaymentReceipt,
+  submitRentalPaymentReceipt
 );
 
 module.exports = router;

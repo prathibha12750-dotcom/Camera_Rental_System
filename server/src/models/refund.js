@@ -54,6 +54,31 @@ const refundSchema = new mongoose.Schema(
     }
 );
 
+ 
+// Prevent duplicate completed refunds
+refundSchema.index(
+  { deposit: 1 },
+  {
+    name: "unique_completed_refund_per_deposit",
+    unique: true,
+    partialFilterExpression: {
+      status: "COMPLETED",
+    },
+  }
+);
+
+// Prevent duplicate pending refunds
+refundSchema.index(
+  { deposit: 1 },
+  {
+    name: "unique_pending_refund_per_deposit",
+    unique: true,
+    partialFilterExpression: {
+      status: "PENDING",
+    },
+  }
+);
+
 module.exports =
   mongoose.models.Refund ||
   mongoose.model("Refund", refundSchema);

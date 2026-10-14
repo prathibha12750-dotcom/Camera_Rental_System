@@ -861,18 +861,49 @@ const RentalManagement = () => {
                           )}
 
                           {rental.status === "CONFIRMED" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleIssue(rental)
-                              }
-                              disabled={actionLoading !== null}
-                              className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                            >
-                              {actionLoading === rental._id
-                                ? "Issuing..."
-                                : "Issue Equipment"}
-                            </button>
+                            <div className="flex flex-col gap-2">
+                              {rental.invoice?.paymentStatus === "PAID" ? (
+                                <>
+                                  <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                    Payment Verified
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleIssue(rental)}
+                                    disabled={actionLoading !== null}
+                                    className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                                  >
+                                    {actionLoading === rental._id
+                                      ? "Issuing..."
+                                      : "Issue Equipment"}
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="w-fit rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
+                                    {rental.invoice?.paymentStatus === "PARTIALLY_PAID"
+                                      ? "Partially Paid"
+                                      : rental.invoice?.paymentStatus === "PENDING"
+                                        ? "Payment Pending"
+                                        : "Payment Unavailable"}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="Equipment can only be issued after full payment verification."
+                                    className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-500"
+                                  >
+                                    Issue Equipment
+                                  </button>
+
+                                  <p className="max-w-48 text-xs text-gray-500">
+                                    Full payment verification is required before issuing.
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           )}
 
                           {rental.status === "ACTIVE" && (

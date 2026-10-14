@@ -1,0 +1,1611 @@
+
+const mongoose = require("mongoose");
+
+const Rental = require("../models/Rental");
+const Return = require("../models/Return");
+const DamageRecord = require("../models/DamageRecord");
+const Invoice = require("../models/invoice");
+const Deposit = require("../models/deposit");
+const Refund = require("../models/refund");
+
+
+ // ==========================================
+ // REFUND METHOD VALIDATION
+ // ==========================================
+
+const VALID_REFUND_METHODS = [
+  "CASH",
+  "BANK_TRANSFER",
+  "CARD",
+];
+
+const isValidRefundMethod = (method) => {
+  return VALID_REFUND_METHODS.includes(method);
+};
+
+
+// ==========================================
+// SETTLE RENTAL SECURITY DEPOSIT
+// INITIAL VALIDATION / PREVIEW
+// ==========================================
+
+const settleRentalDeposit = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental ID",
+      });
+    }
+
+    const rental = await Rental.findById(id);
+
+    if (!rental) {
+      return res.status(404).json({
+        success: false,
+        message: "Rental not found",
+      });
+    }
+
+    if (rental.status !== "RETURNED") {
+      return res.status(409).json({
+        success: false,
+        message: "Rental must be returned before deposit settlement",
+      });
+    }
+
+    const returnRecord = await Return.findOne({
+      rental: rental._id,
+    });
+
+    if (!returnRecord) {
+      return res.status(409).json({
+        success: false,
+        message: "Return record not found",
+      });
+    }
+
+    const invoice = await Invoice.findOne({
+      rental: rental._id,
+    });
+
+    if (!invoice || invoice.paymentStatus !== "PAID") {
+      return res.status(409).json({
+        success: false,
+        message: "Rental invoice must be fully paid",
+      });
+    }
+
+    const deposit = await Deposit.findOne({
+      invoice: invoice._id,
+    });
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Security deposit record not found",
+      });
+    }
+
+    if (deposit.status !== "HELD") {
+      return res.status(409).json({
+        success: false,
+        message: "Security deposit is not available for settlement",
+      });
+    }
+
+    const damageRecords = await DamageRecord.find({
+      rental: rental._id,
+    });
+
+    const unfinishedDamage = damageRecords.find(
+      (damage) => damage.status !== "RESOLVED"
+    );
+
+    if (unfinishedDamage) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "All damage assessments must be resolved before settlement",
+      });
+    }
+
+    if (
+      returnRecord.condition === "DAMAGED" &&
+      damageRecords.length === 0
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: "Damaged return requires a damage assessment",
+      });
+    }
+
+    const totalRepairCost = damageRecords.reduce(
+      (total, damage) => total + Number(damage.repairCost || 0),
+      0
+    );
+
+    const depositAmount = Number(deposit.amount);
+
+    const unreviewedDamage = damageRecords.find(
+      (damage) =>
+        !["APPROVED", "REJECTED"].includes(
+          damage.deductionApprovalStatus
+        )
+    );
+
+    if (unreviewedDamage) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "All damage deductions must be reviewed before settlement",
+      });
+    }
+
+    const invalidApproval = damageRecords.some((damage) => {
+      const repairCost = Number(damage.repairCost);
+      const approved = Number(damage.approvedDeductionAmount);
+
+      return (
+        !Number.isFinite(repairCost) ||
+        repairCost < 0 ||
+        !Number.isFinite(approved) ||
+        approved < 0 ||
+        approved > repairCost ||
+        (damage.deductionApprovalStatus === "REJECTED" &&
+          approved !== 0)
+      );
+    });
+
+    if (invalidApproval) {
+      return res.status(409).json({
+        success: false,
+        message: "Invalid approved damage deduction",
+      });
+    }
+
+    const totalApprovedDeduction = damageRecords.reduce(
+      (total, damage) =>
+        total +
+        (damage.deductionApprovalStatus === "APPROVED"
+          ? Number(damage.approvedDeductionAmount)
+          : 0),
+      0
+    );
+
+    const deductedAmount = Math.min(
+      depositAmount,
+      totalApprovedDeduction
+    );
+
+    const refundableAmount = Math.max(
+      0,
+      depositAmount - deductedAmount
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Deposit settlement preview calculated",
+      data: {
+        rentalId: rental._id,
+        invoiceId: invoice._id,
+        depositId: deposit._id,
+        depositAmount,
+        totalRepairCost,
+        totalApprovedDeduction,
+        deductedAmount,
+        refundableAmount,
+        refundRequired: refundableAmount > 0,
+        settlementStatus: "PREVIEW_ONLY",
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+ // ==========================================
+ // PREPARE RENTAL DEPOSIT REFUND
+ // INITIAL REQUEST VALIDATION
+ // ==========================================
+
+const prepareRentalDepositRefund = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { refundMethod } = req.body;
+
+    // Validate rental ID
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental ID",
+      });
+    }
+
+    // Validate refund method
+    if (!isValidRefundMethod(refundMethod)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Refund method must be CASH, BANK_TRANSFER, or CARD",
+      });
+    }
+
+    // ==========================================
+    // VALIDATE RENTAL ELIGIBILITY
+    // ==========================================
+
+    // Check that the rental exists.
+    const rental = await Rental.findById(id);
+
+    if (!rental) {
+      return res.status(404).json({
+        success: false,
+        message: "Rental not found",
+      });
+    }
+
+    // Only returned rentals can proceed.
+    if (rental.status !== "RETURNED") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Rental must be returned before preparing a deposit refund",
+      });
+    }
+
+    // Confirm the equipment return was recorded.
+    const returnRecord = await Return.findOne({
+      rental: rental._id,
+    });
+
+    if (!returnRecord) {
+      return res.status(409).json({
+        success: false,
+        message: "Equipment return record not found",
+      });
+    }
+
+    // ==========================================
+    // VALIDATE RENTAL INVOICE
+    // ==========================================
+
+    const invoice = await Invoice.findOne({
+      rental: rental._id,
+    });
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Rental invoice not found",
+      });
+    }
+
+    if (invoice.paymentStatus !== "PAID") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Rental invoice must be fully paid before refund preparation",
+      });
+    }
+
+    // ==========================================
+    // VALIDATE SECURITY DEPOSIT
+    // ==========================================
+
+    const deposit = await Deposit.findOne({
+      invoice: invoice._id,
+    });
+
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Security deposit record not found",
+      });
+    }
+
+    if (deposit.status !== "HELD") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Only HELD security deposits can be prepared for refund",
+      });
+    }
+
+    
+    // ==========================================
+    // PREVENT DUPLICATE REFUND REQUESTS
+    // ==========================================
+
+    const existingRefund = await Refund.findOne({
+      deposit: deposit._id,
+      status: {
+        $in: ["PENDING", "COMPLETED"],
+      },
+    });
+
+    if (existingRefund) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "A pending or completed refund already exists for this deposit",
+      });
+    }
+
+    // Verify deposit matches the invoice.
+    if (
+      !Number.isFinite(Number(deposit.amount)) ||
+      Number(deposit.amount) <= 0 ||
+      Number(deposit.amount) !== Number(invoice.securityDeposit)
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Security deposit amount does not match the rental invoice",
+      });
+    }
+        
+    // ==========================================
+    // VALIDATE DAMAGE ASSESSMENT
+    // ==========================================
+
+    const damageRecords = await DamageRecord.find({
+      rental: rental._id,
+    });
+
+    if (
+      returnRecord.condition === "DAMAGED" &&
+      damageRecords.length === 0
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Damaged equipment requires a damage assessment",
+      });
+    }
+
+    // All damage assessments must be finalized.
+    const unfinishedDamage = damageRecords.find(
+      (damage) => damage.status !== "RESOLVED"
+    );
+
+    if (unfinishedDamage) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "All damage assessments must be resolved before refund preparation",
+      });
+    }
+
+    // Validate recorded repair costs.
+    const invalidRepairCost = damageRecords.some(
+      (damage) =>
+        !Number.isFinite(Number(damage.repairCost)) ||
+        Number(damage.repairCost) < 0
+    );
+
+    if (invalidRepairCost) {
+      return res.status(409).json({
+        success: false,
+        message: "Invalid repair cost in damage records",
+      });
+    }
+
+
+ // ==========================================
+ // VALIDATE DAMAGE DEDUCTION REVIEWS
+ // ==========================================
+
+const unreviewedDamage = damageRecords.find(
+  (damage) =>
+    !["APPROVED", "REJECTED"].includes(
+      damage.deductionApprovalStatus
+    )
+);
+
+if (unreviewedDamage) {
+  return res.status(409).json({
+    success: false,
+    message:
+      "All damage deductions must be reviewed before refund preparation",
+  });
+}
+
+const invalidApproval = damageRecords.some((damage) => {
+  const approved = Number(damage.approvedDeductionAmount);
+
+  return (
+    !Number.isFinite(approved) ||
+    approved < 0 ||
+    approved > Number(damage.repairCost) ||
+    (damage.deductionApprovalStatus === "REJECTED" &&
+      approved !== 0)
+  );
+});
+
+if (invalidApproval) {
+  return res.status(409).json({
+    success: false,
+    message: "Invalid approved damage deduction",
+  });
+}
+
+// ==========================================
+// CALCULATE APPROVED DEDUCTIONS
+// ==========================================
+
+const totalRepairCost = damageRecords.reduce(
+  (total, damage) => total + Number(damage.repairCost),
+  0
+);
+
+const totalApprovedDeduction = damageRecords.reduce(
+  (total, damage) =>
+    total +
+    (damage.deductionApprovalStatus === "APPROVED"
+      ? Number(damage.approvedDeductionAmount)
+      : 0),
+  0
+);
+
+const depositAmount = Number(deposit.amount);
+
+const proposedDeduction = Math.min(
+  depositAmount,
+  totalApprovedDeduction
+);
+
+const proposedRefund = Math.max(
+  0,
+  depositAmount - proposedDeduction
+);
+
+  return res.status(200).json({
+    success: true,
+    message: "Refund preparation validation successful",
+    data: {
+      rentalId: rental._id,
+      invoiceId: invoice._id,
+      depositId: deposit._id,
+      refundMethod,
+      depositAmount,
+      totalRepairCost,
+      proposedDeduction,
+      proposedRefund,
+      totalApprovedDeduction,
+      status: "VALIDATION_ONLY",
+    },
+  }); 
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+const reviewDamageDeduction = async (req, res, next) => {
+  let session;
+
+  const reviewError = (statusCode, message) => {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    return error;
+  };
+
+  try {
+    const { damageId } = req.params;
+    const { decision, approvedDeductionAmount } = req.body;
+
+    // ==========================================
+    // VALIDATE REQUEST
+    // ==========================================
+
+    if (!mongoose.isValidObjectId(damageId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid damage record ID",
+      });
+    }
+
+    if (!["APPROVED", "REJECTED"].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        message: "Decision must be APPROVED or REJECTED",
+      });
+    }
+
+    session = await mongoose.startSession();
+
+    // ==========================================
+    // REVIEW INSIDE DATABASE TRANSACTION
+    // ==========================================
+
+    const updatedDamage = await session.withTransaction(
+      async () => {
+        const damage = await DamageRecord.findById(
+          damageId
+        ).session(session);
+
+        if (!damage) {
+          throw reviewError(404, "Damage record not found");
+        }
+
+        if (damage.status !== "RESOLVED") {
+          throw reviewError(
+            409,
+            "Damage must be resolved before deduction review"
+          );
+        }
+
+        if (
+          (damage.deductionApprovalStatus || "PENDING") !==
+          "PENDING"
+        ) {
+          throw reviewError(
+            409,
+            "Damage deduction has already been reviewed"
+          );
+        }
+
+        const rental = await Rental.findById(
+          damage.rental
+        ).session(session);
+
+        if (!rental || rental.status !== "RETURNED") {
+          throw reviewError(
+            409,
+            "Rental must be returned before deduction review"
+          );
+        }
+
+        const invoice = await Invoice.findOne({
+          rental: rental._id,
+        }).session(session);
+
+        if (!invoice) {
+          throw reviewError(404, "Rental invoice not found");
+        }
+
+        const deposit = await Deposit.findOne({
+          invoice: invoice._id,
+        }).session(session);
+
+        if (!deposit || deposit.status !== "HELD") {
+          throw reviewError(
+            409,
+            "A HELD security deposit is required"
+          );
+        }
+
+        // ==========================================
+        // VALIDATE DEDUCTION AMOUNT
+        // ==========================================
+
+        const repairCost = Number(damage.repairCost);
+
+        const amount =
+          decision === "REJECTED"
+            ? 0
+            : Number(approvedDeductionAmount);
+
+        if (
+          !Number.isFinite(repairCost) ||
+          repairCost < 0 ||
+          (decision === "APPROVED" &&
+            (approvedDeductionAmount === undefined ||
+              approvedDeductionAmount === null ||
+              approvedDeductionAmount === ""))
+        ) {
+          throw reviewError(
+            400,
+            "A valid repair cost and approved deduction amount are required"
+          );
+        }
+
+        if (
+          !Number.isFinite(amount) ||
+          amount < 0 ||
+          amount > repairCost
+        ) {
+          throw reviewError(
+            400,
+            "Approved deduction must be between zero and the repair cost"
+          );
+        }
+
+        // ==========================================
+        // COORDINATE WITH REFUND TRANSACTION
+        // ==========================================
+
+        const depositClaim = await Deposit.findOneAndUpdate(
+          {
+            _id: deposit._id,
+            status: "HELD",
+          },
+          {
+            $inc: {
+              settlementVersion: 1,
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+            session,
+          }
+        );
+
+        if (!depositClaim) {
+          throw reviewError(
+            409,
+            "Deposit is no longer available for deduction review"
+          );
+        }
+
+        // ==========================================
+        // ATOMIC DAMAGE DEDUCTION APPROVAL
+        // ==========================================
+
+        const reviewedDamage =
+          await DamageRecord.findOneAndUpdate(
+            {
+              _id: damage._id,
+              status: "RESOLVED",
+              deductionApprovalStatus: "PENDING",
+              repairCost: damage.repairCost,
+            },
+            {
+              $set: {
+                deductionApprovalStatus: decision,
+                approvedDeductionAmount: amount,
+                deductionReviewedBy: req.user.userId,
+                deductionReviewedAt: new Date(),
+              },
+            },
+            {
+              new: true,
+              runValidators: true,
+              session,
+            }
+          );
+
+        if (!reviewedDamage) {
+          throw reviewError(
+            409,
+            "Damage deduction was already reviewed or modified"
+          );
+        }
+
+        return reviewedDamage;
+      },
+      {
+        readPreference: "primary",
+        readConcern: { level: "snapshot" },
+        writeConcern: { w: "majority" },
+      }
+    );
+
+    // ==========================================
+    // SUCCESS RESPONSE AFTER COMMIT
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: `Damage deduction ${decision.toLowerCase()}`,
+      data: {
+        damageRecord: updatedDamage,
+      },
+    });
+    
+
+  } catch (error) {
+    // ==========================================
+    // HANDLE CONCURRENT TRANSACTION CONFLICTS
+    // ==========================================
+
+    if (
+      error.code === 112 ||
+      error.codeName === "WriteConflict" ||
+      error.hasErrorLabel?.("TransientTransactionError")
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "The security deposit was modified by another operation. Please refresh and try again.",
+      });
+    }
+
+    // Handle validation and business-rule errors.
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return next(error);
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
+ // ==========================================
+ // CREATE PENDING RENTAL DEPOSIT REFUND
+ // CLERK OR STAFF ADMIN
+ // ==========================================
+
+const createPendingRentalRefund = async (req, res, next) => {
+  let session;
+
+  try {
+    const { id } = req.params;
+    const { refundMethod } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental ID",
+      });
+    }
+
+    if (!isValidRefundMethod(refundMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid refund method",
+      });
+    }
+
+    // Start a database session only after input validation.
+    session = await mongoose.startSession();
+
+    // ==========================================
+    // VALIDATE RENTAL, INVOICE AND DEPOSIT
+    // INSIDE A TRANSACTION
+    // ==========================================
+
+    let validatedData = null;
+
+    await session.withTransaction(async () => {
+      const rental = await Rental.findById(id).session(session);
+
+      if (!rental || rental.status !== "RETURNED") {
+        const error = new Error(
+          "Rental must exist and be RETURNED"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const returnRecord = await Return.findOne({
+        rental: rental._id,
+      }).session(session);
+
+      if (!returnRecord) {
+        const error = new Error("Return record not found");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const invoice = await Invoice.findOne({
+        rental: rental._id,
+      }).session(session);
+
+      if (!invoice || invoice.paymentStatus !== "PAID") {
+        const error = new Error(
+          "Rental invoice must be fully paid"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const deposit = await Deposit.findOne({
+        invoice: invoice._id,
+      }).session(session);
+
+      if (
+        !deposit ||
+        deposit.status !== "HELD" ||
+        !Number.isFinite(Number(deposit.amount)) ||
+        Number(deposit.amount) <= 0 ||
+        Number(deposit.amount) !==
+          Number(invoice.securityDeposit)
+      ) {
+        const error = new Error(
+          "A valid HELD security deposit is required"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const existingRefund = await Refund.findOne({
+        deposit: deposit._id,
+        status: { $in: ["PENDING", "COMPLETED"] },
+      }).session(session);
+
+      if (existingRefund) {
+        const error = new Error(
+          "A refund already exists for this deposit"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      
+        // ==========================================
+        // COORDINATE REFUND WITH DEDUCTION REVIEWS
+        // ==========================================
+
+        const settlementLock = await Deposit.findOneAndUpdate(
+          {
+            _id: deposit._id,
+            status: "HELD",
+            amount: Number(deposit.amount),
+          },
+          {
+            $inc: {
+              settlementVersion: 1,
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+            session,
+          }
+        );
+
+        if (!settlementLock) {
+          const error = new Error(
+            "Security deposit is no longer available for settlement"
+          );
+          error.statusCode = 409;
+          throw error;
+        }
+
+      // ==========================================
+      // VALIDATE APPROVED DAMAGE DEDUCTIONS
+      // ==========================================
+
+      const damageRecords = await DamageRecord.find({
+        rental: rental._id,
+      }).session(session);
+
+      if (
+        returnRecord.condition === "DAMAGED" &&
+        damageRecords.length === 0
+      ) {
+        const error = new Error(
+          "Damaged return requires a damage assessment"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const invalidDamage = damageRecords.some((damage) => {
+        const repairCost = Number(damage.repairCost);
+        const approved = Number(damage.approvedDeductionAmount);
+
+        return (
+          damage.status !== "RESOLVED" ||
+          !["APPROVED", "REJECTED"].includes(
+            damage.deductionApprovalStatus
+          ) ||
+          !Number.isFinite(repairCost) ||
+          repairCost < 0 ||
+          !Number.isFinite(approved) ||
+          approved < 0 ||
+          approved > repairCost ||
+          (damage.deductionApprovalStatus === "REJECTED" &&
+            approved !== 0)
+        );
+      });
+
+      if (invalidDamage) {
+        const error = new Error(
+          "All damage assessments and deduction approvals must be valid and finalized"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const totalApprovedDeduction = damageRecords.reduce(
+        (total, damage) =>
+          total +
+          (damage.deductionApprovalStatus === "APPROVED"
+            ? Number(damage.approvedDeductionAmount)
+            : 0),
+        0
+      );
+
+      const depositAmount = Number(deposit.amount);
+
+      if (
+        !Number.isFinite(totalApprovedDeduction) ||
+        totalApprovedDeduction > depositAmount
+      ) {
+        const error = new Error(
+          "Approved deductions exceed the security deposit"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const deductionAmount = totalApprovedDeduction;
+      const refundAmount = depositAmount - deductionAmount;
+
+      
+        // ==========================================
+        // PREPARE ATOMIC DEPOSIT STATUS TRANSITION
+        // ==========================================
+
+        const claimDepositForRefund = async () => {
+          return Deposit.findOneAndUpdate(
+            {
+              _id: deposit._id,
+              status: "HELD",
+              amount: depositAmount,
+            },
+            {
+              $set: {
+                status: "REFUND_PENDING",
+                deductedAmount: deductionAmount,
+              },
+            },
+            {
+              new: true,
+              runValidators: true,
+              session,
+            }
+          );
+        };
+
+      // ==========================================
+      // CREATE PENDING REFUND ATOMICALLY
+      // ==========================================
+
+      if (refundAmount <= 0) {
+        const error = new Error(
+          "No refundable balance. Full deduction requires a separate settlement."
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // Prevent a pending refund while another refund
+      // already exists for the same deposit.
+      const duplicateRefund = await Refund.findOne({
+        deposit: deposit._id,
+        status: { $in: ["PENDING", "COMPLETED"] },
+      }).session(session);
+
+      if (duplicateRefund) {
+        const error = new Error(
+          "A pending or completed refund already exists"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const claimedDeposit = await claimDepositForRefund();
+
+      if (!claimedDeposit) {
+        const error = new Error(
+          "Security deposit has already been claimed for settlement"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const [pendingRefund] = await Refund.create(
+        [
+          {
+            deposit: deposit._id,
+            invoice: invoice._id,
+            customer: deposit.customer,
+            amount: refundAmount,
+            refundMethod,
+            status: "PENDING",
+            notes: "Rental security deposit refund awaiting payout confirmation",
+          },
+        ],
+        { session }
+      );
+
+      validatedData = {
+        rentalId: rental._id,
+        invoiceId: invoice._id,
+        depositId: deposit._id,
+        refundId: pendingRefund._id,
+        refundMethod,
+        depositAmount,
+        deductionAmount,
+        refundAmount,
+        refundStatus: pendingRefund.status,
+        depositStatus: claimedDeposit.status,
+      };
+
+    });
+
+    
+    return res.status(201).json({
+      success: true,
+      message: "Pending rental deposit refund created successfully",
+      data: validatedData,
+    });
+
+  
+  } catch (error) {
+    
+    // ==========================================
+    // HANDLE CONCURRENT TRANSACTION CONFLICTS
+    // ==========================================
+
+    if (
+      error.code === 112 ||
+      error.codeName === "WriteConflict" ||
+      error.hasErrorLabel?.("TransientTransactionError")
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "The security deposit was modified by another operation. Please refresh and try again.",
+      });
+    }
+
+    // Handle validation and business-rule conflicts.
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // Handle duplicate refund index violations.
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "A refund request already exists for this deposit",
+      });
+    }
+
+    // Other database or transaction errors.
+    next(error);
+
+  }finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+
+};
+
+
+const confirmRentalRefundPayout = async (req, res, next) => {
+  let session;
+
+  try {
+    const { id, refundId } = req.params;
+
+    if (
+      !mongoose.isValidObjectId(id) ||
+      !mongoose.isValidObjectId(refundId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental or refund ID",
+      });
+    }
+
+    const reference = req.body?.payoutReference;
+
+    if (
+      typeof reference !== "string" ||
+      !reference.trim() ||
+      reference.trim().length > 150
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid payout reference is required",
+      });
+    }
+
+    session = await mongoose.startSession();
+
+    let result;
+
+    await session.withTransaction(async () => {
+      const rental = await Rental.findById(id).session(session);
+
+      if (!rental || rental.status !== "RETURNED") {
+        const error = new Error("Rental must be RETURNED");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const invoice = await Invoice.findOne({
+        rental: rental._id,
+        customer: rental.customer,
+      }).session(session);
+
+      if (!invoice || invoice.paymentStatus !== "PAID") {
+        const error = new Error("A fully paid invoice is required");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const deposit = await Deposit.findOne({
+        invoice: invoice._id,
+        customer: rental.customer,
+      }).session(session);
+
+      if (!deposit || deposit.status !== "REFUND_PENDING") {
+        const error = new Error("Deposit must be REFUND_PENDING");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const refund = await Refund.findOne({
+        _id: refundId,
+        deposit: deposit._id,
+        invoice: invoice._id,
+        customer: rental.customer,
+        status: "PENDING",
+      }).session(session);
+
+      if (!refund) {
+        const error = new Error("Matching pending refund not found");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const depositAmount = Number(deposit.amount);
+      const deductedAmount = Number(deposit.deductedAmount);
+      const refundAmount = Number(refund.amount);
+
+      if (
+        ![depositAmount, deductedAmount, refundAmount].every(
+          Number.isFinite
+        ) ||
+        depositAmount <= 0 ||
+        deductedAmount < 0 ||
+        refundAmount <= 0 ||
+        Math.abs(
+          depositAmount - deductedAmount - refundAmount
+        ) > 0.001
+      ) {
+        const error = new Error(
+          "Deposit deduction and refund totals do not reconcile"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const now = new Date();
+
+      const updatedDeposit = await Deposit.findOneAndUpdate(
+        {
+          _id: deposit._id,
+          status: "REFUND_PENDING",
+          refundedAmount: 0,
+        },
+        {
+          $set: {
+            status:
+              deductedAmount > 0
+                ? "PARTIALLY_REFUNDED"
+                : "REFUNDED",
+            refundedAmount: refundAmount,
+            settledAt: now,
+            settledBy: req.user.userId,
+            settlementNotes:
+              `Refund payout confirmed. Reference: ${reference.trim()}`,
+          },
+          $inc: {
+            settlementVersion: 1,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!updatedDeposit) {
+        const error = new Error(
+          "Deposit settlement has already changed"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const updatedRefund = await Refund.findOneAndUpdate(
+        {
+          _id: refund._id,
+          status: "PENDING",
+        },
+        {
+          $set: {
+            status: "COMPLETED",
+            refundDate: now,
+            notes:
+              `Payout confirmed. Reference: ${reference.trim()}`,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!updatedRefund) {
+        const error = new Error(
+          "Refund has already been confirmed"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      result = {
+        rentalId: rental._id,
+        refund: updatedRefund,
+        deposit: updatedDeposit,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Rental deposit refund payout confirmed",
+      data: result,
+    });
+  } catch (error) {
+    if (
+      error.code === 112 ||
+      error.code === 11000 ||
+      error.codeName === "WriteConflict" ||
+      error.hasErrorLabel?.("TransientTransactionError")
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: "Refund settlement conflict. Refresh and try again.",
+      });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return next(error);
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
+
+ // ==========================================
+ // SETTLE FULL SECURITY DEPOSIT DEDUCTION
+ // CLERK OR STAFF ADMIN
+ // ==========================================
+
+const settleFullRentalDepositDeduction = async (req, res, next) => {
+  let session;
+
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental ID",
+      });
+    }
+
+    session = await mongoose.startSession();
+
+    let settlementResult = null;
+
+    await session.withTransaction(async () => {
+      // ==========================================
+      // VALIDATE RENTAL AND RETURN
+      // ==========================================
+
+      const rental = await Rental.findById(id).session(session);
+
+      if (!rental || rental.status !== "RETURNED") {
+        const error = new Error(
+          "Rental must exist and be RETURNED"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const returnRecord = await Return.findOne({
+        rental: rental._id,
+      }).session(session);
+
+      if (!returnRecord) {
+        const error = new Error("Return record not found");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // VALIDATE INVOICE AND DEPOSIT
+      // ==========================================
+
+      const invoice = await Invoice.findOne({
+        rental: rental._id,
+      }).session(session);
+
+      if (!invoice || invoice.paymentStatus !== "PAID") {
+        const error = new Error(
+          "Rental invoice must be fully paid"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const deposit = await Deposit.findOne({
+        invoice: invoice._id,
+      }).session(session);
+
+      if (
+        !deposit ||
+        deposit.status !== "HELD" ||
+        !Number.isFinite(Number(deposit.amount)) ||
+        Number(deposit.amount) <= 0 ||
+        Number(deposit.amount) !==
+          Number(invoice.securityDeposit)
+      ) {
+        const error = new Error(
+          "A valid HELD security deposit is required"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // PREVENT DUPLICATE SETTLEMENT
+      // ==========================================
+
+      const existingRefund = await Refund.findOne({
+        deposit: deposit._id,
+        status: { $in: ["PENDING", "COMPLETED"] },
+      }).session(session);
+
+      if (existingRefund) {
+        const error = new Error(
+          "A refund already exists for this deposit"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // LOCK DEPOSIT AGAINST CONCURRENT REVIEWS
+      // ==========================================
+
+      const lockedDeposit = await Deposit.findOneAndUpdate(
+        {
+          _id: deposit._id,
+          status: "HELD",
+          amount: Number(deposit.amount),
+        },
+        {
+          $inc: {
+            settlementVersion: 1,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!lockedDeposit) {
+        const error = new Error(
+          "Security deposit is no longer available for settlement"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // VALIDATE DAMAGE ASSESSMENTS
+      // ==========================================
+
+      const damageRecords = await DamageRecord.find({
+        rental: rental._id,
+      }).session(session);
+
+      if (damageRecords.length === 0) {
+        const error = new Error(
+          "Full deduction requires approved damage records"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const invalidDamage = damageRecords.some((damage) => {
+        const repairCost = Number(damage.repairCost);
+        const approved = Number(
+          damage.approvedDeductionAmount
+        );
+
+        return (
+          damage.status !== "RESOLVED" ||
+          !["APPROVED", "REJECTED"].includes(
+            damage.deductionApprovalStatus
+          ) ||
+          !Number.isFinite(repairCost) ||
+          repairCost < 0 ||
+          !Number.isFinite(approved) ||
+          approved < 0 ||
+          approved > repairCost ||
+          (damage.deductionApprovalStatus === "REJECTED" &&
+            approved !== 0)
+        );
+      });
+
+      if (invalidDamage) {
+        const error = new Error(
+          "All damage assessments and deduction approvals must be valid and finalized"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // CALCULATE APPROVED DEDUCTIONS
+      // ==========================================
+
+      const totalApprovedDeduction = damageRecords.reduce(
+        (total, damage) =>
+          total +
+          (damage.deductionApprovalStatus === "APPROVED"
+            ? Number(damage.approvedDeductionAmount)
+            : 0),
+        0
+      );
+
+      const depositAmount = Number(deposit.amount);
+
+      if (
+        !Number.isFinite(totalApprovedDeduction) ||
+        Math.abs(totalApprovedDeduction - depositAmount) > 0.001
+      ) {
+        const error = new Error(
+          "Full deduction requires approved deductions equal to the security deposit"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // FINAL DUPLICATE REFUND CHECK
+      // ==========================================
+
+      const duplicateRefund = await Refund.findOne({
+        deposit: deposit._id,
+        status: { $in: ["PENDING", "COMPLETED"] },
+      }).session(session);
+
+      if (duplicateRefund) {
+        const error = new Error(
+          "A pending or completed refund already exists"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // ==========================================
+      // SETTLE DEPOSIT WITHOUT CREATING REFUND
+      // ==========================================
+
+      const now = new Date();
+
+      const settledDeposit = await Deposit.findOneAndUpdate(
+        {
+          _id: deposit._id,
+          status: "HELD",
+          amount: depositAmount,
+        },
+        {
+          $set: {
+            status: "DEDUCTED",
+            deductedAmount: depositAmount,
+            refundedAmount: 0,
+            settledAt: now,
+            settledBy: req.user.userId,
+            settlementNotes:
+              "Full security deposit deducted for approved equipment damage",
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!settledDeposit) {
+        const error = new Error(
+          "Security deposit has already been settled"
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      settlementResult = {
+        rentalId: rental._id,
+        invoiceId: invoice._id,
+        depositId: settledDeposit._id,
+        depositAmount,
+        deductionAmount: depositAmount,
+        refundAmount: 0,
+        depositStatus: settledDeposit.status,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Full security deposit deduction completed successfully",
+      data: settlementResult,
+    });
+  } catch (error) {
+    if (
+      error.code === 112 ||
+      error.codeName === "WriteConflict" ||
+      error.hasErrorLabel?.("TransientTransactionError")
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Security deposit was modified by another operation. Refresh and try again.",
+      });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "A conflicting deposit settlement already exists",
+      });
+    }
+
+    return next(error);
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
+module.exports = {
+  settleRentalDeposit,
+  prepareRentalDepositRefund,
+  reviewDamageDeduction,
+  createPendingRentalRefund,
+  confirmRentalRefundPayout,
+  settleFullRentalDepositDeduction,
+};
