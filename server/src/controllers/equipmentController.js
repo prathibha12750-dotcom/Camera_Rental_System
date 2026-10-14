@@ -21,6 +21,8 @@ const createEquipment = async (req, res, next) => {
       condition,
       status,
       description,
+      imageUrl,
+      images,
     } = req.body;
 
     const categoryExists = await Category.findOne({
@@ -46,6 +48,8 @@ const createEquipment = async (req, res, next) => {
       condition,
       status,
       description,
+      imageUrl,
+      images: Array.isArray(images) ? images : [],
     });
 
 
@@ -177,7 +181,14 @@ const updateEquipment = async (req, res, next) => {
       condition,
       status,
       description,
+      imageUrl,
+      images,
+      
     } = req.body;
+
+
+    console.log("BACKEND RECEIVED IMAGES:", images);
+    console.log("BACKEND REQUEST BODY:", req.body);
 
     if (category !== undefined) {
       const categoryExists = await Category.findOne({
@@ -208,6 +219,14 @@ const updateEquipment = async (req, res, next) => {
     if (condition !== undefined) equipment.condition = condition;
     if (status !== undefined) equipment.status = status;
     if (description !== undefined) equipment.description = description;
+    if (imageUrl !== undefined) equipment.imageUrl = imageUrl;
+
+    if (images !== undefined) {
+    equipment.images = Array.isArray(images) ? images : [];
+  }
+
+
+  console.log("IMAGES BEFORE SAVE:", equipment.images);
 
     await equipment.save();
 
