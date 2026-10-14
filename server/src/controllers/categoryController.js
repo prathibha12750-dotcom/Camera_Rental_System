@@ -3,7 +3,7 @@ const Category = require("../models/Category");
 // CREATE CATEGORY - Admin only
 const createCategory = async (req, res, next) => {
   try {
-    const { name, description, status } = req.body;
+    const { name, description, status, imageUrl } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -23,11 +23,14 @@ const createCategory = async (req, res, next) => {
       });
     }
 
+    
     const category = await Category.create({
       name,
       description,
       status,
+      imageUrl,
     });
+
 
     return res.status(201).json({
       success: true,
@@ -61,7 +64,7 @@ const getAllCategories = async (req, res, next) => {
 // UPDATE CATEGORY - Admin only
 const updateCategory = async (req, res, next) => {
   try {
-    const { name, description, status } = req.body;
+    const { name, description, status, imageUrl } = req.body;
 
     const category = await Category.findById(req.params.id);
 
@@ -91,6 +94,12 @@ const updateCategory = async (req, res, next) => {
     if (description !== undefined) {
       category.description = description;
     }
+
+    
+    if (imageUrl !== undefined) {
+      category.imageUrl = imageUrl;
+    }
+
 
     if (status !== undefined) {
       category.status = status;
