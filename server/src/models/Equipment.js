@@ -75,6 +75,20 @@ const equipmentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
+
+    imageUrl: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+
+      images: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+
   },
   {
     timestamps: true,
