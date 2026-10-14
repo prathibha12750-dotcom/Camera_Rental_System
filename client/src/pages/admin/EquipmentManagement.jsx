@@ -25,6 +25,8 @@ const EquipmentManagement = () => {
     condition: "GOOD",
     status: "AVAILABLE",
     description: "",
+    imageUrl: "",
+    images: [""],
   });
 
   const [categories, setCategories] = useState([]);
@@ -89,6 +91,11 @@ const EquipmentManagement = () => {
       ...formData,
       rentalPricePerDay: Number(formData.rentalPricePerDay),
       securityDeposit: Number(formData.securityDeposit || 0),
+
+      // Remove empty gallery image fields
+      images: formData.images.filter(
+        (image) => image.trim() !== ""
+      ),
     });
 
     // Refresh equipment table
@@ -106,6 +113,8 @@ const EquipmentManagement = () => {
       condition: "GOOD",
       status: "AVAILABLE",
       description: "",
+      imageUrl: "",
+      images: [""],
     });
 
     // Close form
@@ -143,6 +152,8 @@ const resetEquipmentForm = () => {
     condition: "GOOD",
     status: "AVAILABLE",
     description: "",
+    imageUrl: "",
+    images: [""],
   });
 
   setEditingId(null);
@@ -166,6 +177,8 @@ const resetEquipmentForm = () => {
             condition: item.condition || "GOOD",
             status: item.status || "AVAILABLE",
             description: item.description || "",
+            imageUrl: item.imageUrl || "",
+            images: item.images?.length ? item.images : [""],
         });
 
         setShowAddForm(true);
@@ -197,11 +210,22 @@ const resetEquipmentForm = () => {
       return;
     }
 
-    await updateEquipment(editingId, {
+    // Remove empty gallery image URLs
+    const galleryImages = (formData.images || []).filter(
+      (image) => image && image.trim() !== ""
+    );
+
+    const updateData = {
       ...formData,
       rentalPricePerDay: Number(formData.rentalPricePerDay),
       securityDeposit: Number(formData.securityDeposit || 0),
-    });
+      images: galleryImages,
+    };
+
+    console.log("UPDATING EQUIPMENT:", editingId);
+    console.log("UPDATE DATA:", updateData);
+
+    await updateEquipment(editingId, updateData);
 
     // Refresh equipment table
     await loadEquipment();
@@ -218,21 +242,24 @@ const resetEquipmentForm = () => {
       condition: "GOOD",
       status: "AVAILABLE",
       description: "",
+      imageUrl: "",
+      images: [""],
     });
 
-    // Exit edit mode and close form
+    // Exit edit mode
     setEditingId(null);
     setShowAddForm(false);
 
-    // Show success message
+    // Success message
     setFormSuccess("Equipment updated successfully.");
 
-    // Remove success message after 3 seconds
     setTimeout(() => {
       setFormSuccess("");
     }, 3000);
 
   } catch (err) {
+    console.error("UPDATE EQUIPMENT ERROR:", err);
+
     setFormError(
       err.response?.data?.message ||
         "Failed to update equipment"
@@ -466,7 +493,106 @@ const resetEquipmentForm = () => {
                         }
                         className="min-h-28 rounded-xl border border-gray-300 px-4 py-3 md:col-span-2"
                     />
+
+                        <input
+                          type="url"
+                          placeholder="Equipment Image URL"
+                          value={formData.imageUrl}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              imageUrl: e.target.value,
+                            })
+                          }
+                          className="rounded-xl border border-gray-300 px-4 py-3 md:col-span-2"
+                        />
+
+
+
+
+                          <div className="md:col-span-2 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="font-medium text-gray-700">
+                                Gallery Images
+                              </label>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFormData({
+                                    ...formData,
+                                    images: [...formData.images, ""],
+                                  })
+                                }
+                                className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                              >
+                                + Add Image
+                              </button>
+                            </div>
+
+                            {formData.images.map((image, index) => (
+                              <div key={index} className="flex gap-2">
+                                <input
+                                  type="url"
+                                  placeholder={`Gallery Image ${index + 1} URL`}
+                                  value={image}
+                                  onChange={(e) => {
+                                    const updatedImages = [...formData.images];
+                                    updatedImages[index] = e.target.value;
+
+                                    setFormData({
+                                      ...formData,
+                                      images: updatedImages,
+                                    });
+                                  }}
+                                  className="flex-1 rounded-xl border border-gray-300 px-4 py-3"
+                                />
+
+                                {formData.images.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedImages = formData.images.filter(
+                                        (_, imageIndex) => imageIndex !== index
+                                      );
+
+                                      setFormData({
+                                        ...formData,
+                                        images: updatedImages,
+                                      });
+                                    }}
+                                    className="rounded-xl border border-red-200 px-4 text-red-600 hover:bg-red-50"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+
+
+
+                          {formData.imageUrl && (
+                            <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                              <div className="aspect-video">
+                                <img
+                                  src={formData.imageUrl}
+                                  alt="Equipment preview"
+                                  className="h-full w-full object-contain"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+
+
                 </div>
+
+                
                 
 
                 {formError && (
@@ -529,6 +655,9 @@ const resetEquipmentForm = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                    Image
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                     Equipment
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
@@ -549,9 +678,29 @@ const resetEquipmentForm = () => {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100">
+             <tbody className="divide-y divide-gray-100">
                 {equipment.map((item) => (
                   <tr key={item._id}>
+
+                    {/* Equipment Image */}
+                    <td className="px-6 py-4">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-20 w-24 rounded-lg border border-gray-200 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-20 w-24 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Equipment Details */}
                     <td className="px-6 py-4">
                       <p className="font-semibold text-gray-950">
                         {item.name}
@@ -581,23 +730,23 @@ const resetEquipmentForm = () => {
                     </td>
 
                     <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                            <button
-                            type="button"
-                            onClick={() => handleEditClick(item)}
-                            className="rounded-lg border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50"
-                            >
-                            Edit
-                            </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(item)}
+                          className="rounded-lg border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+                        >
+                          Edit
+                        </button>
 
-                            <button
-                            type="button"
-                            onClick={() => handleDeleteEquipment(item)}
-                            className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                            >
-                            Delete
-                            </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEquipment(item)}
+                          className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
 
                   </tr>
