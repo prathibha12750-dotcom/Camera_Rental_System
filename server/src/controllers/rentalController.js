@@ -155,7 +155,7 @@ const checkAvailability = async (req, res, next) => {
     availabilityStatus: "AVAILABLE",
     message: "Equipment is available for the selected dates",
   });
-//end
+  //end
   } catch (error) {
     next(error);
   }
@@ -233,8 +233,8 @@ const createRentalRequest = async (req, res, next) => {
 
     
     // ========================================
-    // FR-120: PHYSICAL EQUIPMENT AVAILABILITY
-    // DURING RENTAL REQUEST CREATION
+    // PHYSICAL EQUIPMENT AVAILABILITY
+    // DURING RENTAL REQUEST CREATION added by abilash
     // ========================================
 
     const currentDate = new Date();
@@ -250,6 +250,7 @@ const createRentalRequest = async (req, res, next) => {
           "Equipment is currently rented and has not been returned",
       });
     }
+    //end
 
 
     const conflictingRental = await Rental.findOne({
