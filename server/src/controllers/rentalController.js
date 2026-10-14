@@ -15,15 +15,46 @@ const checkAvailability = async (req, res, next) => {
       });
     }
 
+    
+    // ========================================
+    // VALIDATE AVAILABILITY DATES added by abilash
+    // ========================================
+
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    // 1. Reject invalid dates
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental dates",
+      });
+    }
+
+    // 2. End date must be after start date
     if (start >= end) {
       return res.status(400).json({
         success: false,
         message: "End date must be after start date",
       });
     }
+
+    // 3. Reject rental start dates in the past
+    // Use the same UTC calendar convention
+    // as createRentalRequest.
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    if (start < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Rental start date cannot be in the past",
+      });
+    }
+    //end
 
     const equipment = await Equipment.findById(equipmentId);
 
@@ -60,19 +91,71 @@ const checkAvailability = async (req, res, next) => {
       },
     });
 
-    if (conflictingRental) {
-      return res.status(200).json({
-        success: true,
-        available: false,
-        message: "Equipment is not available for the selected dates",
-      });
+    
+  // ========================================
+  // CURRENT PHYSICAL AVAILABILITY added by abilash
+  // ========================================
+
+  // Compare date-only rental starts using UTC,
+  // consistent with our previous validation.
+  const currentDate = new Date();
+  currentDate.setUTCHours(0, 0, 0, 0);
+
+  // Equipment still physically rented cannot be
+  // requested for a rental starting today.
+  if (
+    equipment.status === "RENTED" &&
+    start <= currentDate
+  ) {
+    return res.status(200).json({
+      success: true,
+      available: false,
+      availabilityStatus: "RENTED",
+      message:
+        "Equipment is currently rented and has not been returned",
+    });
+  }
+  //end
+
+  //added by abilash
+  if (conflictingRental) {
+    let availabilityStatus = "UNAVAILABLE";
+    let message =
+      "Equipment is not available for the selected dates";
+
+    if (conflictingRental.status === "PENDING") {
+      availabilityStatus = "PENDING_REQUEST";
+      message =
+        "Equipment has a pending rental request for the selected dates";
+    }
+
+    if (conflictingRental.status === "CONFIRMED") {
+      availabilityStatus = "RESERVED";
+      message =
+        "Equipment is reserved for the selected dates";
+    }
+
+    if (conflictingRental.status === "ACTIVE") {
+      availabilityStatus = "RENTED";
+      message =
+        "Equipment is currently rented during the selected dates";
     }
 
     return res.status(200).json({
       success: true,
-      available: true,
-      message: "Equipment is available for the selected dates",
+      available: false,
+      availabilityStatus,
+      message,
     });
+  }
+
+  return res.status(200).json({
+    success: true,
+    available: true,
+    availabilityStatus: "AVAILABLE",
+    message: "Equipment is available for the selected dates",
+  });
+//end
   } catch (error) {
     next(error);
   }
@@ -89,15 +172,45 @@ const createRentalRequest = async (req, res, next) => {
       });
     }
 
+    
+    // ========================================
+    // FR-120: VALIDATE RENTAL DATES added by abilash
+    // ========================================
+
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    // 1. Reject invalid dates
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid rental dates",
+      });
+    }
+
+    // 2. End date must be after start date
     if (start >= end) {
       return res.status(400).json({
         success: false,
         message: "End date must be after start date",
       });
     }
+
+    // 3. Prevent rental requests for past dates
+    // Date-only inputs are interpreted using UTC.
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    if (start < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Rental start date cannot be in the past",
+      });
+    }
+    //end
 
     const equipment = await Equipment.findById(equipmentId);
 
@@ -117,6 +230,27 @@ const createRentalRequest = async (req, res, next) => {
         message: "Equipment is currently unavailable",
       });
     }
+
+    
+    // ========================================
+    // FR-120: PHYSICAL EQUIPMENT AVAILABILITY
+    // DURING RENTAL REQUEST CREATION
+    // ========================================
+
+    const currentDate = new Date();
+    currentDate.setUTCHours(0, 0, 0, 0);
+
+    if (
+      equipment.status === "RENTED" &&
+      start <= currentDate
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Equipment is currently rented and has not been returned",
+      });
+    }
+
 
     const conflictingRental = await Rental.findOne({
       equipment: equipmentId,
@@ -170,6 +304,8 @@ const createRentalRequest = async (req, res, next) => {
 
 // =================================================================
 // GET ALL RENTALS - ADMIN
+//==================================================================
+
 const getAllRentals = async (req, res, next) => {
   try {
     const rentals = await Rental.find()
@@ -192,8 +328,6 @@ const getAllRentals = async (req, res, next) => {
     next(error);
   }
 };
-
-// =====================================================================
 
 
 
@@ -219,6 +353,37 @@ const approveRental = async (req, res, next) => {
         message: "Only pending rental requests can be approved",
       });
     }
+
+
+    // ========================================
+    // CHECK PHYSICAL EQUIPMENT STATUS
+    // BEFORE RENTAL APPROVAL added by abilash
+    // ========================================
+
+    const equipment = await Equipment.findById(
+      rental.equipment
+    );
+
+    if (!equipment) {
+      return res.status(404).json({
+        success: false,
+        message: "Equipment not found",
+      });
+    }
+
+    if (
+      equipment.status === "DAMAGED" ||
+      equipment.status === "MAINTENANCE"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `Rental cannot be approved because the equipment is ` +
+          `${equipment.status.toLowerCase()}`,
+      });
+    }
+
+    //end
 
     // Check whether another confirmed/active rental now conflicts
     const conflictingRental = await Rental.findOne({
@@ -345,15 +510,41 @@ const issueRental = async (req, res, next) => {
       });
     }
 
+    
+    // ========================================
+    // PHYSICAL EQUIPMENT AVAILABILITY added by abilash
+    // ========================================
+
     if (
       equipment.status === "MAINTENANCE" ||
-      equipment.status === "DAMAGED"
+      equipment.status === "DAMAGED" ||
+      equipment.status === "RENTED"
     ) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: `Equipment cannot be issued because it is ${equipment.status.toLowerCase()}`,
+        message:
+          `Equipment cannot be issued because it is ` +
+          `${equipment.status.toLowerCase()}`,
       });
     }
+
+    // Check for another active rental using
+    // the same physical equipment.
+    const anotherActiveRental = await Rental.findOne({
+      equipment: rental.equipment,
+      status: "ACTIVE",
+      _id: { $ne: rental._id },
+    });
+
+    if (anotherActiveRental) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Equipment cannot be issued because another " +
+          "customer has not returned it yet",
+      });
+    }
+    //end
 
     // Update rental
     rental.status = "ACTIVE";
