@@ -29,6 +29,20 @@ const rentalSchema = new mongoose.Schema(
       min: 0,
     },
 
+    
+    //added by abilash
+
+    // Security deposit required for this rental
+    // Snapshot of the equipment deposit at booking time
+    securityDeposit: {
+      type: Number,
+      min: [0, "Security deposit cannot be negative"],
+      default: null,
+    },
+
+    //ended by abilash
+
+
     status: {
       type: String,
       enum: [

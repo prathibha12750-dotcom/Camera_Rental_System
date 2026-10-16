@@ -1,3 +1,8 @@
+
+//added by abilash
+const PhotographerNotification = require("../models/photographerNotification");
+//ended by abilash
+
 const DamageRecord = require("../models/DamageRecord");
 const Return = require("../models/Return");
 const Rental = require("../models/Rental");
@@ -282,14 +287,58 @@ const createRentalRequest = async (req, res, next) => {
     const totalPrice =
       numberOfDays * equipment.rentalPricePerDay;
 
+      
+    //added by abilash
+
+    // Store the required security deposit at booking time.
+    // This preserves the amount even if the equipment
+    // security deposit changes later.
+
+    const securityDeposit = equipment.securityDeposit ?? 0;
+
+    //ended by abilash
+
+
     const rental = await Rental.create({
       customer: req.user.userId,
       equipment: equipmentId,
       startDate: start,
       endDate: end,
       totalPrice,
+      //added by abilash
+      securityDeposit,
+      //ended by abilash
       status: "PENDING",
     });
+
+
+    //added by abilash
+
+    // Rental request confirmation notification
+    // A successful request is PENDING, not yet approved.
+
+    try {
+      await PhotographerNotification.create({
+        user: rental.customer,
+        type: "RENTAL_REQUEST_CONFIRMED",
+        title: "Rental Request Received",
+        message:
+          "Your equipment rental request has been received " +
+          "successfully and is awaiting approval.",
+        rental: rental._id,
+        read: false,
+      });
+    } catch (notificationError) {
+      // Notification failure must not cause the customer
+      // to repeat an already-created rental request.
+      console.error(
+        "Failed to create rental request notification:",
+        notificationError
+      );
+    }
+
+    //ended by abilash
+
 
     return res.status(201).json({
       success: true,
@@ -553,6 +602,33 @@ const issueRental = async (req, res, next) => {
 
     // Update equipment
     equipment.status = "RENTED";
+
+    
+    //added by abilash
+
+    // FR-144: Notify customer after equipment is issued.
+    // The rental must already be saved as ACTIVE.
+
+    try {
+      await PhotographerNotification.create({
+        user: rental.customer,
+        type: "RENTAL_EQUIPMENT_ISSUED",
+        title: "Rental Equipment Issued",
+        message:
+          "Your rental equipment has been issued successfully. " +
+          "Please return the equipment by the agreed return date.",
+        rental: rental._id,
+        read: false,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create equipment issued notification:",
+        notificationError
+      );
+    }
+
+    //ended by abilash
+
 
     await rental.save();
     await equipment.save();

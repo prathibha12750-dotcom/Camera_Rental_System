@@ -12,6 +12,9 @@ const photographerNotificationSchema =
         required: true,
       },
 
+
+      //added by abilash
+
       type: {
         type: String,
         enum: [
@@ -24,10 +27,19 @@ const photographerNotificationSchema =
           "BOOKING_CANCELLED",
           "BOOKING_COMPLETED",
 
+          // Rental notification types
+          "RENTAL_REQUEST_CONFIRMED",
+          "RENTAL_EQUIPMENT_ISSUED",
+          "RENTAL_RETURN_DUE",
+          "RENTAL_OVERDUE",
+
           "GENERAL",
         ],
         default: "GENERAL",
       },
+
+      //ended by abilash
+
 
       title: {
         type: String,
@@ -61,6 +73,19 @@ const photographerNotificationSchema =
         ref: "Booking",
         default: null,
       },
+
+      
+      //added by abilash
+
+      // Reference to the rental related to this notification
+      rental: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Rental",
+        default: null,
+      },
+
+      //ended by abilash
+
     },
     {
       timestamps: true,
@@ -71,6 +96,36 @@ photographerNotificationSchema.index({
   user: 1,
   createdAt: -1,
 });
+
+
+//added by abilash
+
+// FR-145 and FR-146:
+// Prevent duplicate return-due and overdue
+// notifications for the same rental and type.
+
+photographerNotificationSchema.index(
+  {
+    rental: 1,
+    type: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      rental: { $type: "objectId" },
+      type: {
+        $in: [
+          "RENTAL_RETURN_DUE",
+          "RENTAL_OVERDUE",
+        ],
+      },
+    },
+    name: "unique_rental_reminder_type",
+  }
+);
+
+//ended by abilash
+
 
 module.exports =
   mongoose.model(
