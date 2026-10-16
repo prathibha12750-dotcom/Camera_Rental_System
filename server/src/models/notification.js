@@ -29,6 +29,12 @@ const notificationSchema = new mongoose.Schema(
                 "BOOKING_CONFIRMATION",
                 "BOOKING_STATUS_CHANGE",
                 "PAYMENT_RECORDED",
+                
+                //added by abilash
+                "DEPOSIT_RECORDED",
+                "REFUND_RECORDED",
+                //ended by abilash
+
             ],
             required: true,
         },

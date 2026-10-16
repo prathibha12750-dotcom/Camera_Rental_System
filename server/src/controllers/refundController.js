@@ -2,6 +2,11 @@ const Refund = require("../models/refund");
 const Deposit = require("../models/deposit");
 const Invoice = require("../models/invoice");
 
+ //added by abilash
+  const PhotographerNotification = require("../models/photographerNotification");
+ //ended by abilash
+
+
 // =============================================
 // RECORD SECURITY DEPOSIT REFUND
 // POST /api/admin/refunds
@@ -119,6 +124,33 @@ const createRefund = async(req, res, next) => {
         existingDeposit.status = "REFUNDED";
 
         await existingDeposit.save();
+
+        
+       
+        //added by abilash
+
+        // FR-150: Notify customer after refund recording succeeds.
+        try {
+            await PhotographerNotification.create({
+                user: existingDeposit.customer,
+                title: "Security Deposit Refund Recorded",
+                message:
+                    `A security deposit refund of LKR ${refund.amount} ` +
+                    `has been recorded for invoice ${existingInvoice.invoiceNumber}.`,
+                type: "REFUND_RECORDED",
+                read: false,
+            });
+        } catch (notificationError) {
+            // A notification failure must not report a saved refund as failed.
+            console.error(
+                "Failed to create refund notification:",
+                notificationError
+            );
+        }
+
+        //ended by abilash
+
+
 
         
 

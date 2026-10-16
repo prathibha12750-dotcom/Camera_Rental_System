@@ -2,6 +2,11 @@ const Deposit = require("../models/deposit");
 const Invoice = require("../models/invoice");
 const User = require("../models/User");
 
+//added by abilash
+const PhotographerNotification = require("../models/photographerNotification");
+//ended by abilash
+
+
 // ==========================================
 // RECORD SECURITY DEPOSIT
 // POST /api/amin/deposits
@@ -112,6 +117,32 @@ const createDeposit = async (req, res, next) => {
             amount,
             status: "HELD",
         });
+
+        
+
+        //added by abilash
+
+        // FR-150: Notify the customer after a security deposit is recorded.
+        try {
+            await PhotographerNotification.create({
+                user: customer._id,
+                title: "Security Deposit Recorded",
+                message:
+                    `Your security deposit of LKR ${deposit.amount} ` +
+                    `has been recorded for invoice ${existingInvoice.invoiceNumber}.`,
+                type: "DEPOSIT_RECORDED",
+                read: false,
+            });
+        } catch (notificationError) {
+            // Notification failure must not report a saved deposit as failed.
+            console.error(
+                "Failed to create deposit notification:",
+                notificationError
+            );
+        }
+
+        //ended by abilash
+
 
         
         //--------------------------------------

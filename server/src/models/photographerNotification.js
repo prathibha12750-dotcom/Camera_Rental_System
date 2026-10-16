@@ -33,6 +33,11 @@ const photographerNotificationSchema =
           "RENTAL_RETURN_DUE",
           "RENTAL_OVERDUE",
 
+          //added by abilash
+          "DEPOSIT_RECORDED",
+          "REFUND_RECORDED",
+          //ended by abilash
+
           "GENERAL",
         ],
         default: "GENERAL",
