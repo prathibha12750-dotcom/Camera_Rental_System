@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 
+//added by abilash
+import { jsPDF } from "jspdf";
+//ended by abilash
+
+
 const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -11,6 +16,18 @@ const Payments = () => {
 
   const [error, setError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+
+  
+  //added by abilash
+
+  // FR-167: Billing receipt viewer state
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState("");
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  //ended by abilash
+
 
   const [formData, setFormData] = useState({
     invoice: "",
@@ -33,6 +50,122 @@ const Payments = () => {
       setLoading(false);
     }
   };
+
+  
+//added by abilash
+
+
+//added by abilash
+
+// FR-167: Download the selected billing receipt as a PDF.
+const handleDownloadReceipt = () => {
+  if (!selectedReceipt) return;
+
+  const pdf = new jsPDF();
+
+  const receipt = selectedReceipt;
+
+  const customerName = receipt.customer?.name || "Customer";
+  const customerEmail = receipt.customer?.email || "-";
+  const invoiceNumber = receipt.invoice?.invoiceNumber || "-";
+  const paymentMethod =
+    receipt.paymentMethod?.replaceAll("_", " ") || "-";
+
+  const receiptNumber = receipt.receiptNumber || "Unknown";
+  const issueDate = formatDate(receipt.issuedAt);
+  const amount = formatAmount(receipt.amount);
+
+  // Header
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(20);
+  pdf.text("CAMERA RENTAL SYSTEM", 105, 25, {
+    align: "center",
+  });
+
+  pdf.setFontSize(14);
+  pdf.text("PAYMENT RECEIPT", 105, 37, {
+    align: "center",
+  });
+
+  pdf.setDrawColor(210);
+  pdf.line(20, 45, 190, 45);
+
+  // Receipt details
+  pdf.setFontSize(11);
+
+  const addRow = (label, value, y) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.text(label, 20, y);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.text(String(value), 75, y);
+  };
+
+  addRow("Receipt Number:", receiptNumber, 60);
+  addRow("Issue Date:", issueDate, 72);
+  addRow("Invoice Number:", invoiceNumber, 84);
+  addRow("Customer:", customerName, 96);
+  addRow("Email:", customerEmail, 108);
+  addRow("Payment Method:", paymentMethod, 120);
+
+  pdf.line(20, 135, 190, 135);
+
+  // Total amount received
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(13);
+  pdf.text("Amount Received:", 20, 150);
+  pdf.text(amount, 190, 150, {
+    align: "right",
+  });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.setTextColor(110);
+  pdf.text(
+    "This receipt confirms a payment recorded in the Camera Rental System.",
+    105,
+    180,
+    { align: "center" }
+  );
+
+  // Download PDF
+  const safeReceiptNumber = receiptNumber.replace(
+    /[^a-zA-Z0-9_-]/g,
+    "_"
+  );
+
+  pdf.save(`Receipt-${safeReceiptNumber}.pdf`);
+};
+
+//ended by abilash
+
+
+// FR-167: Fetch billing receipt for a selected payment.
+const handleViewReceipt = async (paymentId) => {
+  setSelectedReceipt(null);
+  setReceiptError("");
+  setReceiptLoading(true);
+  setReceiptModalOpen(true);
+
+  try {
+    const response = await api.get(
+      `/admin/billing-receipts/payment/${paymentId}`
+    );
+
+    setSelectedReceipt(response.data?.data?.receipt || null);
+  } catch (error) {
+    const message =
+      error.response?.data?.message ||
+      "Failed to load billing receipt.";
+
+    setReceiptError(message);
+  } finally {
+    setReceiptLoading(false);
+  }
+};
+
+//ended by abilash
+
 
   const fetchInvoices = async () => {
     try {
@@ -523,6 +656,13 @@ const Payments = () => {
                   <th className="px-6 py-4 font-semibold text-gray-600">
                     Invoice Status
                   </th>
+                  
+                  {/* added by abilash */}
+                  <th className="px-6 py-4 font-semibold text-gray-600">
+                    Actions
+                  </th>
+                  {/* ended by abilash */}
+
                 </tr>
               </thead>
 
@@ -582,6 +722,23 @@ const Payments = () => {
                         {payment.invoice?.paymentStatus || "-"}
                       </span>
                     </td>
+                    
+                    {/* added by abilash */}
+                    <td className="px-6 py-4">
+                      {payment.paymentStatus === "COMPLETED" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleViewReceipt(payment._id)}
+                          className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-100"
+                        >
+                          View Receipt
+                        </button>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
+                    </td>
+                    {/* ended by abilash */}
+
                   </tr>
                 ))}
               </tbody>
@@ -589,6 +746,130 @@ const Payments = () => {
           </div>
         )}
       </div>
+            
+      {/* added by abilash */}
+
+      {/* FR-167: Billing Receipt Viewer Modal */}
+      {receiptModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Billing receipt"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">
+                Billing Receipt
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setReceiptModalOpen(false)}
+                className="rounded-lg px-3 py-2 text-gray-500 hover:bg-gray-100"
+                aria-label="Close receipt"
+              >
+                ✕
+              </button>
+            </div>
+
+            {receiptLoading ? (
+              <p className="py-6 text-center text-gray-500">
+                Loading receipt...
+              </p>
+            ) : receiptError ? (
+              <p className="rounded-lg bg-red-50 p-4 text-red-700">
+                {receiptError}
+              </p>
+            ) : selectedReceipt ? (
+              <div className="space-y-4 text-sm">
+                <div className="border-b border-gray-200 pb-4 text-center">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Camera Rental System
+                  </h3>
+                  <p className="text-gray-500">Payment Receipt</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-500">Receipt Number</p>
+                    <p className="font-semibold">
+                      {selectedReceipt.receiptNumber}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Issue Date</p>
+                    <p className="font-semibold">
+                      {formatDate(selectedReceipt.issuedAt)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Invoice Number</p>
+                    <p className="font-semibold">
+                      {selectedReceipt.invoice?.invoiceNumber || "-"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-500">Payment Method</p>
+                    <p className="font-semibold">
+                      {selectedReceipt.paymentMethod?.replaceAll("_", " ")}
+                    </p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <p className="text-gray-500">Customer</p>
+                    <p className="font-semibold">
+                      {selectedReceipt.customer?.name || "-"}
+                    </p>
+                    <p className="text-gray-500">
+                      {selectedReceipt.customer?.email || ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-orange-50 p-4 text-center">
+                  <p className="text-gray-600">Amount Received</p>
+                  <p className="text-2xl font-bold text-orange-700">
+                    {formatAmount(selectedReceipt.amount)}
+                  </p>
+                </div>
+
+                
+                {/* added by abilash */}
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDownloadReceipt}
+                    className="rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-700"
+                  >
+                    Download PDF
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReceiptModalOpen(false)}
+                    className="rounded-lg bg-gray-900 px-5 py-2 text-white hover:bg-gray-800"
+                  >
+                    Close
+                  </button>
+                </div>
+                {/* ended by abilash */}
+
+              </div>
+            ) : (
+              <p className="text-gray-500">
+                No receipt information available.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ended by abilash */}
+
     </div>
   );
 };

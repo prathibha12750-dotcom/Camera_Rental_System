@@ -23,6 +23,14 @@ const {
     getAllPayments,
 } = require("../controllers/paymentController");
 
+
+//added by abilash
+const {
+  getBillingReceiptByPayment,
+} = require("../controllers/billingReceiptController");
+//ended by abilash
+
+
 const {
   createDeposit,
   getDepositByInvoice,
@@ -171,6 +179,24 @@ authenticate,
 authorizeRoles("STAFF_ADMIN"),
 getAllPayments
 );
+
+
+//added by abilash
+
+// ==========================================
+// FR-167: GET BILLING RECEIPT BY PAYMENT
+// GET /api/admin/billing-receipts/payment/:paymentId
+// ==========================================
+
+router.get(
+  "/billing-receipts/payment/:paymentId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getBillingReceiptByPayment
+);
+
+//ended by abilash
+
 
 // ==========================================
 // RECORD SECURITY DEPOSIT

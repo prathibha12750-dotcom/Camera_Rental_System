@@ -6,6 +6,11 @@ const Notification = require("../models/notification");
  //added by abilash
  const PhotographerNotification = require("../models/photographerNotification");
  //ended by abilash
+ 
+ //added by abilash
+ const BillingReceipt = require("../models/billingReceipt");
+ //ended by abilash
+
 
 
 const updateInvoicePaymentStatus = async (invoiceId) => {
@@ -146,6 +151,37 @@ const createPayment = async (req, res, next) => {
         //----------------------------------------
 
         await updateInvoicePaymentStatus(existingInvoice._id);
+
+        
+
+        //added by abilash
+
+        // FR-167: Generate a billing receipt after payment recording.
+        const receiptNumber =
+            `RCP-${payment._id.toString().toUpperCase()}`;
+
+        let billingReceipt = null;
+
+        try {
+            billingReceipt = await BillingReceipt.create({
+                receiptNumber,
+                invoice: existingInvoice._id,
+                payment: payment._id,
+                customer: customer._id,
+                amount: payment.amount,
+                paymentMethod: payment.paymentMethod,
+                issuedAt: payment.paymentDate,
+            });
+        } catch (receiptError) {
+            console.error(
+                `Failed to create billing receipt for payment ${payment._id}:`,
+                receiptError
+            );
+        }
+
+        //ended by abilash
+
+
 
         //----------------------------------------
         // 6. Create payment notification
