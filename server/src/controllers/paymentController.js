@@ -3,6 +3,11 @@ const Invoice = require("../models/invoice");
 const User = require("../models/User");
 const Notification = require("../models/notification");
 
+ //added by abilash
+ const PhotographerNotification = require("../models/photographerNotification");
+ //ended by abilash
+
+
 const updateInvoicePaymentStatus = async (invoiceId) => {
     // Get invoice
     const invoice = await Invoice.findById(invoiceId);
@@ -61,7 +66,7 @@ const createPayment = async (req, res, next) => {
             invoice,
             amount,
             paymentMethod,
-            notes,
+            note,
         } = req.body;
 
         // -----------------------------------
@@ -133,7 +138,7 @@ const createPayment = async (req, res, next) => {
             customer: customer._id,
             amount,
             paymentMethod,
-            notes,
+            note,
         });
 
         //----------------------------------------
@@ -146,12 +151,30 @@ const createPayment = async (req, res, next) => {
         // 6. Create payment notification
         //----------------------------------------
 
-        await Notification.create({
-            recipient: customer._id,
-            title: "Payment Recorded",
-            message: `A payment of LKR ${amount} has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
-            type: "PAYMENT_RECORDED",
-        });
+
+        //added by abilash
+
+        // FR-149: Notify the customer after payment is recorded.
+        try {
+            await PhotographerNotification.create({
+                user: customer._id,
+                title: "Payment Recorded",
+                message:
+                    `A payment of LKR ${payment.amount} ` +
+                    `has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
+                type: "PAYMENT_RECORDED",
+                read: false,
+            });
+        } catch (notificationError) {
+            // A notification failure must not make a saved payment appear failed.
+            console.error(
+                "Failed to create payment notification:",
+                notificationError
+            );
+        }
+
+        //ended by abilash
+
         
 
         //----------------------------------------

@@ -38,6 +38,10 @@ const photographerNotificationSchema =
           "REFUND_RECORDED",
           //ended by abilash
 
+          //added by abilash
+          "PAYMENT_RECORDED",
+          //ended by abilash
+
           "GENERAL",
         ],
         default: "GENERAL",
