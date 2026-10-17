@@ -102,3 +102,112 @@ export const updateDamageRecordStatus = async (
 
    return response.data;
  };
+
+ 
+ // ==========================================
+ // SECURITY DEPOSIT SETTLEMENT
+ // ==========================================
+
+export const previewRentalDepositSettlement = async (
+  rentalId
+) => {
+  const response = await api.patch(
+    `/rentals/${rentalId}/deposit-settlement`
+  );
+  return response.data;
+};
+
+// ==========================================
+// REVIEW DAMAGE DEDUCTION
+// ==========================================
+
+export const reviewDamageDeduction = async (
+  damageId,
+  data
+) => {
+  const response = await api.patch(
+    `/rentals/damage-records/${damageId}/deduction-review`,
+    data
+  );
+  return response.data;
+};
+
+// ==========================================
+// VALIDATE REFUND PREPARATION
+// ==========================================
+
+export const prepareRentalDepositRefund = async (
+  rentalId,
+  refundMethod
+) => {
+  const response = await api.post(
+    `/rentals/${rentalId}/deposit-refund/prepare`,
+    { refundMethod }
+  );
+  return response.data;
+};
+
+// ==========================================
+// CREATE PENDING REFUND
+// ==========================================
+
+export const createPendingRentalRefund = async (
+  rentalId,
+  refundMethod
+) => {
+  const response = await api.post(
+    `/rentals/${rentalId}/deposit-refund/pending`,
+    { refundMethod }
+  );
+  return response.data;
+};
+
+// ==========================================
+// CONFIRM ACTUAL REFUND PAYOUT
+// ==========================================
+
+export const confirmRentalRefundPayout = async (
+  rentalId,
+  refundId,
+  data
+) => {
+  const response = await api.patch(
+    `/rentals/${rentalId}/deposit-refund/${refundId}/confirm`,
+    data
+  );
+  return response.data;
+};
+
+// ==========================================
+// SETTLE FULL DEPOSIT DEDUCTION
+// ==========================================
+
+export const settleFullRentalDepositDeduction = async (
+  rentalId
+) => {
+  const response = await api.post(
+    `/rentals/${rentalId}/deposit-deduction/full`
+  );
+  return response.data;
+};
+
+
+/**
+ * Get invoices for Clerk/Admin rental management.
+ */
+export const getAllInvoices = async () => {
+  const response = await api.get("/admin/invoices");
+  return response.data;
+};
+
+/**
+ * Get refund records associated with an invoice.
+ */
+export const getRefundsByInvoice = async (invoiceId) => {
+  const response = await api.get(
+    `/admin/refunds/invoice/${invoiceId}`
+  );
+
+  return response.data;
+};
+

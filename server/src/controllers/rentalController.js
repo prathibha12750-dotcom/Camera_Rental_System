@@ -476,6 +476,21 @@ const getAllRentals = async (req, res, next) => {
         "rental invoiceNumber totalAmount paymentStatus"
       )
       .lean();
+          
+      const invoiceIds = invoices.map((invoice) => invoice._id);
+
+      const deposits = await Deposit.find({
+        invoice: { $in: invoiceIds },
+      })
+        .select("invoice status")
+        .lean();
+
+      const depositMap = new Map(
+        deposits.map((deposit) => [
+          String(deposit.invoice),
+          deposit,
+        ])
+      );
 
     // Create an invoice lookup for efficient matching.
     const invoiceMap = new Map(
@@ -489,8 +504,13 @@ const getAllRentals = async (req, res, next) => {
     const rentalsWithInvoices = rentals.map((rental) => {
       const invoice = invoiceMap.get(String(rental._id));
 
+      const deposit = invoice
+        ? depositMap.get(String(invoice._id))
+        : null;
+
       return {
         ...rental,
+
         invoice: invoice
           ? {
               _id: invoice._id,
@@ -499,6 +519,18 @@ const getAllRentals = async (req, res, next) => {
               paymentStatus: invoice.paymentStatus,
             }
           : null,
+
+        depositStatus: deposit?.status || null,
+
+        depositSettled: Boolean(
+          invoice?.paymentStatus === "PAID" &&
+          deposit &&
+          [
+            "REFUNDED",
+            "PARTIALLY_REFUNDED",
+            "DEDUCTED",
+          ].includes(deposit.status)
+        ),
       };
     });
 

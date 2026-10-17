@@ -89,7 +89,7 @@ const settleRentalDeposit = async (req, res, next) => {
       });
     }
 
-    if (deposit.status !== "HELD") {
+    if (!["HELD", "REFUND_PENDING"].includes(deposit.status)) {
       return res.status(409).json({
         success: false,
         message: "Security deposit is not available for settlement",
@@ -192,6 +192,7 @@ const settleRentalDeposit = async (req, res, next) => {
         rentalId: rental._id,
         invoiceId: invoice._id,
         depositId: deposit._id,
+        depositStatus: deposit.status,
         depositAmount,
         totalRepairCost,
         totalApprovedDeduction,
@@ -1227,14 +1228,22 @@ const confirmRentalRefundPayout = async (req, res, next) => {
       const updatedRefund = await Refund.findOneAndUpdate(
         {
           _id: refund._id,
+          deposit: deposit._id,
+          invoice: invoice._id,
+          customer: rental.customer,
           status: "PENDING",
         },
         {
           $set: {
             status: "COMPLETED",
             refundDate: now,
-            notes:
-              `Payout confirmed. Reference: ${reference.trim()}`,
+
+            // Payout audit information
+            confirmedBy: req.user.userId,
+            confirmedAt: now,
+            payoutReference: reference.trim(),
+
+            notes: `Payout confirmed. Reference: ${reference.trim()}`,
           },
         },
         {

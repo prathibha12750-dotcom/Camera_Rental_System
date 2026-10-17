@@ -44,37 +44,55 @@ const refundSchema = new mongoose.Schema(
             default: "",
         },
 
+        // Date associated with the refund record.
         refundDate: {
             type: Date,
             default: Date.now,
         },
+
+        // ==========================================
+        // REFUND PAYOUT AUDIT INFORMATION
+        // ==========================================
+
+        // Staff member who confirmed the actual payout.
+        confirmedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+
+        // Date and time payout was confirmed.
+        confirmedAt: {
+            type: Date,
+            default: null,
+        },
+
+        // Bank transaction ID or other payout reference.
+        payoutReference: {
+            type: String,
+            trim: true,
+            maxlength: 150,
+            default: "",
+        },
+
     },
     {
         timestamps: true,
     }
 );
 
- 
-// Prevent duplicate completed refunds
-refundSchema.index(
-  { deposit: 1 },
-  {
-    name: "unique_completed_refund_per_deposit",
-    unique: true,
-    partialFilterExpression: {
-      status: "COMPLETED",
-    },
-  }
-);
 
-// Prevent duplicate pending refunds
+// Prevent duplicate pending or completed refunds
+// for the same security deposit.
 refundSchema.index(
   { deposit: 1 },
   {
-    name: "unique_pending_refund_per_deposit",
+    name: "unique_active_refund_per_deposit",
     unique: true,
     partialFilterExpression: {
-      status: "PENDING",
+      status: {
+        $in: ["PENDING", "COMPLETED"],
+      },
     },
   }
 );

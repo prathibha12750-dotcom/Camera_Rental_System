@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/useAuth";
 
 import {
@@ -10,7 +9,10 @@ import {
   returnRental,
   completeRental,
   getOverdueRentals,
+  getAllDamageRecords,
 } from "../../services/rentalService";
+
+import DepositSettlementPanel from "../../components/rentals/DepositSettlementPanel";
 
 const RENTALS_PER_PAGE = 8;
 
@@ -37,7 +39,34 @@ const RentalManagement = () => {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // New filters
+  // Security deposit settlement
+  const [selectedDepositRental, setSelectedDepositRental] =
+    useState(null);
+
+  const [depositDamageRecords, setDepositDamageRecords] =
+    useState([]);
+
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositError, setDepositError] = useState("");
+
+  // Reference used to scroll to the Deposit Management panel
+  const depositSettlementRef = useRef(null);
+
+  // Smoothly scroll to Deposit Management when a rental is selected.
+  useEffect(() => {
+    if (!selectedDepositRental) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      depositSettlementRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [selectedDepositRental]);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFrom, setDateFrom] = useState("");
@@ -344,9 +373,31 @@ const RentalManagement = () => {
   };
 
   const handleComplete = async (rental) => {
+    if (actionLoading !== null) {
+      return;
+    }
+
+    if (rental.status !== "RETURNED") {
+      setError(
+        "Only returned rentals can be completed."
+      );
+      return;
+    }
+    
+    // Prevent completion until the backend reports
+    // that the security deposit is fully settled.
+    if (rental.depositSettled !== true) {
+      setError(
+        "Cannot complete this rental. The security deposit must be fully settled first."
+      );
+      return;
+    }
+
     if (
       !window.confirm(
-        `Complete rental for "${rental.equipment?.name}"?`
+        `Complete rental for "${rental.equipment?.name}"? ` +
+        "The security deposit must be fully settled. " +
+        "If settlement is still pending, the system will reject completion."
       )
     ) {
       return;
@@ -356,8 +407,49 @@ const RentalManagement = () => {
       rental,
       completeRental,
       "Rental completed successfully.",
-      "Failed to complete rental."
+      "Failed to complete rental. Verify that the security deposit is fully settled."
     );
+  };
+
+  // ==========================================
+  // SECURITY DEPOSIT SETTLEMENT
+  // ==========================================
+
+  const openDepositSettlement = async (rental) => {
+    setSelectedDepositRental(rental);
+    setDepositDamageRecords([]);
+    setDepositError("");
+    setDepositLoading(true);
+
+    try {
+      const result = await getAllDamageRecords();
+
+      const allRecords = result?.data?.damageRecords || [];
+
+      const matchingRecords = allRecords.filter((record) => {
+        const recordRentalId =
+          typeof record.rental === "object"
+            ? record.rental?._id
+            : record.rental;
+
+        return String(recordRentalId) === String(rental._id);
+      });
+
+      setDepositDamageRecords(matchingRecords);
+    } catch (err) {
+      setDepositError(
+        err.response?.data?.message ||
+          "Failed to load damage records."
+      );
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
+  const closeDepositSettlement = () => {
+    setSelectedDepositRental(null);
+    setDepositDamageRecords([]);
+    setDepositError("");
   };
 
   // ==========================================
@@ -457,6 +549,80 @@ const RentalManagement = () => {
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
       <div className="mx-auto max-w-7xl">
 
+        {/* DEPOSIT MANAGEMENT PANEL */}
+
+        {selectedDepositRental && (
+          <div
+            ref={depositSettlementRef}
+            className="mb-6 scroll-mt-24 space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Deposit Management
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                  Rental: {selectedDepositRental._id}
+                </p>
+
+                <p className="text-sm text-gray-500">
+                  Equipment:{" "}
+                  {selectedDepositRental.equipment?.name || "Unknown"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDepositSettlement}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+
+            {depositLoading ? (
+              <p className="text-sm text-gray-500">
+                Loading damage records...
+              </p>
+            ) : depositError ? (
+              <p
+                role="alert"
+                className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+              >
+                {depositError}
+              </p>
+            ) : (
+              <DepositSettlementPanel
+                key={selectedDepositRental._id}
+                rentalId={selectedDepositRental._id}
+                damageRecords={depositDamageRecords}
+                onUpdated={async () => {
+                  await refreshRentals();
+
+                  const result = await getAllDamageRecords();
+                  const records =
+                    result?.data?.damageRecords || [];
+
+                  setDepositDamageRecords(
+                    records.filter((record) => {
+                      const id =
+                        typeof record.rental === "object"
+                          ? record.rental?._id
+                          : record.rental;
+
+                      return (
+                        String(id) ===
+                        String(selectedDepositRental._id)
+                      );
+                    })
+                  );
+                }}
+              />
+            )}
+          </div>
+        )}
+
         {/* HEADER */}
 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -521,6 +687,7 @@ const RentalManagement = () => {
 
             <label className="block text-sm font-medium text-gray-700">
               Search Rentals
+
               <input
                 type="search"
                 value={searchTerm}
@@ -539,6 +706,7 @@ const RentalManagement = () => {
 
             <label className="block text-sm font-medium text-gray-700">
               Rental Status
+
               <select
                 value={statusFilter}
                 onChange={(event) =>
@@ -564,6 +732,7 @@ const RentalManagement = () => {
 
             <label className="block text-sm font-medium text-gray-700">
               Rental Period From
+
               <input
                 type="date"
                 value={dateFrom}
@@ -582,6 +751,7 @@ const RentalManagement = () => {
 
             <label className="block text-sm font-medium text-gray-700">
               Rental Period To
+
               <input
                 type="date"
                 value={dateTo}
@@ -639,6 +809,7 @@ const RentalManagement = () => {
                 <h2 className="text-xl font-semibold text-gray-950">
                   Return Equipment
                 </h2>
+
                 <p className="mt-1 text-sm text-gray-500">
                   {returningRental.equipment?.name}
                 </p>
@@ -660,6 +831,7 @@ const RentalManagement = () => {
             <div className="mt-6 grid gap-4">
               <label className="block text-sm font-semibold text-gray-700">
                 Returned Condition
+
                 <select
                   value={returnData.condition}
                   onChange={(event) =>
@@ -680,6 +852,7 @@ const RentalManagement = () => {
               {returnData.condition === "DAMAGED" && (
                 <label className="block text-sm font-semibold text-gray-700">
                   Damage Description
+
                   <textarea
                     value={returnData.damageDescription}
                     onChange={(event) =>
@@ -779,6 +952,7 @@ const RentalManagement = () => {
                           {rental.customer?.name ||
                             "Unknown Customer"}
                         </p>
+
                         <p className="text-sm text-gray-500">
                           {rental.customer?.email || "—"}
                         </p>
@@ -789,6 +963,7 @@ const RentalManagement = () => {
                           {rental.equipment?.name ||
                             "Unknown Equipment"}
                         </p>
+
                         <p className="text-sm text-gray-500">
                           {rental.equipment?.brand}{" "}
                           {rental.equipment?.model}
@@ -797,6 +972,7 @@ const RentalManagement = () => {
 
                       <td className="px-6 py-4 text-sm text-gray-700">
                         <p>{formatDate(rental.startDate)}</p>
+
                         <p className="text-gray-500">
                           to {formatDate(rental.endDate)}
                         </p>
@@ -831,7 +1007,6 @@ const RentalManagement = () => {
 
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
-
                           {rental.status === "PENDING" && (
                             <>
                               <button
@@ -870,7 +1045,9 @@ const RentalManagement = () => {
 
                                   <button
                                     type="button"
-                                    onClick={() => handleIssue(rental)}
+                                    onClick={() =>
+                                      handleIssue(rental)
+                                    }
                                     disabled={actionLoading !== null}
                                     className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
                                   >
@@ -882,9 +1059,11 @@ const RentalManagement = () => {
                               ) : (
                                 <>
                                   <span className="w-fit rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
-                                    {rental.invoice?.paymentStatus === "PARTIALLY_PAID"
+                                    {rental.invoice?.paymentStatus ===
+                                    "PARTIALLY_PAID"
                                       ? "Partially Paid"
-                                      : rental.invoice?.paymentStatus === "PENDING"
+                                      : rental.invoice?.paymentStatus ===
+                                          "PENDING"
                                         ? "Payment Pending"
                                         : "Payment Unavailable"}
                                   </span>
@@ -923,15 +1102,52 @@ const RentalManagement = () => {
                             <button
                               type="button"
                               onClick={() =>
-                                handleComplete(rental)
+                                openDepositSettlement(rental)
                               }
                               disabled={actionLoading !== null}
-                              className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                              className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100 disabled:opacity-50"
                             >
-                              {actionLoading === rental._id
-                                ? "Completing..."
-                                : "Complete Rental"}
+                              Manage Deposit
                             </button>
+                          )}
+
+                          {rental.status === "RETURNED" && (
+                            <div className="flex flex-col gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleComplete(rental)}
+                                disabled={
+                                  actionLoading !== null ||
+                                  rental.depositSettled !== true
+                                }
+                                title={
+                                  rental.depositSettled === true
+                                    ? "Complete this rental."
+                                    : "The invoice must be paid and the security deposit fully settled before completion."
+                                }
+                                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                                  rental.depositSettled === true
+                                    ? "bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+                                    : "cursor-not-allowed bg-gray-200 text-gray-500"
+                                }`}
+                              >
+                                {actionLoading === rental._id
+                                  ? "Completing..."
+                                  : "Complete Rental"}
+                              </button>
+
+                              {rental.depositSettled !== true && (
+                                <p className="max-w-48 text-xs text-amber-700">
+                                  {rental.depositStatus === "REFUND_PENDING"
+                                    ? "Refund payout is pending. Complete the deposit settlement first."
+                                    : rental.depositStatus === "HELD"
+                                      ? "Security deposit is still held. Complete deposit management first."
+                                      : rental.depositStatus
+                                        ? `Deposit status: ${rental.depositStatus}. Completion is unavailable.`
+                                        : "Deposit settlement is not available or has not been verified."}
+                                </p>
+                              )}
+                            </div>
                           )}
 
                           {![

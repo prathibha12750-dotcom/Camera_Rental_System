@@ -1,85 +1,138 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import api from "../../services/api";
 import { useAuth } from "../../context/useAuth";
 
+// ============================================================
+// HELPERS
+// ============================================================
+
+const formatAmount = (amount) =>
+  `LKR ${Number(amount || 0).toLocaleString("en-LK")}`;
+
+const formatDate = (date) => {
+  if (!date) return "-";
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "-";
+
+  return parsed.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getErrorMessage = (error, defaultMessage) => {
+  const status = error?.response?.status;
+
+  if (status === 401) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (status === 403) {
+    return "You do not have permission to perform this action.";
+  }
+
+  if (status === 404) {
+    return "Requested resource was not found.";
+  }
+
+  if (status === 409) {
+    return (
+      error?.response?.data?.message ||
+      "A security deposit has already been recorded."
+    );
+  }
+
+  if (status >= 500) {
+    return "Server error. Please try again later.";
+  }
+
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    defaultMessage
+  );
+};
+
+const getStatusClass = (status) => {
+  switch (String(status || "").toUpperCase()) {
+    case "HELD":
+      return "bg-yellow-100 text-yellow-800";
+
+    case "REFUND_PENDING":
+      return "bg-orange-100 text-orange-800";
+
+    case "REFUNDED":
+    case "PARTIALLY_REFUNDED":
+      return "bg-green-100 text-green-800";
+
+    case "DEDUCTED":
+      return "bg-purple-100 text-purple-800";
+
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
+};
+
+const extractDeposits = (response) => {
+  const data = response?.data?.data;
+
+  if (Array.isArray(data)) return data;
+
+  if (Array.isArray(data?.deposits)) {
+    return data.deposits;
+  }
+
+  if (Array.isArray(response?.data?.deposits)) {
+    return response.data.deposits;
+  }
+
+  throw new Error(
+    "Unexpected deposit response. Deposit recording is disabled until the existing records can be verified."
+  );
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 const Deposits = () => {
   const { user } = useAuth();
+
   const isClerk = user?.role === "CLERK";
+
   const [invoices, setInvoices] = useState([]);
   const [deposits, setDeposits] = useState([]);
+
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [loadingDeposits, setLoadingDeposits] = useState(false);
+
+  const [depositsVerified, setDepositsVerified] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
   const depositsPerPage = 8;
-  const [formData, setFormData] = useState({invoice: "",amount: "",});
 
-  // ==========================================
-  // API ERROR HANDLER
-  // ==========================================
+  const [formData, setFormData] = useState({
+    invoice: "",
+    amount: "",
+  });
 
-  const handleApiError = (error, setter, defaultMessage) => {
-    const status = error.response?.status;
+  // Request tracking prevents an older invoice response
+  // from replacing the currently selected invoice's data.
+  const depositRequestRef = useRef(0);
+  const submittingRef = useRef(false);
 
-    if (status === 401) {
-      setter("Your session has expired. Please log in again.");
-    } else if (status === 403) {
-      setter("You do not have permission to perform this action.");
-    } else if (status === 404) {
-      setter("Requested resource was not found.");
-    } else if (status === 409) {
-      setter(
-        error.response?.data?.message ||
-          "This deposit has already been recorded."
-      );
-    } else if (status >= 500) {
-      setter("Server error. Please try again later.");
-    } else {
-      setter(
-        error.response?.data?.message ||
-          defaultMessage
-      );
-    }
-  };
-
-  // ==========================================
-  // FETCH DEPOSITS
-  // ==========================================
-
-  const fetchDeposits = async (invoiceId) => {
-    if (!invoiceId) {
-      setDeposits([]);
-      return;
-    }
-
-    try {
-      setLoadingDeposits(true);
-      setError("");
-
-      const response = await api.get(
-        `/admin/deposits/invoice/${invoiceId}`
-      );
-
-      setDeposits(
-        response.data?.data?.deposits || []
-      );
-    } catch (error) {
-      handleApiError(
-        error,
-        setError,
-        "Failed to load deposit information."
-      );
-    } finally {
-      setLoadingDeposits(false);
-    }
-  };
-
-
-  // ==========================================
-  // INITIAL PAGE LOAD
-  // ==========================================
+  // ============================================================
+  // FETCH INVOICES
+  // ============================================================
 
   useEffect(() => {
     let cancelled = false;
@@ -88,37 +141,26 @@ const Deposits = () => {
       try {
         const response = await api.get("/admin/invoices");
 
-        if (!cancelled) {
-          setInvoices(
-            response.data?.data?.invoices || []
+        if (cancelled) return;
+
+        const invoiceList =
+          response.data?.data?.invoices;
+
+        if (!Array.isArray(invoiceList)) {
+          throw new Error(
+            "Unexpected invoice response format."
           );
         }
-      } catch (error) {
-        if (!cancelled) {
-          const status = error.response?.status;
 
-          if (status === 401) {
-            setError(
-              "Your session has expired. Please log in again."
-            );
-          } else if (status === 403) {
-            setError(
-              "You do not have permission to perform this action."
-            );
-          } else if (status === 404) {
-            setError(
-              "Requested resource was not found."
-            );
-          } else if (status >= 500) {
-            setError(
-              "Server error. Please try again later."
-            );
-          } else {
-            setError(
-              error.response?.data?.message ||
-                "Failed to load invoices."
-            );
-          }
+        setInvoices(invoiceList);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            getErrorMessage(
+              err,
+              "Failed to load invoices."
+            )
+          );
         }
       } finally {
         if (!cancelled) {
@@ -127,49 +169,124 @@ const Deposits = () => {
       }
     };
 
-    fetchInitialInvoices();
+    void fetchInitialInvoices();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // ============================================================
+  // FETCH DEPOSITS FOR SELECTED INVOICE
+  // ============================================================
+
+  const fetchDeposits = async (invoiceId) => {
+    const requestId = ++depositRequestRef.current;
+
+    setDeposits([]);
+    setDepositsVerified(false);
+
+    if (!invoiceId) {
+      setLoadingDeposits(false);
+      return false;
+    }
+
+    setLoadingDeposits(true);
+    setError("");
+
+    try {
+      const response = await api.get(
+        `/admin/deposits/invoice/${invoiceId}`
+      );
+
+      if (requestId !== depositRequestRef.current) {
+        return false;
+      }
+
+      const depositList = extractDeposits(response);
+
+      setDeposits(depositList);
+      setDepositsVerified(true);
+
+      return true;
+    } catch (err) {
+      if (requestId !== depositRequestRef.current) {
+        return false;
+      }
+
+      setDeposits([]);
+      setDepositsVerified(false);
+
+      setError(
+        getErrorMessage(
+          err,
+          "Failed to load deposit information."
+        )
+      );
+
+      return false;
+    } finally {
+      if (requestId === depositRequestRef.current) {
+        setLoadingDeposits(false);
+      }
+    }
+  };
+
+  // ============================================================
+  // HANDLE FORM CHANGES
+  // ============================================================
+
   const handleChange = (event) => {
     const { name, value } = event.target;
+
+    setFormMessage("");
+
+    if (name === "invoice") {
+      setFormData({
+        invoice: value,
+        amount: "",
+      });
+
+      setCurrentPage(1);
+
+      void fetchDeposits(value);
+      return;
+    }
 
     setFormData((previous) => ({
       ...previous,
       [name]: value,
     }));
-
-    setFormMessage("");
-
-    if (name === "invoice") {
-      setCurrentPage(1);
-      setFormData((previous) => ({
-        ...previous,
-        invoice: value,
-        amount: "",
-      }));
-
-      fetchDeposits(value);
-    }
   };
 
+  // ============================================================
+  // SELECTED INVOICE AND DEPOSIT CALCULATIONS
+  // ============================================================
+
   const selectedInvoice = invoices.find(
-    (invoice) => invoice._id === formData.invoice
+    (invoice) =>
+      String(invoice._id) === String(formData.invoice)
   );
 
   const requiredDeposit = Number(
     selectedInvoice?.securityDeposit || 0
   );
 
-  const heldDeposit = deposits.find(
-    (deposit) => deposit.status === "HELD"
-  );
+  // Count all existing recorded deposits, not just HELD.
+  // A deposit remains recorded when its status changes to
+  // REFUND_PENDING, REFUNDED, or another settlement status.
+  const alreadyRecordedAmount = deposits.reduce(
+    (total, deposit) => {
+      const amount = Number(deposit.amount || 0);
 
-  const alreadyRecordedAmount = Number(
-    heldDeposit?.amount || 0
+      return (
+        total +
+        (Number.isFinite(amount) && amount > 0
+          ? amount
+          : 0)
+      );
+    },
+    0
   );
 
   const remainingDeposit = Math.max(
@@ -177,27 +294,61 @@ const Deposits = () => {
     0
   );
 
+  // This system currently uses one security deposit per
+  // invoice. Conservatively block another deposit whenever
+  // any existing deposit record is found.
+  const existingDeposit = deposits.length > 0;
+
+  const canRecordDeposit =
+    Boolean(selectedInvoice) &&
+    depositsVerified &&
+    !loadingDeposits &&
+    !loadingInvoices &&
+    !submitting &&
+    !existingDeposit &&
+    requiredDeposit > 0 &&
+    remainingDeposit > 0;
+
+  // ============================================================
+  // SUBMIT NEW DEPOSIT
+  // ============================================================
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (submittingRef.current) return;
 
     setFormMessage("");
     setError("");
 
-    if (!formData.invoice) {
-      setFormMessage("Please select an invoice.");
+    if (!formData.invoice || !selectedInvoice) {
+      setFormMessage("Please select a valid invoice.");
+      return;
+    }
+
+    if (!depositsVerified || loadingDeposits) {
+      setFormMessage(
+        "Existing deposit records have not been verified. Please select the invoice again."
+      );
+      return;
+    }
+
+    if (existingDeposit) {
+      setFormMessage(
+        "A security deposit is already recorded for this invoice. Do not record another deposit, including when the existing deposit is pending refund or has been settled."
+      );
       return;
     }
 
     const amount = Number(formData.amount);
 
-    if (!formData.amount || Number.isNaN(amount)) {
-      setFormMessage("Please enter a valid deposit amount.");
-      return;
-    }
-
-    if (amount <= 0) {
+    if (
+      !formData.amount ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       setFormMessage(
-        "Deposit amount must be greater than zero."
+        "Please enter a valid deposit amount greater than zero."
       );
       return;
     }
@@ -211,72 +362,88 @@ const Deposits = () => {
       return;
     }
 
-    if (heldDeposit) {
+    if (amount > remainingDeposit) {
       setFormMessage(
-        "A security deposit has already been recorded for this invoice."
+        `Deposit cannot exceed the remaining amount of ${formatAmount(
+          remainingDeposit
+        )}.`
       );
       return;
     }
 
-    try {
-      setSubmitting(true);
+    const selectedInvoiceId = formData.invoice;
 
-      const response = await api.post("/admin/deposits", {
-        invoice: formData.invoice,
-        amount,
-      });
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      // Verify the latest records immediately before creating
+      // a deposit. This reduces the chance of duplicates.
+      const checkResponse = await api.get(
+        `/admin/deposits/invoice/${selectedInvoiceId}`
+      );
+
+      const latestDeposits =
+        extractDeposits(checkResponse);
+
+      if (latestDeposits.length > 0) {
+        if (
+          depositRequestRef.current >= 0
+        ) {
+          setDeposits(latestDeposits);
+          setDepositsVerified(true);
+        }
+
+        setFormMessage(
+          "A deposit already exists for this invoice. No new deposit was recorded."
+        );
+
+        return;
+      }
+
+      // Ensure the selected invoice has not changed.
+      // Form controls are disabled while submitting.
+      const response = await api.post(
+        "/admin/deposits",
+        {
+          invoice: selectedInvoiceId,
+          amount,
+        }
+      );
 
       setFormMessage(
         response.data?.message ||
           "Security deposit recorded successfully."
       );
 
+      // Keep the selected invoice visible and refresh its
+      // deposit history instead of clearing the page.
       setFormData({
-        invoice: "",
+        invoice: selectedInvoiceId,
         amount: "",
       });
 
-      setDeposits([]);
-    } catch (error) {
-      handleApiError(
-        error,
-        setFormMessage,
-        "Failed to record security deposit."
+      await fetchDeposits(selectedInvoiceId);
+    } catch (err) {
+      setFormMessage(
+        getErrorMessage(
+          err,
+          "Failed to record security deposit."
+        )
       );
+
+      // Refresh after any error. The server may have saved
+      // the deposit before a network error occurred.
+      await fetchDeposits(selectedInvoiceId);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
-  const formatAmount = (amount) => {
-    return `LKR ${Number(amount || 0).toLocaleString()}`;
-  };
-
-  const formatDate = (date) => {
-    if (!date) return "-";
-
-    return new Date(date).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const getStatusClass = (status) => {
-    if (status === "HELD") {
-      return "bg-yellow-100 text-yellow-700";
-    }
-
-    if (status === "REFUNDED") {
-      return "bg-green-100 text-green-700";
-    }
-
-    return "bg-gray-100 text-gray-700";
-  };
-
-  // ==========================================
-  // DEPOSIT HISTORY PAGINATION
-  // ==========================================
+  // ============================================================
+  // PAGINATION
+  // ============================================================
 
   const totalPages = Math.ceil(
     deposits.length / depositsPerPage
@@ -290,9 +457,13 @@ const Deposits = () => {
     startIndex + depositsPerPage
   );
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div className="p-6">
-      {/* Page Header */}
+      {/* PAGE HEADER */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-950">
           Security Deposit Management
@@ -305,13 +476,17 @@ const Deposits = () => {
         </p>
       </div>
 
+      {/* ERROR */}
       {error && (
-        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {error}
         </div>
       )}
 
-      {/* Record Deposit */}
+      {/* RECORD DEPOSIT */}
       <div className="mb-6 rounded-2xl bg-white shadow-sm">
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="font-semibold text-gray-950">
@@ -328,13 +503,17 @@ const Deposits = () => {
           className="p-6"
         >
           <div className="grid gap-5 md:grid-cols-2">
-            {/* Invoice */}
+            {/* INVOICE */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="deposit-invoice"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Invoice
               </label>
 
               <select
+                id="deposit-invoice"
                 name="invoice"
                 value={formData.invoice}
                 onChange={handleChange}
@@ -361,13 +540,17 @@ const Deposits = () => {
               </select>
             </div>
 
-            {/* Customer */}
+            {/* CUSTOMER */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="deposit-customer"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Customer
               </label>
 
               <input
+                id="deposit-customer"
                 type="text"
                 value={
                   selectedInvoice?.customer?.name || ""
@@ -378,13 +561,17 @@ const Deposits = () => {
               />
             </div>
 
-            {/* Required Deposit */}
+            {/* REQUIRED DEPOSIT */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="required-deposit"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Required Security Deposit
               </label>
 
               <input
+                id="required-deposit"
                 type="text"
                 value={
                   selectedInvoice
@@ -397,91 +584,160 @@ const Deposits = () => {
               />
             </div>
 
-            {/* Already Recorded */}
+            {/* ALREADY RECORDED */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="already-recorded"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Already Recorded
               </label>
 
               <input
+                id="already-recorded"
                 type="text"
                 value={
-                  selectedInvoice
+                  selectedInvoice && depositsVerified
                     ? formatAmount(alreadyRecordedAmount)
                     : ""
                 }
                 readOnly
-                placeholder="Select an invoice first"
+                placeholder={
+                  loadingDeposits
+                    ? "Checking deposits..."
+                    : "Select an invoice first"
+                }
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none"
               />
             </div>
 
-            {/* Remaining */}
+            {/* REMAINING DEPOSIT */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="remaining-deposit"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Remaining Deposit
               </label>
 
               <input
+                id="remaining-deposit"
                 type="text"
                 value={
-                  selectedInvoice
+                  selectedInvoice && depositsVerified
                     ? formatAmount(remainingDeposit)
                     : ""
                 }
                 readOnly
-                placeholder="Select an invoice first"
+                placeholder={
+                  loadingDeposits
+                    ? "Checking deposits..."
+                    : "Select an invoice first"
+                }
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-orange-600 outline-none"
               />
             </div>
 
-            {/* Deposit Amount */}
+            {/* NEW DEPOSIT AMOUNT */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="new-deposit-amount"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
                 Deposit Amount
               </label>
 
               <input
+                id="new-deposit-amount"
                 type="number"
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                disabled={!selectedInvoice || submitting}
+                disabled={!canRecordDeposit}
                 min="0.01"
                 step="0.01"
-                max={requiredDeposit || undefined}
+                max={
+                  remainingDeposit > 0
+                    ? remainingDeposit
+                    : undefined
+                }
                 placeholder="Enter deposit amount"
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
               />
             </div>
           </div>
 
+          {/* EXISTING DEPOSIT WARNING */}
+          {selectedInvoice &&
+            depositsVerified &&
+            existingDeposit && (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-900">
+                  Security deposit already recorded
+                </p>
+
+                <p className="mt-1 text-sm text-amber-800">
+                  This invoice already has a deposit
+                  record. A new deposit cannot be
+                  recorded, even if the existing
+                  deposit is being refunded or has
+                  already been settled.
+                </p>
+
+                <p className="mt-2 text-xs text-amber-700">
+                  Review the deposit history below
+                  to see its current status.
+                </p>
+              </div>
+            )}
+
+          {/* LOADING / LOOKUP FAILURE */}
+          {selectedInvoice &&
+            loadingDeposits && (
+              <p className="mt-4 text-sm text-gray-500">
+                Verifying existing security deposits...
+              </p>
+            )}
+
+          {selectedInvoice &&
+            !loadingDeposits &&
+            !depositsVerified && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Existing deposit records could not
+                be verified. Recording is disabled
+                for safety. Select the invoice again
+                to retry.
+              </div>
+            )}
+
+          {/* FORM MESSAGE */}
           {formMessage && (
-            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            <div
+              role="status"
+              className="mt-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700"
+            >
               {formMessage}
             </div>
           )}
 
+          {/* SUBMIT */}
           <div className="mt-6 flex justify-end">
             <button
               type="submit"
-              disabled={
-                submitting ||
-                loadingInvoices ||
-                !selectedInvoice ||
-                !!heldDeposit
-              }
+              disabled={!canRecordDeposit}
               className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting
                 ? "Recording..."
-                : "Record Deposit"}
+                : existingDeposit
+                  ? "Deposit Already Recorded"
+                  : "Record Deposit"}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Selected Invoice Deposit History */}
+      {/* DEPOSIT HISTORY */}
       {formData.invoice && (
         <div className="rounded-2xl bg-white shadow-sm">
           <div className="border-b border-gray-100 px-6 py-5">
@@ -500,6 +756,12 @@ const Deposits = () => {
                 Loading deposit history...
               </p>
             </div>
+          ) : !depositsVerified ? (
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm text-red-600">
+                Unable to verify deposit history.
+              </p>
+            </div>
           ) : deposits.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <p className="font-medium text-gray-700">
@@ -507,8 +769,8 @@ const Deposits = () => {
               </p>
 
               <p className="mt-1 text-sm text-gray-500">
-                No security deposit has been recorded for this
-                invoice yet.
+                No security deposit has been
+                recorded for this invoice yet.
               </p>
             </div>
           ) : (
@@ -571,26 +833,17 @@ const Deposits = () => {
                   ))}
                 </tbody>
               </table>
-              
+
+              {/* PAGINATION */}
               {totalPages > 1 && (
                 <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-gray-500">
-                    Showing{" "}
-                    <span className="font-medium text-gray-700">
-                      {startIndex + 1}
-                    </span>
-                    {" - "}
-                    <span className="font-medium text-gray-700">
-                      {Math.min(
-                        startIndex + depositsPerPage,
-                        deposits.length
-                      )}
-                    </span>
-                    {" of "}
-                    <span className="font-medium text-gray-700">
-                      {deposits.length}
-                    </span>{" "}
-                    deposits
+                  <p className="text-sm text-gray-600">
+                    Showing {startIndex + 1} -{" "}
+                    {Math.min(
+                      startIndex + depositsPerPage,
+                      deposits.length
+                    )}{" "}
+                    of {deposits.length} deposits
                   </p>
 
                   <div className="flex items-center gap-2">
@@ -608,11 +861,7 @@ const Deposits = () => {
                     </button>
 
                     <span className="px-2 text-sm text-gray-600">
-                      Page{" "}
-                      <span className="font-semibold text-gray-900">
-                        {currentPage}
-                      </span>{" "}
-                      of {totalPages}
+                      Page {currentPage} of {totalPages}
                     </span>
 
                     <button
@@ -622,7 +871,9 @@ const Deposits = () => {
                           Math.min(page + 1, totalPages)
                         )
                       }
-                      disabled={currentPage === totalPages}
+                      disabled={
+                        currentPage === totalPages
+                      }
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Next

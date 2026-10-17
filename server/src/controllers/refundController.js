@@ -1,170 +1,19 @@
+const mongoose = require("mongoose");
 const Refund = require("../models/refund");
-const Deposit = require("../models/deposit");
-const Invoice = require("../models/invoice");
 
-// =============================================
-// RECORD SECURITY DEPOSIT REFUND
+// ==========================================
+// CREATE REFUND - LEGACY ENDPOINT DISABLED
 // POST /api/admin/refunds
-// =============================================
+// ==========================================
 
-const createRefund = async(req, res, next) => {
-    try {
-        const {
-            deposit,
-            amount,
-            refundMethod,
-            notes,
-        } = req.body;
+const createRefund = async (req, res) => {
+  return res.status(409).json({
+    success: false,
+    message:
+      "Direct refund creation is disabled. Refunds must use the verified settlement workflow with separate refund preparation and payout confirmation.",
+  });
+};
 
-        // ----------------------------------------
-        // 1. Validate require fields
-        // ----------------------------------------
-
-        if(!deposit){
-            return res.status(400).json({
-                success: false,
-                message: "Deposit ID is required",
-            });
-        }
-
-        if(amount === undefined || amount === null){
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount is required",
-            });
-        }
-
-        if(amount <= 0){
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount must be greater that zero",
-            });
-        }
-
-        if(!refundMethod){
-            return res.status(400).json({
-                success: false,
-                message: "Refund method is required",
-            });
-        }
-
-        // ----------------------------------------
-        // 2. Find deposit
-        // ----------------------------------------
-
-        const existingDeposit = await Deposit.findById(deposit);
-
-        if(!existingDeposit){
-            return res.status(404).json({
-                success: false,
-                message: "Deposit not found",
-            });
-        }
-
-        // ----------------------------------------
-        // 3. Check deposit status
-        // ----------------------------------------
-
-        if(existingDeposit.status !== "HELD"){
-            return res.status(400).json({
-                success: false,
-                message: "Only HELD deposits can be refunded",
-            });
-        }
-
-        // ----------------------------------------
-        // 4. Check refund amount
-        // ----------------------------------------
-
-        const refundAmount = Number(amount);
-        const depositAmount = Number(existingDeposit.amount);
-
-        if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount must be a valid amount greater than zero",
-            });
-        }
-
-        if (refundAmount !== depositAmount) {
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount must equal the full held deposit amount",
-            });
-        }
-
-        // ----------------------------------------
-        // 5. Find Invoice
-        // ----------------------------------------
-
-        const existingInvoice = await Invoice.findById(
-            existingDeposit.invoice,
-        );
-        
-        if(!existingInvoice){
-            return res.status(404).json({
-                success: false,
-                message: "Invoice not found",
-            });
-        }
-                
-        // ==========================================
-        // RENTAL DEPOSIT SETTLEMENT PROTECTION
-        // ==========================================
-
-        // Rental deposits must use the dedicated
-        // settlement workflow so damage deductions,
-        // return checks, and refund confirmation
-        // cannot be bypassed.
-        if (existingInvoice.rental) {
-        return res.status(409).json({
-            success: false,
-            message:
-            "Rental security deposits must be processed through the rental deposit settlement workflow.",
-        });
-        }
-
-        // ----------------------------------------
-        // 6. Create refund record
-        // ----------------------------------------
-
-        const refund = await Refund.create({
-            deposit: existingDeposit._id,
-            invoice: existingInvoice._id,
-            customer: existingDeposit.customer,
-            amount,
-            refundMethod,
-            status: "COMPLETED",
-            notes,
-        });
-
-        // --------------------------------------
-        // 7. Update deposit status
-        // --------------------------------------
-
-        existingDeposit.status = "REFUNDED";
-
-        await existingDeposit.save();
-
-        
-
-        // ----------------------------------------
-        // 8. Return response
-        // ----------------------------------------
-
-        return res.status(201).json({
-            success: true,
-            message: "Security deposit refunded successfully",
-            data: {
-                refund,
-            },
-        })
-
-
-    } catch(error){
-        next(error);
-    } 
-}
 
 // ===========================================
 // GET REFUNDS FOR AN INVOICE
@@ -174,6 +23,13 @@ const createRefund = async(req, res, next) => {
 const getRefundsByInvoice = async (req, res, next) => {
     try{
         const {invoiceId} = req.params;
+        
+        if (!mongoose.isValidObjectId(invoiceId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid invoice ID",
+            });
+        }
 
         const refunds = await Refund.find({
             invoice: invoiceId,
