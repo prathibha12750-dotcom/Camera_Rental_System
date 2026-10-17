@@ -73,6 +73,9 @@ import PhotographerChangePassword from "../pages/photographer/PhotographerChange
 // ==========================================
 
 import AdminHome from "../pages/admin/AdminHome";
+ //added by abilash
+import AdminProfile from "../pages/admin/AdminProfile";
+//ended by abilash
 import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
 
 import Users from "../pages/admin/Users";
@@ -491,6 +494,16 @@ const AppRoutes = () => {
                     <AdminHome />
                   }
                 />
+
+                
+                {/* added by abilash */}
+                {/* FR-169: Admin My Profile */}
+                <Route
+                  path="/admin/profile"
+                  element={<AdminProfile />}
+                />
+                {/* ended by abilash */}
+
 
 
                 {/* User Management */}

@@ -389,6 +389,108 @@ const changeTemporaryPassword =
     }
   };
 
+  
+//added by abilash
+// FR-169: Update the authenticated user's basic profile
+const updateMyProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+
+    if (
+      typeof name !== "string" ||
+      typeof email !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and email are required.",
+      });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (
+      normalizedName.length < 2 ||
+      normalizedName.length > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must contain 2 to 100 characters.",
+      });
+    }
+
+    if (
+      normalizedEmail.length > 150 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email address.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User account not found.",
+      });
+    }
+
+    if (user.role !== "STAFF_ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "This profile update is restricted to staff administrators.",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+      _id: { $ne: user._id },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "This email address is already in use.",
+      });
+    }
+
+    user.name = normalizedName;
+    user.email = normalizedEmail;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          mustChangePassword: user.mustChangePassword,
+        },
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "This email address is already in use.",
+      });
+    }
+
+    next(error);
+  }
+};
+//ended by abilash
+
+
+
 
 module.exports = {
   register,
@@ -396,4 +498,7 @@ module.exports = {
   logout,
   getCurrentUser,
   changeTemporaryPassword,
+  //added by abilash
+  updateMyProfile,
+  //ended by abilash
 };
