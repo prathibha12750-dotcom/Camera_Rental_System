@@ -106,7 +106,7 @@ const AdminHome = () => {
     {
       title: "Upcoming Bookings",
       value: formatNumber(
-        stats?.upcomingPhotographerBokings
+        stats?.upcomingPhotographerBookings
       ),
     },
     {
