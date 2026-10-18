@@ -7,6 +7,12 @@ const PhotographerNotification = require("../models/photographerNotification");
 //ended by abilash
 
 
+ //added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
+
 // ==========================================
 // RECORD SECURITY DEPOSIT
 // POST /api/amin/deposits
@@ -143,6 +149,19 @@ const createDeposit = async (req, res, next) => {
 
         //ended by abilash
 
+
+        //added by abilash
+        // FR-085: Record successful security deposit activity
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: req.user.role || "STAFF_ADMIN",
+            action: "DEPOSIT_RECORDED",
+            entityType: "Deposit",
+            entityId: deposit._id,
+            outcome: "SUCCESS",
+            message: `Security deposit recorded for invoice ${existingInvoice.invoiceNumber}`,
+        });
+        //ended by abilash
 
         
         //--------------------------------------

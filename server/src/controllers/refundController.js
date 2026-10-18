@@ -2,9 +2,16 @@ const Refund = require("../models/refund");
 const Deposit = require("../models/deposit");
 const Invoice = require("../models/invoice");
 
+//added by abilash
+const PhotographerNotification = require("../models/photographerNotification");
+//ended by abilash
+
+
  //added by abilash
-  const PhotographerNotification = require("../models/photographerNotification");
- //ended by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
 
 
 // =============================================
@@ -151,8 +158,19 @@ const createRefund = async(req, res, next) => {
         //ended by abilash
 
 
+        //added by abilash
+        // FR-085: Record successful refund activity
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: req.user.role || "STAFF_ADMIN",
+            action: "REFUND_RECORDED",
+            entityType: "Refund",
+            entityId: refund._id,
+            outcome: "SUCCESS",
+            message: `Security deposit refund recorded for invoice ${existingInvoice.invoiceNumber}`,
+        });
+        //ended by abilash
 
-        
 
         // ----------------------------------------
         // 8. Return response

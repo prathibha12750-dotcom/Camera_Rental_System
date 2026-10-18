@@ -10,6 +10,12 @@ const Notification = require("../models/notification");
  //added by abilash
  const BillingReceipt = require("../models/billingReceipt");
  //ended by abilash
+ 
+//added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
 
 
 
@@ -212,6 +218,19 @@ const createPayment = async (req, res, next) => {
         //ended by abilash
 
         
+        //added by abilash
+        // FR-085: Record the successful payment activity
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: "STAFF_ADMIN",
+            action: "PAYMENT_CREATED",
+            entityType: "Payment",
+            entityId: payment._id,
+            outcome: "SUCCESS",
+            message: `Payment recorded for invoice ${existingInvoice.invoiceNumber}`,
+        });
+        //ended by abilash
+
 
         //----------------------------------------
         // 7. Return response

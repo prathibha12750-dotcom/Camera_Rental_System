@@ -13,7 +13,12 @@ const AdminLayout = () => {
     { name: "Deposits", path: "/admin/deposits" },
     { name: "Refunds", path: "/admin/refunds" },
     { name: "Reports", path: "/admin/reports" },
+    //added by abilash
+    // FR-085: System activity monitoring navigation
+    { name: "System Activity Logs", path: "/admin/activity-logs" },
+    //ended by abilash
     { name: "Notifications", path: "/admin/notifications" },
+
   ];
 
   return (

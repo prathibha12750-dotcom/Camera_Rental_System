@@ -1,6 +1,12 @@
 const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
+
+//added by abilash
+// FR-085: Record account-related system activities
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
 const { generateToken } = require("../utils/jwt");
 const {
   validateRegistration,
@@ -131,6 +137,21 @@ const login = async (req, res, next) => {
 
     const token = generateToken(user);
 
+    
+    //added by abilash
+    // FR-085: Record successful user login
+    await logActivity({
+      actor: user._id,
+      actorRole: user.role,
+      action: "USER_LOGIN",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "SUCCESS",
+      message: "User logged in successfully.",
+    });
+    //ended by abilash
+
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -168,6 +189,19 @@ const logout = async (req, res, next) => {
       A more advanced token revocation/refresh-token system
       can be added later if required.
     */
+    
+    //added by abilash
+    // FR-085: Record authenticated logout request
+    await logActivity({
+      actor: req.user.userId,
+      actorRole: req.user.role || "SYSTEM",
+      action: "USER_LOGOUT",
+      entityType: "User",
+      entityId: req.user.userId,
+      outcome: "SUCCESS",
+      message: "User requested logout successfully.",
+    });
+    //ended by abilash
 
     return res.status(200).json({
       success: true,
@@ -361,6 +395,21 @@ const changeTemporaryPassword =
 
       await user.save();
 
+      
+      //added by abilash
+      // FR-085: Audit successful temporary password changes
+      await logActivity({
+        actor: user._id,
+        actorRole: user.role,
+        action: "PASSWORD_CHANGED",
+        entityType: "User",
+        entityId: user._id,
+        outcome: "SUCCESS",
+        message: "User successfully changed their temporary password.",
+      });
+      //ended by abilash
+
+
 
       // ======================================
       // RETURN UPDATED USER
@@ -461,6 +510,21 @@ const updateMyProfile = async (req, res, next) => {
     user.email = normalizedEmail;
 
     await user.save();
+
+    
+    //added by abilash
+    // FR-085: Audit successful Admin profile updates
+    await logActivity({
+      actor: user._id,
+      actorRole: user.role,
+      action: "ADMIN_PROFILE_UPDATED",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "SUCCESS",
+      message: "Administrator updated their basic profile.",
+    });
+    //ended by abilash
+
 
     return res.status(200).json({
       success: true,

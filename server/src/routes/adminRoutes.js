@@ -9,6 +9,14 @@ const {
 } = require("../controllers/adminController");
 
 
+//added by abilash
+// FR-085: System activity monitoring
+const {
+  getActivityLogs,
+} = require("../controllers/auditLogController");
+//ended by abilash
+
+
 // imports by Abilash starts here
 
 const {
@@ -400,6 +408,18 @@ router.patch(
   ),
   reviewPhotographerApplication
 );
+
+
+//added by abilash
+// FR-085: Admin can monitor system activities
+router.get(
+  "/activity-logs",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getActivityLogs
+);
+//ended by abilash
+
 
 
 module.exports = router;

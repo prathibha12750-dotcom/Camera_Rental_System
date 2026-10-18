@@ -73,6 +73,11 @@ import PhotographerChangePassword from "../pages/photographer/PhotographerChange
 // ==========================================
 
 import AdminHome from "../pages/admin/AdminHome";
+
+ //added by abilash
+import ActivityLogs from "../pages/admin/ActivityLogs";
+//ended by abilash
+
  //added by abilash
 import AdminProfile from "../pages/admin/AdminProfile";
 //ended by abilash
@@ -494,6 +499,16 @@ const AppRoutes = () => {
                     <AdminHome />
                   }
                 />
+
+                
+                {/* added by abilash */}
+                {/* FR-085: Admin System Activity Monitoring */}
+                <Route
+                  path="/admin/activity-logs"
+                  element={<ActivityLogs />}
+                />
+                {/* ended by abilash */}
+
 
                 
                 {/* added by abilash */}
