@@ -79,13 +79,26 @@ export const getAllDamageRecords = async () => {
   return response.data;
 };
 
+// ==========================================
+// UPDATE DAMAGE STATUS AND REPAIR COST
+// CLERK / STAFF ADMIN
+// ==========================================
+
 export const updateDamageRecordStatus = async (
   damageRecordId,
-  status
+  status,
+  repairCost
 ) => {
+  const payload = { status };
+
+  // Include repair cost only when explicitly provided.
+  if (repairCost !== undefined) {
+    payload.repairCost = repairCost;
+  }
+
   const response = await api.patch(
     `/rentals/damage-records/${damageRecordId}/status`,
-    { status }
+    payload
   );
 
   return response.data;

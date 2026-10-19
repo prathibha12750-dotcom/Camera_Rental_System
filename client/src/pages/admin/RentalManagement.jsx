@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/useAuth";
+import { useSearchParams } from "react-router-dom";
 
 import {
   getAllRentals,
@@ -20,11 +21,20 @@ const RentalManagement = () => {
   const { user } = useAuth();
   const isClerk = user?.role === "CLERK";
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const settlementRentalId = searchParams.get("settleRental");
+
   // ==========================================
   // STATE
   // ==========================================
 
   const [rentals, setRentals] = useState([]);
+    
+  const [detailsRental, setDetailsRental] = useState(null);
+  const [detailsDamageRecords, setDetailsDamageRecords] = useState([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -76,36 +86,112 @@ const RentalManagement = () => {
   // INITIAL LOAD
   // ==========================================
 
-  useEffect(() => {
-    let cancelled = false;
+useEffect(() => {
+  let cancelled = false;
 
-    const fetchInitialRentals = async () => {
-      try {
-        const result = await getAllRentals();
+  const fetchInitialRentals = async () => {
+    try {
+      const result = await getAllRentals();
 
-        if (!cancelled) {
-          setRentals(result?.data?.rentals || []);
-        }
-      } catch (err) {
-        if (!cancelled) {
+      if (cancelled) return;
+
+      const loadedRentals = result?.data?.rentals || [];
+
+      setRentals(loadedRentals);
+
+      // Open the requested rental's deposit settlement
+      // when navigating from Refund Management.
+      if (settlementRentalId) {
+        const rental = loadedRentals.find(
+          (item) =>
+            String(item._id) === String(settlementRentalId)
+        );
+
+        if (!rental) {
           setError(
-            err.response?.data?.message ||
-              "Failed to load rentals."
+            "The requested rental could not be found."
           );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+        } else if (rental.status !== "RETURNED") {
+          setError(
+            "Deposit settlement is available only for returned rentals."
+          );
+        } else {
+          setSelectedDepositRental(rental);
+          setDepositDamageRecords([]);
+          setDepositError("");
+          setDepositLoading(true);
+
+          try {
+            const damageResult = await getAllDamageRecords();
+
+            if (!cancelled) {
+              const allRecords =
+                damageResult?.data?.damageRecords || [];
+
+              const matchingRecords = allRecords.filter(
+                (record) => {
+                  const recordRentalId =
+                    typeof record.rental === "object"
+                      ? record.rental?._id
+                      : record.rental;
+
+                  return (
+                    String(recordRentalId) ===
+                    String(rental._id)
+                  );
+                }
+              );
+
+              setDepositDamageRecords(matchingRecords);
+            }
+          } catch (damageError) {
+            if (!cancelled) {
+              setDepositError(
+                damageError.response?.data?.message ||
+                  "Failed to load damage records."
+              );
+            }
+          } finally {
+            if (!cancelled) {
+              setDepositLoading(false);
+            }
+          }
+
+          if (!cancelled) {
+            setSearchParams(
+              (previous) => {
+                const next = new URLSearchParams(previous);
+                next.delete("settleRental");
+                return next;
+              },
+              { replace: true }
+            );
+          }
         }
       }
-    };
+    } catch (err) {
+      if (!cancelled) {
+        setError(
+          err.response?.data?.message ||
+            "Failed to load rentals."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  };
 
-    void fetchInitialRentals();
+  void fetchInitialRentals();
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  return () => {
+    cancelled = true;
+  };
+
+  // Run on initial page load for the navigation request.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   // ==========================================
   // LOAD / REFRESH RENTALS
@@ -452,6 +538,59 @@ const RentalManagement = () => {
     setDepositError("");
   };
 
+
+const openRentalDetails = async (rental) => {
+  setDetailsRental(rental);
+  setDetailsDamageRecords([]);
+  setDetailsError("");
+  setDetailsLoading(true);
+
+  try {
+    const result = await getAllDamageRecords();
+    const records = result?.data?.damageRecords || [];
+
+    const matchingRecords = records.filter((record) => {
+      const rentalId =
+        typeof record.rental === "object"
+          ? record.rental?._id
+          : record.rental;
+
+      return String(rentalId) === String(rental._id);
+    });
+
+    setDetailsDamageRecords(matchingRecords);
+  } catch (err) {
+    setDetailsError(
+      err.response?.data?.message ||
+        "Unable to load damage records."
+    );
+  } finally {
+    setDetailsLoading(false);
+  }
+};
+
+const formatMoney = (amount) => {
+  if (amount === null || amount === undefined) {
+    return "Not available";
+  }
+
+  return `LKR ${Number(amount).toLocaleString("en-LK")}`;
+};
+
+const detailsField = (label, value) => (
+  <div className="rounded-xl bg-gray-50 p-3">
+    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      {label}
+    </p>
+    <p className="mt-1 break-words text-sm font-semibold text-gray-900">
+      {value === null || value === undefined || value === ""
+        ? "Not available"
+        : String(value)}
+    </p>
+  </div>
+);
+
+
   // ==========================================
   // RETURN EQUIPMENT
   // ==========================================
@@ -548,6 +687,253 @@ const RentalManagement = () => {
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
       <div className="mx-auto max-w-7xl">
+
+    {/* RENTAL DETAILS MODAL */}
+    {detailsRental && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rental Details"
+          className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+          <div className="flex items-start justify-between border-b border-gray-200 p-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                Rental Information
+              </p>
+
+              <h2 className="mt-1 text-2xl font-bold text-gray-950">
+                {detailsRental.equipment?.name || "Rental Details"}
+              </h2>
+
+              <p className="mt-2 break-all text-xs text-gray-500">
+                Rental ID: {detailsRental._id}
+              </p>
+
+              <span
+                className={`mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold ${getRentalStatusClass(
+                  detailsRental.status
+                )}`}
+              >
+                {detailsRental.status}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDetailsRental(null)}
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              aria-label="Close rental details"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-7 overflow-y-auto p-6">
+            {/* CUSTOMER INFORMATION */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Customer Information
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailsField("Customer Name", detailsRental.customer?.name)}
+                {detailsField("Email", detailsRental.customer?.email)}
+                {detailsField("Phone", detailsRental.customer?.phone)}
+                {detailsField(
+                  "Customer ID",
+                  detailsRental.customer?._id ||
+                    (typeof detailsRental.customer === "string"
+                      ? detailsRental.customer
+                      : null)
+                )}
+              </div>
+            </section>
+
+            {/* EQUIPMENT INFORMATION */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Equipment Information
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailsField("Equipment", detailsRental.equipment?.name)}
+                {detailsField("Brand", detailsRental.equipment?.brand)}
+                {detailsField("Model", detailsRental.equipment?.model)}
+                {detailsField(
+                  "Serial Number",
+                  detailsRental.equipment?.serialNumber
+                )}
+              </div>
+            </section>
+
+            {/* RENTAL INFORMATION */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Rental Information
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailsField("Rental Status", detailsRental.status)}
+                {detailsField(
+                  "Rental Charge",
+                  formatMoney(detailsRental.totalPrice)
+                )}
+                {detailsField(
+                  "Start Date",
+                  formatDate(detailsRental.startDate)
+                )}
+                {detailsField(
+                  "End Date",
+                  formatDate(detailsRental.endDate)
+                )}
+                {detailsField(
+                  "Requested Date",
+                  formatDate(detailsRental.createdAt)
+                )}
+                {detailsField(
+                  "Approved Date",
+                  formatDate(detailsRental.approvedAt)
+                )}
+                {detailsField(
+                  "Issued Date",
+                  formatDate(detailsRental.issuedAt)
+                )}
+                {detailsField(
+                  "Returned Date",
+                  formatDate(detailsRental.returnedAt)
+                )}
+                {detailsField(
+                  "Last Updated",
+                  formatDate(detailsRental.updatedAt)
+                )}
+              </div>
+            </section>
+
+            {/* INVOICE AND DEPOSIT */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Invoice and Deposit Settlement
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailsField(
+                  "Invoice Number",
+                  detailsRental.invoice?.invoiceNumber ||
+                    detailsRental.invoice?.invoiceNo ||
+                    detailsRental.invoice?.invoiceId
+                )}
+
+                {detailsField(
+                  "Payment Status",
+                  detailsRental.invoice?.paymentStatus
+                )}
+
+                {detailsField(
+                  "Invoice Amount",
+                  formatMoney(detailsRental.invoice?.totalAmount)
+                )}
+
+                {detailsField(
+                  "Deposit Status",
+                  detailsRental.depositStatus
+                )}
+
+                {detailsField(
+                  "Deposit Settlement Verified",
+                  detailsRental.depositSettled === true
+                    ? "Yes"
+                    : detailsRental.depositSettled === false
+                      ? "No"
+                      : "Not available"
+                )}
+
+                {detailsField(
+                  "Security Deposit",
+                  formatMoney(
+                    detailsRental.deposit?.amount ??
+                      detailsRental.depositAmount
+                  )
+                )}
+
+                {detailsField(
+                  "Damage Deductions",
+                  formatMoney(detailsRental.deposit?.deductedAmount)
+                )}
+
+                {detailsField(
+                  "Refunded Amount",
+                  formatMoney(detailsRental.deposit?.refundedAmount)
+                )}
+              </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Detailed payout references and refund transactions will
+                require additional backend data if they are not included
+                in the rental response.
+              </p>
+            </section>
+
+            {/* DAMAGE RECORDS */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Damage and Return Records
+              </h3>
+
+              {detailsLoading ? (
+                <p className="text-sm text-gray-500">
+                  Loading damage records...
+                </p>
+              ) : detailsError ? (
+                <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                  {detailsError}
+                </p>
+              ) : detailsDamageRecords.length === 0 ? (
+                <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+                  No damage records found for this rental.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {detailsDamageRecords.map((record, index) => (
+                    <div
+                      key={record._id || index}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {detailsField(
+                          "Description",
+                          record.damageDescription || record.description
+                        )}
+                        {detailsField("Status", record.status)}
+                        {detailsField(
+                          "Repair Cost",
+                          formatMoney(record.repairCost)
+                        )}
+                        {detailsField(
+                          "Approved Deduction",
+                          formatMoney(record.approvedDeductionAmount)
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="flex justify-end border-t border-gray-200 p-5">
+            <button
+              type="button"
+              onClick={() => setDetailsRental(null)}
+              className="rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              Done
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
 
         {/* DEPOSIT MANAGEMENT PANEL */}
 
@@ -1005,8 +1391,17 @@ const RentalManagement = () => {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-2">
+                        <td className="px-6 py-4 align-middle">
+                          <div className="flex w-44 flex-col items-stretch gap-2">                     
+                          
+                          <button
+                            type="button"
+                            onClick={() => openRentalDetails(rental)}
+                            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                          >
+                            View Details
+                          </button>
+
                           {rental.status === "PENDING" && (
                             <>
                               <button
@@ -1150,16 +1545,6 @@ const RentalManagement = () => {
                             </div>
                           )}
 
-                          {![
-                            "PENDING",
-                            "CONFIRMED",
-                            "ACTIVE",
-                            "RETURNED",
-                          ].includes(rental.status) && (
-                            <span className="text-sm text-gray-400">
-                              —
-                            </span>
-                          )}
                         </div>
                       </td>
                     </tr>

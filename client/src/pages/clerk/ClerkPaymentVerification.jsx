@@ -200,7 +200,15 @@ const handleViewReceipt = async (paymentId) => {
 
 const handleApprovePayment = async (paymentId) => {
   const confirmed = window.confirm(
-    "Are you sure you want to approve this rental payment? Please verify the receipt and bank transfer details before continuing."
+    "PAYMENT VERIFICATION CONFIRMATION\n\n" +
+    "Before approving, confirm that:\n\n" +
+    "1. You have reviewed the uploaded payment receipt.\n" +
+    "2. You have independently verified the bank transaction.\n" +
+    "3. The correct payment amount has actually been received.\n" +
+    "4. The payment reference matches the transaction.\n\n" +
+    "Approving this payment will update the invoice payment status " +
+    "and may automatically record the security deposit as HELD.\n\n" +
+    "Have you verified that the funds were actually received?"
   );
 
   if (!confirmed) {

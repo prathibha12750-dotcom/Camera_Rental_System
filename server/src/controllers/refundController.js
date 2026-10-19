@@ -84,8 +84,51 @@ const getRefundById = async (req, res, next) => {
     }
 }
 
+// ==========================================
+// GET MY REFUNDS
+// CUSTOMER ONLY - READ ONLY
+// GET /api/customer/refunds
+// ==========================================
+
+const getMyRefunds = async (req, res, next) => {
+  try {
+    const customerId = req.user.userId;
+
+    const refunds = await Refund.find({
+      customer: customerId,
+    })
+      .populate(
+        "invoice",
+        "invoiceNumber rental securityDeposit"
+      )
+      .populate(
+        "deposit",
+        "amount status depositDate"
+      )
+      .select(
+        "deposit invoice customer amount refundMethod " +
+        "status notes refundDate confirmedAt " +
+        "payoutReference createdAt updatedAt"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer refunds retrieved successfully",
+      data: {
+        refunds,
+        count: refunds.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
     createRefund,
     getRefundById,
-    getRefundsByInvoice
+    getRefundsByInvoice,
+    getMyRefunds,
 };

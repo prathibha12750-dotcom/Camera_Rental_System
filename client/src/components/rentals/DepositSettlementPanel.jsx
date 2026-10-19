@@ -55,7 +55,9 @@ export default function DepositSettlementPanel({
   onUpdated,
 }) {
   const { user } = useAuth();
-  const isAdmin = user?.role === "STAFF_ADMIN";
+  const canReviewDeductions =
+    user?.role === "CLERK" ||
+    user?.role === "STAFF_ADMIN";
 
   const [preview, setPreview] = useState(null);
   const [previewRentalId, setPreviewRentalId] = useState(null);
@@ -410,11 +412,11 @@ export default function DepositSettlementPanel({
   // ============================================================
 
   const handleDeductionReview = async (damage, decision) => {
-    if (!previewIsCurrent || busyRef.current) {
-      setError(
-        "Settlement information is not ready. Refresh before continuing."
-      );
-      return;
+    if (busyRef.current || !rentalId) {
+    setError(
+        "The rental information is not ready. Please try again."
+    );
+    return;
     }
 
     const damageId = getId(damage);
@@ -457,12 +459,25 @@ export default function DepositSettlementPanel({
       return;
     }
 
+    // ==========================================
+    // CONFIRM DAMAGE DEDUCTION DECISION
+    // ==========================================
+
+    const confirmationMessage =
+    decision === "APPROVED"
+        ? `Approve a security deposit deduction of ${formatMoney(amount)} for this damage record?\n\nThis will record an approved deduction, but will not immediately pay or refund any money.`
+        : "Reject the proposed damage deduction?\n\nNo amount will be deducted from the customer's security deposit for this damage record.";
+
+    if (!window.confirm(confirmationMessage)) {
+    return;
+    }
+
     await performAction(() =>
-      reviewDamageDeduction(damageId, {
+    reviewDamageDeduction(damageId, {
         decision,
         approvedDeductionAmount: amount,
-      })
-    );
+    })
+);
   };
 
   // ============================================================
@@ -655,11 +670,23 @@ export default function DepositSettlementPanel({
     );
   }
 
-  const pendingDamages = damageRecords.filter(
-    (damage) =>
-      (damage.deductionApprovalStatus || "PENDING") ===
-      "PENDING"
-  );
+    // ==========================================
+    // PENDING DAMAGE DEDUCTIONS
+    // CURRENT RENTAL ONLY
+    // ==========================================
+
+    const pendingDamages = damageRecords.filter((damage) => {
+    const damageRentalId = getId(damage.rental);
+
+    const belongsToCurrentRental =
+        String(damageRentalId) === String(rentalId);
+
+    const isPending =
+        (damage.deductionApprovalStatus || "PENDING") ===
+        "PENDING";
+
+    return belongsToCurrentRental && isPending;
+    });
 
   const refundAmount = Number(
     previewIsCurrent ? preview?.refundableAmount || 0 : 0
@@ -764,7 +791,7 @@ export default function DepositSettlementPanel({
       </p>
 
       {/* DAMAGE DEDUCTION REVIEW */}
-      {isAdmin && (
+      {canReviewDeductions && (
         <div className="space-y-3 border-t pt-4">
           <h3 className="font-semibold text-gray-900">
             Damage Deduction Review
@@ -834,10 +861,10 @@ export default function DepositSettlementPanel({
                       <button
                         type="button"
                         disabled={
-                          busy ||
-                          !previewIsCurrent ||
-                          damage.status !== "RESOLVED" ||
-                          !id
+                        busy ||
+                        loading ||
+                        damage.status !== "RESOLVED" ||
+                        !id
                         }
                         onClick={() =>
                           handleDeductionReview(
@@ -853,10 +880,10 @@ export default function DepositSettlementPanel({
                       <button
                         type="button"
                         disabled={
-                          busy ||
-                          !previewIsCurrent ||
-                          damage.status !== "RESOLVED" ||
-                          !id
+                        busy ||
+                        loading ||
+                        damage.status !== "RESOLVED" ||
+                        !id
                         }
                         onClick={() =>
                           handleDeductionReview(

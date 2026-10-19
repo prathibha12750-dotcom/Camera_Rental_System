@@ -221,6 +221,13 @@ const AdminHome = () => {
               route: "/admin/rentals",
               icon: "R",
             },
+            {
+              title: "Payment Verification",
+              description:
+                "Review customer rental payment receipts, verify bank transfers, and approve or reject submitted payments.",
+              route: "/admin/payment-verification",
+              icon: "PV",
+            },
           ].map((item) => (
             <button
               key={item.title}

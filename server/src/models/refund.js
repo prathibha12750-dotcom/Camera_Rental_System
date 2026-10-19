@@ -35,7 +35,8 @@ const refundSchema = new mongoose.Schema(
         status: {
             type: String,
             enum: ["PENDING", "COMPLETED"],
-            default: "COMPLETED",
+            default: "PENDING",
+            required: true,
         },
 
         notes: {
@@ -44,10 +45,9 @@ const refundSchema = new mongoose.Schema(
             default: "",
         },
 
-        // Date associated with the refund record.
         refundDate: {
             type: Date,
-            default: Date.now,
+            default: null,
         },
 
         // ==========================================

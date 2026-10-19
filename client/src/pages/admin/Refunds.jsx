@@ -1,101 +1,88 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { useAuth } from "../../context/useAuth";
 
+const REFUNDS_PER_PAGE = 8;
+
+const getList = (response, key) => {
+  const data = response?.data?.data;
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.[key])) return data[key];
+
+  return [];
+};
+
+const formatAmount = (value) =>
+  `LKR ${Number(value || 0).toLocaleString("en-LK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getStatusStyles = (status) => {
+  switch (String(status || "").toUpperCase()) {
+    case "COMPLETED":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    case "PENDING":
+      return "bg-amber-50 text-amber-700 ring-amber-200";
+    case "REJECTED":
+    case "CANCELLED":
+    case "FAILED":
+      return "bg-red-50 text-red-700 ring-red-200";
+    default:
+      return "bg-slate-100 text-slate-700 ring-slate-200";
+  }
+};
+
 const Refunds = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [invoices, setInvoices] = useState([]);
-  const [deposits, setDeposits] = useState([]);
+  const [selectedInvoice, setSelectedInvoice] = useState("");
   const [refunds, setRefunds] = useState([]);
 
-  const [selectedInvoice, setSelectedInvoice] = useState("");
-  const [selectedDeposit, setSelectedDeposit] = useState("");
-
-  const [amount, setAmount] = useState("");
-  const [refundMethod, setRefundMethod] = useState("CASH");
-  const [notes, setNotes] = useState("");
-
   const [loadingInvoices, setLoadingInvoices] = useState(true);
-  const [loadingDeposits, setLoadingDeposits] = useState(false);
   const [loadingRefunds, setLoadingRefunds] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [invoiceError, setInvoiceError] = useState("");
+  const [refundError, setRefundError] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const refundsPerPage = 8;
 
-  const { user } = useAuth();
   const isClerk = user?.role === "CLERK";
+  const isAdmin = user?.role === "STAFF_ADMIN";
+
+  const selectedInvoiceData = useMemo(
+    () =>
+      invoices.find(
+        (invoice) => String(invoice._id) === selectedInvoice
+      ),
+    [invoices, selectedInvoice]
+  );
+
+  const customer = selectedInvoiceData?.customer;
 
   // ==========================================
-  // FETCH DEPOSITS FOR SELECTED INVOICE
+  // LOAD INVOICES
   // ==========================================
 
-  const fetchDeposits = async (invoiceId) => {
-    if (!invoiceId) {
-      setDeposits([]);
-      setSelectedDeposit("");
-      return;
-    }
-
-    try {
-      setLoadingDeposits(true);
-      setError("");
-
-      const response = await api.get(
-        `/admin/deposits/invoice/${invoiceId}`
-      );
-
-      setDeposits(response.data?.data?.deposits || []);
-      setSelectedDeposit("");
-      setAmount("");
-    } catch (error) {
-      setDeposits([]);
-      setSelectedDeposit("");
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load deposits for this invoice."
-      );
-    } finally {
-      setLoadingDeposits(false);
-    }
-  };
-
-  // ==========================================
-  // FETCH REFUNDS FOR SELECTED INVOICE
-  // ==========================================
-
-  const fetchRefunds = async (invoiceId) => {
-    if (!invoiceId) {
-      setRefunds([]);
-      return;
-    }
-
-    try {
-      setLoadingRefunds(true);
-
-      const response = await api.get(
-        `/admin/refunds/invoice/${invoiceId}`
-      );
-
-      setRefunds(response.data?.data?.refunds || []);
-    } catch (error) {
-      setRefunds([]);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load refund history."
-      );
-    } finally {
-      setLoadingRefunds(false);
-    }
-  };
-
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
   useEffect(() => {
     let cancelled = false;
 
@@ -104,15 +91,14 @@ const Refunds = () => {
         const response = await api.get("/admin/invoices");
 
         if (!cancelled) {
-          setInvoices(
-            response.data?.data?.invoices || []
-          );
+          setInvoices(getList(response, "invoices"));
+          setInvoiceError("");
         }
       } catch (error) {
         if (!cancelled) {
-          setError(
+          setInvoiceError(
             error.response?.data?.message ||
-              "Failed to load invoices. Please try again."
+              "Failed to load invoices."
           );
         }
       } finally {
@@ -130,261 +116,262 @@ const Refunds = () => {
   }, []);
 
   // ==========================================
+  // LOAD REFUNDS FOR SELECTED INVOICE
+  // ==========================================
+
+  useEffect(() => {
+    if (!selectedInvoice) return;
+
+    let cancelled = false;
+
+    const loadRefunds = async () => {
+      try {
+        const response = await api.get(
+          `/admin/refunds/invoice/${selectedInvoice}`
+        );
+
+        if (!cancelled) {
+          setRefunds(getList(response, "refunds"));
+          setRefundError("");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRefunds([]);
+          setRefundError(
+            error.response?.data?.message ||
+              "Failed to load refund history."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingRefunds(false);
+        }
+      }
+    };
+
+    loadRefunds();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedInvoice]);
+
+  // ==========================================
   // HANDLE INVOICE CHANGE
   // ==========================================
 
-  const handleInvoiceChange = async (event) => {
+  const handleInvoiceChange = (event) => {
     const invoiceId = event.target.value;
 
-    setCurrentPage(1);
     setSelectedInvoice(invoiceId);
-    setSuccess("");
-    setError("");
-
-    await fetchDeposits(invoiceId);
-    await fetchRefunds(invoiceId);
+    setRefunds([]);
+    setRefundError("");
+    setCurrentPage(1);
+    setLoadingRefunds(Boolean(invoiceId));
   };
 
   // ==========================================
-  // SELECTED INVOICE
+  // REFUND SUMMARY
   // ==========================================
 
-  const selectedInvoiceData = invoices.find(
-    (invoice) => invoice._id === selectedInvoice
-  );
+  const summary = useMemo(() => {
+    return refunds.reduce(
+      (acc, refund) => {
+        const status = String(
+          refund.status || ""
+        ).toUpperCase();
 
-  // ==========================================
-  // SELECTED DEPOSIT
-  // ==========================================
+        const amount = Number(refund.amount || 0);
 
-  const selectedDepositData = deposits.find(
-    (deposit) => deposit._id === selectedDeposit
-  );
+        if (status === "PENDING") {
+          acc.pendingCount += 1;
+          acc.pendingAmount += amount;
+        }
 
-  // ==========================================
-  // CUSTOMER
-  // ==========================================
+        if (status === "COMPLETED") {
+          acc.completedCount += 1;
+          acc.completedAmount += amount;
+        }
 
-  const customer = selectedInvoiceData?.customer;
-
-  // ==========================================
-  // FORM SUBMIT
-  // ==========================================
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    // ----------------------------------------
-    // Frontend validation
-    // ----------------------------------------
-
-    if (!selectedInvoice) {
-      setError("Please select an invoice.");
-      return;
-    }
-
-    if (!selectedDeposit) {
-      setError("Please select a deposit.");
-      return;
-    }
-
-    if (!amount) {
-      setError("Please enter the refund amount.");
-      return;
-    }
-
-    const refundAmount = Number(amount);
-
-    if (refundAmount <= 0) {
-      setError("Refund amount must be greater than zero.");
-      return;
-    }
-
-    if (
-      selectedDepositData &&
-      refundAmount > selectedDepositData.amount
-    ) {
-      setError(
-        "Refund amount cannot exceed the deposit amount."
-      );
-      return;
-    }
-
-    if (!refundMethod) {
-      setError("Please select a refund method.");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      await api.post("/admin/refunds", {
-        deposit: selectedDeposit,
-        amount: refundAmount,
-        refundMethod,
-        notes: notes.trim(),
-      });
-
-      setSuccess("Security deposit refunded successfully.");
-
-      setAmount("");
-      setNotes("");
-
-      // Refresh deposits and refund history
-      await fetchDeposits(selectedInvoice);
-      await fetchRefunds(selectedInvoice);
-    } catch (error) {
-      const status = error.response?.status;
-
-      if (status === 400) {
-        setError(
-          error.response?.data?.message ||
-            "Invalid refund details."
-        );
-      } else if (status === 404) {
-        setError(
-          error.response?.data?.message ||
-            "Deposit or invoice not found."
-        );
-      } else if (status === 401) {
-        setError("Your session has expired. Please log in again.");
-      } else if (status === 403) {
-        setError(
-          "You do not have permission to record refunds."
-        );
-      } else {
-        setError(
-          error.response?.data?.message ||
-            "Failed to record refund. Please try again."
-        );
+        return acc;
+      },
+      {
+        pendingCount: 0,
+        pendingAmount: 0,
+        completedCount: 0,
+        completedAmount: 0,
       }
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    );
+  }, [refunds]);
 
   // ==========================================
-  // FORMAT CURRENCY
+  // PAGINATION
   // ==========================================
 
-  const formatAmount = (value) => {
-    return `LKR ${Number(value || 0).toLocaleString()}`;
-  };
+  const totalPages = Math.max(
+    1,
+    Math.ceil(refunds.length / REFUNDS_PER_PAGE)
+  );
 
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-
-  const formatDate = (value) => {
-    if (!value) return "-";
-
-    return new Date(value).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  // ==========================================
-  // STATUS BADGE
-  // ==========================================
-
-  const getStatusClass = (status) => {
-    if (status === "COMPLETED") {
-      return "bg-green-100 text-green-700";
-    }
-
-    if (status === "PENDING") {
-      return "bg-yellow-100 text-yellow-700";
-    }
-
-    return "bg-gray-100 text-gray-700";
-  };
-
-  // ==========================================
-  // REFUND HISTORY PAGINATION
-  // ==========================================
-
-  const totalPages = Math.ceil(
-    refunds.length / refundsPerPage
+  const safeCurrentPage = Math.min(
+    currentPage,
+    totalPages
   );
 
   const startIndex =
-    (currentPage - 1) * refundsPerPage;
+    (safeCurrentPage - 1) * REFUNDS_PER_PAGE;
 
   const paginatedRefunds = refunds.slice(
     startIndex,
-    startIndex + refundsPerPage
+    startIndex + REFUNDS_PER_PAGE
   );
 
+  // ==========================================
+  // RENTAL MANAGEMENT NAVIGATION
+  // ==========================================
+
+  const handleManageDeposits = () => {
+    if (isClerk) {
+      navigate("/clerk/rentals");
+      return;
+    }
+
+    if (isAdmin) {
+      navigate("/admin/rentals");
+    }
+  };
+
+  // ==========================================
+// NAVIGATE TO A REFUND'S RENTAL SETTLEMENT
+// ==========================================
+
+const handleManagePayout = () => {
+  const rentalId =
+    selectedInvoiceData?.rental?._id ||
+    selectedInvoiceData?.rental;
+
+  if (!rentalId) {
+    setRefundError(
+      "The rental linked to this invoice could not be identified."
+    );
+    return;
+  }
+
+  const basePath = isClerk
+    ? "/clerk/rentals"
+    : "/admin/rentals";
+
+  navigate(
+    `${basePath}?settleRental=${encodeURIComponent(rentalId)}`
+  );
+};
+
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
-    <div className="p-6">
-      {/* ======================================
-          PAGE HEADER
-      ====================================== */}
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-950">
-          Refund Management
-        </h1>
+        {/* HEADER */}
 
-        <p className="mt-1 text-sm text-gray-500">
-          {isClerk
-            ? "Process customer security deposit refunds after rental return and review refund history."
-            : "Record security deposit refunds and view refund history."}
-        </p>
-      </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                Financial Management
+              </span>
 
-      {/* ======================================
-          SUCCESS MESSAGE
-      ====================================== */}
+              <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                Read Only
+              </span>
+            </div>
 
-      {success && (
-        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+              Refund Management
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+              Review security deposit refunds, monitor pending
+              payouts, and view completed refund records.
+            </p>
+          </div>
+
+          {(isClerk || isAdmin) && (
+            <button
+              type="button"
+              onClick={handleManageDeposits}
+              className="rounded-xl bg-orange-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+            >
+              Go to Rental Management
+            </button>
+          )}
         </div>
-      )}
 
-      {/* ======================================
-          ERROR MESSAGE
-      ====================================== */}
+        {/* WORKFLOW INFORMATION */}
 
-      {error && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ====================================
-            REFUND FORM
-        ==================================== */}
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-1">
-          <h2 className="text-lg font-semibold text-gray-950">
-            Record Refund
-          </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Refund a held security deposit.
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-            {/* Invoice */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+          <div className="flex gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-lg text-blue-700">
+              i
+            </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <h2 className="text-sm font-semibold text-blue-950">
+                Refund processing workflow
+              </h2>
+
+              <p className="mt-1 text-sm leading-6 text-blue-800">
+                This page is for viewing refund records only.
+                To review damage deductions, prepare a refund,
+                or confirm an actual payout, open
+                {" "}
+                <strong>
+                  Rental Management → Manage Deposits
+                </strong>.
+                A pending refund does not mean that money
+                has already been paid to the customer.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* INVOICE SELECTION */}
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-950">
+              Find Refund Records
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Select an invoice to view its customer and
+              refund history.
+            </p>
+          </div>
+
+          {invoiceError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {invoiceError}
+            </div>
+          )}
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div>
+              <label
+                htmlFor="refund-invoice"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
                 Invoice
               </label>
 
               <select
+                id="refund-invoice"
                 value={selectedInvoice}
                 onChange={handleInvoiceChange}
-                disabled={loadingInvoices || submitting}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                disabled={loadingInvoices}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
                 <option value="">
                   {loadingInvoices
@@ -393,402 +380,311 @@ const Refunds = () => {
                 </option>
 
                 {invoices.map((invoice) => (
-                  <option key={invoice._id} value={invoice._id}>
-                    {invoice.invoiceNumber} -{" "}
+                  <option
+                    key={invoice._id}
+                    value={invoice._id}
+                  >
+                    {invoice.invoiceNumber || "Invoice"} -{" "}
                     {invoice.customer?.name || "Customer"}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Customer */}
-
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <p className="mb-2 text-sm font-semibold text-slate-700">
                 Customer
-              </label>
+              </p>
 
-              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {customer?.name || "-"}
+              <div className="min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {customer?.name || "No customer selected"}
                 </p>
 
-                <p className="mt-1 text-xs text-gray-500">
-                  {customer?.email || "-"}
-                </p>
+                {customer?.email && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {customer.email}
+                  </p>
+                )}
               </div>
             </div>
-
-            {/* Deposit */}
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Security Deposit
-              </label>
-
-              <select
-                value={selectedDeposit}
-                onChange={(event) => {
-                  const depositId = event.target.value;
-
-                  setSelectedDeposit(depositId);
-
-                  const depositData = deposits.find(
-                    (deposit) => deposit._id === depositId
-                  );
-
-                  setAmount(
-                    depositData
-                      ? String(depositData.amount)
-                      : ""
-                  );
-
-                  setError("");
-                  setSuccess("");
-                }}
-                disabled={
-                  !selectedInvoice ||
-                  loadingDeposits ||
-                  submitting
-                }
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-              >
-                <option value="">
-                  {loadingDeposits
-                    ? "Loading deposits..."
-                    : !selectedInvoice
-                    ? "Select an invoice first"
-                    : deposits.length === 0
-                    ? "No deposits found"
-                    : "Select a deposit"}
-                </option>
-
-                {deposits.map((deposit) => (
-                  <option
-                    key={deposit._id}
-                    value={deposit._id}
-                    disabled={deposit.status !== "HELD"}
-                  >
-                    {formatAmount(deposit.amount)} -{" "}
-                    {deposit.status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Deposit information */}
-
-            {selectedDepositData && (
-              <div className="rounded-xl bg-gray-50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    Deposit Amount
-                  </span>
-
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatAmount(selectedDepositData.amount)}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    Deposit Status
-                  </span>
-
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                      selectedDepositData.status
-                    )}`}
-                  >
-                    {selectedDepositData.status}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    Deposit Date
-                  </span>
-
-                  <span className="text-sm text-gray-700">
-                    {formatDate(selectedDepositData.depositDate)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Refund Amount */}
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Refund Amount
-              </label>
-
-              <input
-                type="number"
-                value={selectedDepositData?.amount || ""}
-                readOnly
-                disabled={!selectedDeposit || submitting}
-                className="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none"
-              />
-
-              {selectedDepositData && (
-                <p className="mt-1 text-xs text-gray-500">
-                  The full held deposit amount will be refunded.
-                </p>
-              )}
-            </div>
-
-            {/* Refund Method */}
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Refund Method
-              </label>
-
-              <select
-                value={refundMethod}
-                onChange={(event) =>
-                  setRefundMethod(event.target.value)
-                }
-                disabled={submitting}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-              >
-                <option value="CASH">Cash</option>
-                <option value="BANK_TRANSFER">
-                  Bank Transfer
-                </option>
-                <option value="CARD">Card</option>
-              </select>
-            </div>
-
-            {/* Notes */}
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Notes
-              </label>
-
-              <textarea
-                rows="3"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                disabled={submitting}
-                placeholder="Optional refund notes"
-                className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-              />
-            </div>
-
-            {/* Submit */}
-
-            <button
-              type="submit"
-              disabled={
-                submitting ||
-                !selectedInvoice ||
-                !selectedDeposit ||
-                !amount
-              }
-              className="w-full rounded-xl bg-orange-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              {submitting ? "Recording Refund..." : "Record Refund"}
-            </button>
-          </form>
+          </div>
         </div>
 
-        {/* ====================================
-            REFUND HISTORY
-        ==================================== */}
+        {/* SUMMARY */}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-950">
-                Refund History
-              </h2>
+        {selectedInvoice && !loadingRefunds && !refundError && (
+          <div className="grid gap-4 sm:grid-cols-3">
 
-              <p className="mt-1 text-sm text-gray-500">
-                {selectedInvoice
-                  ? `Refund records for ${
-                      selectedInvoiceData?.invoiceNumber ||
-                      "selected invoice"
-                    }`
-                  : "Select an invoice to view refund history."}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">
+                Total Refund Records
+              </p>
+
+              <p className="mt-3 text-3xl font-bold text-slate-950">
+                {refunds.length}
+              </p>
+
+              <p className="mt-2 text-xs text-slate-400">
+                For selected invoice
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">
+                Pending Refunds
+              </p>
+
+              <p className="mt-3 text-xl font-bold text-amber-700">
+                {formatAmount(summary.pendingAmount)}
+              </p>
+
+              <p className="mt-2 text-xs text-slate-500">
+                {summary.pendingCount} awaiting payout confirmation
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">
+                Completed Refunds
+              </p>
+
+              <p className="mt-3 text-xl font-bold text-emerald-700">
+                {formatAmount(summary.completedAmount)}
+              </p>
+
+              <p className="mt-2 text-xs text-slate-500">
+                {summary.completedCount} confirmed payouts
               </p>
             </div>
           </div>
+        )}
 
-          <div className="mt-6">
-            {!selectedInvoice ? (
-              <div className="rounded-xl border border-dashed border-gray-300 px-6 py-12 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  No invoice selected
-                </p>
+        {/* REFUND HISTORY */}
 
-                <p className="mt-1 text-sm text-gray-500">
-                  Select an invoice from the refund form to view its
-                  refund history.
-                </p>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+          <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+            <h2 className="text-lg font-semibold text-slate-950">
+              Refund History
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              {selectedInvoice
+                ? `Refund records for ${
+                    selectedInvoiceData?.invoiceNumber ||
+                    "selected invoice"
+                  }`
+                : "Select an invoice to view refund records."}
+            </p>
+          </div>
+
+          {refundError && (
+            <div className="m-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {refundError}
+            </div>
+          )}
+
+          {!selectedInvoice ? (
+            <div className="px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-500">
+                &#128196;
               </div>
-            ) : loadingRefunds ? (
-              <div className="py-12 text-center">
-                <p className="text-sm text-gray-500">
-                  Loading refund history...
-                </p>
-              </div>
-            ) : refunds.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 px-6 py-12 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  No refunds found
-                </p>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  No refund has been recorded for this invoice yet.
-                </p>
-              </div>
-            ) : (
-              <div>
-                {/* TABLE */}
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-left">
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Date
+              <h3 className="text-base font-semibold text-slate-800">
+                No invoice selected
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Choose an invoice above to view its refund history.
+              </p>
+            </div>
+          ) : loadingRefunds ? (
+            <div className="px-6 py-16 text-center">
+              <p className="text-sm text-slate-500">
+                Loading refund history...
+              </p>
+            </div>
+          ) : refundError ? null : refunds.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <h3 className="text-base font-semibold text-slate-800">
+                No refunds found
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-500">
+                No refund records exist for this invoice.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50">
+                    <tr>
+                    {[
+                      "Date",
+                      "Customer",
+                      "Refund Amount",
+                      "Method",
+                      "Status",
+                      "Actions",
+                    ].map((heading) => (
+                        <th
+                          key={heading}
+                          className="whitespace-nowrap px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                        >
+                          {heading}
                         </th>
+                      ))}
+                    </tr>
+                  </thead>
 
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Customer
-                        </th>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedRefunds.map((refund) => {
+                      const status = String(
+                        refund.status || "UNKNOWN"
+                      ).toUpperCase();
 
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Amount
-                        </th>
-
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Method
-                        </th>
-
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {paginatedRefunds.map((refund) => (
+                      return (
                         <tr
                           key={refund._id}
-                          className="border-b border-gray-100 last:border-0"
+                          className="transition hover:bg-slate-50"
                         >
-                          {/* DATE */}
-                          <td className="px-4 py-4 text-sm text-gray-700">
-                            {formatDate(refund.refundDate)}
+                          <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
+                            {formatDate(
+                              refund.refundDate ||
+                                refund.createdAt
+                            )}
                           </td>
 
-                          {/* CUSTOMER */}
-                          <td className="px-4 py-4">
-                            <p className="text-sm font-medium text-gray-900">
+                          <td className="px-5 py-4">
+                            <p className="text-sm font-semibold text-slate-900">
                               {refund.customer?.name || "-"}
                             </p>
 
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="mt-1 text-xs text-slate-500">
                               {refund.customer?.email || "-"}
                             </p>
                           </td>
 
-                          {/* AMOUNT */}
-                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">
+                          <td className="whitespace-nowrap px-5 py-4 text-sm font-bold text-slate-900">
                             {formatAmount(refund.amount)}
                           </td>
 
-                          {/* METHOD */}
-                          <td className="px-4 py-4 text-sm text-gray-700">
+                          <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
                             {refund.refundMethod === "BANK_TRANSFER"
                               ? "Bank Transfer"
-                              : refund.refundMethod}
+                              : refund.refundMethod === "CASH"
+                              ? "Cash"
+                              : refund.refundMethod === "CARD"
+                              ? "Card"
+                              : refund.refundMethod || "-"}
                           </td>
 
-                          {/* STATUS */}
-                          <td className="px-4 py-4">
+                          <td className="whitespace-nowrap px-5 py-4">
                             <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                                refund.status
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${getStatusStyles(
+                                status
                               )}`}
                             >
-                              {refund.status}
+                              {status}
                             </span>
+
+                            {status === "PENDING" && (
+                              <p className="mt-2 text-xs text-amber-700">
+                                Awaiting payout confirmation
+                              </p>
+                            )}
+
+                            {status === "COMPLETED" && (
+                              <p className="mt-2 text-xs text-emerald-700">
+                                Payout confirmed
+                              </p>
+                            )}
                           </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            {status === "PENDING" ? (
+                              <button
+                                type="button"
+                                onClick={handleManagePayout}
+                                className="rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-orange-700"
+                              >
+                                Manage Payout
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">
+                                No action required
+                              </span>
+                            )}
+                          </td>
+
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* PAGINATION */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-gray-500">
-                      Showing{" "}
-                      <span className="font-medium text-gray-700">
-                        {startIndex + 1}
-                      </span>
-                      {" - "}
-                      <span className="font-medium text-gray-700">
-                        {Math.min(
-                          startIndex + refundsPerPage,
-                          refunds.length
-                        )}
-                      </span>
-                      {" of "}
-                      <span className="font-medium text-gray-700">
-                        {refunds.length}
-                      </span>{" "}
-                      refunds
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      {/* PREVIOUS */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCurrentPage((page) =>
-                            Math.max(page - 1, 1)
-                          )
-                        }
-                        disabled={currentPage === 1}
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Previous
-                      </button>
-
-                      {/* PAGE NUMBER */}
-                      <span className="px-2 text-sm text-gray-600">
-                        Page{" "}
-                        <span className="font-semibold text-gray-900">
-                          {currentPage}
-                        </span>{" "}
-                        of {totalPages}
-                      </span>
-
-                      {/* NEXT */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCurrentPage((page) =>
-                            Math.min(page + 1, totalPages)
-                          )
-                        }
-                        disabled={currentPage === totalPages}
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+
+              {/* PAGINATION */}
+
+              {totalPages > 1 && (
+                <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-500">
+                    Showing {startIndex + 1}–
+                    {Math.min(
+                      startIndex + REFUNDS_PER_PAGE,
+                      refunds.length
+                    )} of {refunds.length} refunds
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((page) =>
+                          Math.max(page - 1, 1)
+                        )
+                      }
+                      disabled={safeCurrentPage === 1}
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="px-3 text-sm text-slate-600">
+                      {safeCurrentPage} / {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((page) =>
+                          Math.min(page + 1, totalPages)
+                        )
+                      }
+                      disabled={safeCurrentPage === totalPages}
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* FOOTER */}
+
+        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+          <p className="text-xs leading-5 text-slate-500">
+            Refund records are read-only on this page.
+            Refund preparation, damage deduction settlement,
+            and payout confirmation are handled through
+            Rental Management. Never confirm a payout
+            before the actual payment has been completed.
+          </p>
         </div>
       </div>
     </div>

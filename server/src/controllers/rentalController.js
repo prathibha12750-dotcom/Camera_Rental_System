@@ -1493,6 +1493,71 @@ const getMyRentals = async (req, res, next) => {
   }
 };
 
+
+ // ============================================================
+ // GET SINGLE RENTAL DETAILS - CUSTOMER
+ // ============================================================
+
+const getMyRentalById = async (req, res, next) => {
+  try {
+    if (req.user?.role !== "CUSTOMER") {
+      fail(403, "Only customers can view rental details");
+    }
+
+    validId(req.params.id);
+
+    // Restrict the query to the authenticated customer.
+    const rental = await Rental.findOne({
+      _id: req.params.id,
+      customer: req.user.userId,
+    })
+      .populate(
+        "equipment",
+        "name brand model serialNumber rentalPricePerDay status condition"
+      )
+      .lean();
+
+    if (!rental) {
+      fail(404, "Rental not found");
+    }
+
+    // Find the invoice linked to this specific rental.
+    const invoice = await Invoice.findOne({
+      rental: rental._id,
+      customer: req.user.userId,
+    })
+      .select(
+        "invoiceNumber serviceAmount securityDeposit totalAmount paymentStatus"
+      )
+      .lean();
+
+    // Retrieve deposit information only through the
+    // customer's verified rental invoice.
+    let deposit = null;
+
+    if (invoice) {
+      deposit = await Deposit.findOne({
+        invoice: invoice._id,
+      })
+        .select(
+          "amount status deductedAmount refundedAmount settledAt"
+        )
+        .lean();
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        rental,
+        invoice,
+        deposit,
+      },
+    });
+  } catch (error) {
+    return handleError(error, res, next);
+  }
+};
+
 // ============================================================
 // CANCEL RENTAL - CUSTOMER
 // ============================================================
@@ -1759,6 +1824,7 @@ module.exports = {
   updateDamageRecordStatus,
   getOverdueRentals,
   getMyRentals,
+  getMyRentalById,
   cancelRental,
   completeRental,
 };

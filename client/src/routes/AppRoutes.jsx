@@ -51,6 +51,7 @@ import CustomerBilling from "../pages/customer/CustomerBilling";
 import EquipmentBrowse from "../pages/customer/EquipmentBrowse";
 import EquipmentDetails from "../pages/customer/EquipmentDetails";
 import MyRentals from "../pages/customer/MyRentals";
+import CustomerRentalDetails from "../pages/customer/CustomerRentalDetails";
 
 
 // ==========================================
@@ -395,6 +396,12 @@ const AppRoutes = () => {
                 }
               />
 
+              {/* Customer Rental Details */}
+              <Route
+                path="/customer/rentals/:rentalId"
+                element={<CustomerRentalDetails />}
+              />
+
               {/* Customer Invoices & Payments */}
 
               <Route
@@ -675,6 +682,11 @@ const AppRoutes = () => {
                   }
                 />
 
+                {/* Admin Rental Payment Verification */}
+                <Route
+                  path="/admin/payment-verification"
+                  element={<ClerkPaymentVerification />}
+                />
 
                 {/* Deposit Management */}
 

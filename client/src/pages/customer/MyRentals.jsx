@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../../services/api";
 import { cancelRental } from "../../services/rentalService";
 
@@ -526,6 +526,16 @@ const MyRentals = () => {
             ).toLocaleString()}
           </p>
         </div>
+
+        {/* VIEW RENTAL DETAILS */}
+
+        <Link
+          to={`/customer/rentals/${rental._id}`}
+          className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-orange-700"
+        >
+          View Details
+        </Link>
+
 
         {/* CANCEL PENDING RENTAL */}
 

@@ -52,6 +52,10 @@ const {
 } = require("../controllers/paymentController");
 
 const {
+  getMyRefunds,
+} = require("../controllers/refundController");
+
+const {
   submitRentalPaymentReceipt,
 } = require("../controllers/rentalPaymentController");
 
@@ -239,6 +243,18 @@ router.get(
   authenticate,
   authorizeRoles("CUSTOMER"),
   getMyPayments
+);
+
+// ==========================================
+// CUSTOMER REFUNDS
+// CUSTOMER ONLY - READ ONLY
+// ==========================================
+
+router.get(
+  "/refunds",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyRefunds
 );
 
 // ==========================================

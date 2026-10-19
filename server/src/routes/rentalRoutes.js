@@ -13,6 +13,7 @@ const {
   updateDamageRecordStatus,
   getOverdueRentals,
   getMyRentals,
+  getMyRentalById,
   cancelRental,
   completeRental,
 } = require("../controllers/rentalController");
@@ -118,6 +119,18 @@ router.get(
   authenticate,
   authorizeRoles("CUSTOMER"),
   getMyRentals
+);
+
+ // ==========================================
+ // GET SINGLE RENTAL DETAILS
+ // CUSTOMER ONLY
+ // ==========================================
+
+router.get(
+  "/my-rentals/:id",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyRentalById
 );
 
  // ==========================================
