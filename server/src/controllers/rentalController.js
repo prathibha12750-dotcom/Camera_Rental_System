@@ -9,6 +9,17 @@ const Deposit = require("../models/deposit");
 const Notification = require("../models/notification");
 const User = require("../models/User");
 
+const {
+  isValidDateKey,
+  getRentalStartDate,
+  getRentalReturnDeadline,
+  getColomboDateKey,
+  getRentalDayCount,
+} = require("../utils/rentalDates");
+
+const {
+  calculateOverduePenalty,
+} = require("../utils/overduePenalty");
 
 // ============================================================
 // SHARED HELPERS
@@ -100,68 +111,87 @@ const optionalText = (value, label) => {
  // GET RENTAL CALENDAR - CUSTOMER
  // ============================================================
 
- const getRentalCalendar = async (req, res, next) => {
-   try {
-     const { equipmentId } = req.params;
+const getRentalCalendar = async (req, res, next) => {
+  try {
+    const { equipmentId } = req.params;
 
-     validId(equipmentId, "equipment");
+    validId(equipmentId, "equipment");
 
-     const equipment = await Equipment.findById(equipmentId);
+    const equipment = await Equipment.findById(
+      equipmentId
+    );
 
-     if (!equipment) {
-       return res.status(404).json({
-         success: false,
-         message: "Equipment not found",
-       });
-     }
+    if (!equipment) {
+      return res.status(404).json({
+        success: false,
+        message: "Equipment not found",
+      });
+    }
 
-     const blocked =
-       equipment.status === "DAMAGED" ||
-       equipment.status === "MAINTENANCE";
+    const now = new Date();
 
-     const overdueRental = await Rental.findOne({
-       equipment: equipmentId,
-       status: "ACTIVE",
-       endDate: { $lt: new Date() },
-     }).select("_id");
+    // Equipment unavailable due to its condition.
+    const conditionBlocked =
+      equipment.status === "DAMAGED" ||
+      equipment.status === "MAINTENANCE";
 
-     const unavailableRentals = await Rental.find({
-       equipment: equipmentId,
-       status: {
-         $in: ["PENDING", "CONFIRMED", "ACTIVE"],
-       },
-       endDate: { $gt: new Date() },
-     })
-       .select("startDate endDate")
-       .sort({ startDate: 1 })
-       .lean();
+    // Equipment that has not been returned after
+    // its agreed return deadline.
+    const overdueRental = await Rental.findOne({
+      equipment: equipmentId,
+      status: "ACTIVE",
+      endDate: { $lt: now },
+    })
+      .select("_id endDate")
+      .lean();
 
-     const unavailablePeriods = unavailableRentals.map(
-       (rental) => ({
-         startDate: rental.startDate,
-         endDate: rental.endDate,
-       })
-     );
+    // Include all current and future reservations.
+    // Also include overdue ACTIVE rentals, even if
+    // their original return deadline has passed.
+    const unavailableRentals = await Rental.find({
+      equipment: equipmentId,
+      status: {
+        $in: ["PENDING", "CONFIRMED", "ACTIVE"],
+      },
+      $or: [
+        { endDate: { $gt: now } },
+        {
+          status: "ACTIVE",
+          endDate: { $lt: now },
+        },
+      ],
+    })
+      .select("startDate endDate status")
+      .sort({ startDate: 1 })
+      .lean();
 
-     const isBlocked = blocked || Boolean(overdueRental);
+    const unavailablePeriods = unavailableRentals.map(
+      (rental) => ({
+        startDate: rental.startDate,
+        endDate: rental.endDate,
+      })
+    );
 
-     return res.status(200).json({
-       success: true,
-       data: {
-         equipmentId,
-         blocked: isBlocked,
-         message: blocked
-           ? "Equipment is currently unavailable due to damage or maintenance."
-           : overdueRental
-             ? "Equipment has an overdue rental and cannot be booked until it is returned."
-             : "",
-         unavailablePeriods,
-       },
-     });
-   } catch (error) {
-     return handleError(error, res, next);
-   }
- };
+    const isBlocked =
+      conditionBlocked || Boolean(overdueRental);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        equipmentId,
+        blocked: isBlocked,
+        message: conditionBlocked
+          ? "Equipment is unavailable due to damage or maintenance."
+          : overdueRental
+            ? "Equipment has an overdue rental and cannot be booked until it is returned."
+            : "",
+        unavailablePeriods,
+      },
+    });
+  } catch (error) {
+    return handleError(error, res, next);
+  }
+};
 
  
  // ============================================================
@@ -213,8 +243,34 @@ const checkAvailability = async (req, res, next) => {
       fail(400, "Please provide valid rental start and end dates");
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    if (
+      !isValidDateKey(startDate) ||
+      !isValidDateKey(endDate)
+    ) {
+      fail(
+        400,
+        "Rental dates must be valid dates in YYYY-MM-DD format"
+      );
+    }
+
+    // The selected start date begins at midnight
+    // in Sri Lanka.
+    const start = getRentalStartDate(startDate);
+
+    // The selected end date finishes at 6:00 PM
+    // in Sri Lanka.
+    const end = getRentalReturnDeadline(endDate);
+
+    // Preserve the existing rule:
+    // end calendar date must be after start calendar date.
+    if (startDate >= endDate) {
+      fail(400, "End date must be after start date");
+    }
+
+    // Compare Sri Lankan calendar dates.
+    if (startDate < getColomboDateKey(new Date())) {
+      fail(400, "Rental start date cannot be in the past");
+    }
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       return res.status(400).json({
@@ -291,8 +347,14 @@ const checkAvailability = async (req, res, next) => {
       status: {
         $in: ["PENDING", "CONFIRMED", "ACTIVE"],
       },
-      startDate: { $lt: end },
-      endDate: { $gt: start },
+
+      // Existing rental starts on or before
+      // the requested return date.
+      startDate: { $lte: end },
+
+      // Existing rental ends on or after
+      // the requested start date.
+      endDate: { $gte: start },
     });
 
     if (conflictingRental) {
@@ -335,8 +397,34 @@ const createRentalRequest = async (req, res, next) => {
       fail(400, "Please provide valid rental start and end dates");
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    if (
+      !isValidDateKey(startDate) ||
+      !isValidDateKey(endDate)
+    ) {
+      fail(
+        400,
+        "Rental dates must be valid dates in YYYY-MM-DD format"
+      );
+    }
+
+    // Start at midnight on the selected date
+    // in Sri Lanka.
+    const start = getRentalStartDate(startDate);
+
+    // Return deadline: 6:00 PM Sri Lanka time
+    // on the selected end date.
+    const end = getRentalReturnDeadline(endDate);
+
+    // The end calendar date must be later
+    // than the start calendar date.
+    if (startDate >= endDate) {
+      fail(400, "End date must be after start date");
+    }
+
+    // Reject rental requests starting in the past.
+    if (startDate < getColomboDateKey(new Date())) {
+      fail(400, "Rental start date cannot be in the past");
+    }
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       fail(400, "Please provide valid rental start and end dates");
@@ -393,21 +481,73 @@ const createRentalRequest = async (req, res, next) => {
         status: {
           $in: ["PENDING", "CONFIRMED", "ACTIVE"],
         },
-        startDate: { $lt: end },
-        endDate: { $gt: start },
+
+        startDate: { $lte: end },
+        endDate: { $gte: start },
       }).session(session);
 
       if (conflictingRental) {
         fail(409, "Equipment is already booked for the selected dates");
       }
 
-      const millisecondsPerDay = 1000 * 60 * 60 * 24;
-      const numberOfDays = Math.ceil((end - start) / millisecondsPerDay);
-      const totalPrice = numberOfDays * equipment.rentalPricePerDay;
+      // Calculate rental duration from the selected
+      // calendar dates, not elapsed hours.
+      //
+      // Example: October 21 to October 22 = 1 day.
+      const numberOfDays = getRentalDayCount(
+        startDate,
+        endDate
+      );
+
+      const dailyRentalPrice = Number(equipment.rentalPricePerDay);
+
+      if (
+        !Number.isFinite(dailyRentalPrice) ||
+        dailyRentalPrice < 0
+      ) {
+        fail(400, "Equipment rental price is invalid");
+      }
+
+      const totalPrice = numberOfDays * dailyRentalPrice;
 
       if (!Number.isFinite(totalPrice) || totalPrice < 0) {
         fail(400, "Equipment rental price is invalid");
       }
+
+      // ==========================================
+      // SNAPSHOT OVERDUE PENALTY POLICY
+      // ==========================================
+
+      // Equipment with no explicit rate uses the
+      // confirmed default policy of 20%.
+      const overduePenaltyRate =
+        equipment.overduePenaltyRate == null
+          ? 20
+          : Number(equipment.overduePenaltyRate);
+
+      if (
+        !Number.isFinite(overduePenaltyRate) ||
+        overduePenaltyRate < 0 ||
+        overduePenaltyRate > 100
+      ) {
+        fail(400, "Equipment overdue penalty rate is invalid");
+      }
+
+      // Round to two decimal places for currency.
+      const overduePenaltyPerDay = Math.round(
+        (dailyRentalPrice * overduePenaltyRate / 100) * 100
+      ) / 100;
+
+      if (
+        !Number.isFinite(overduePenaltyPerDay) ||
+        overduePenaltyPerDay < 0
+      ) {
+        fail(400, "Calculated overdue penalty is invalid");
+      }
+
+      // ==========================================
+      // CREATE RENTAL WITH AGREED PENALTY POLICY
+      // ==========================================
 
       const [createdRental] = await Rental.create(
         [
@@ -417,6 +557,14 @@ const createRentalRequest = async (req, res, next) => {
             startDate: start,
             endDate: end,
             totalPrice,
+
+            overduePenaltyRate,
+            overduePenaltyPerDay,
+
+            overdueDays: 0,
+            overduePenaltyAmount: 0,
+            overduePenaltyStatus: "NOT_APPLICABLE",
+
             status: "PENDING",
           },
         ],
@@ -501,17 +649,31 @@ const getAllRentals = async (req, res, next) => {
     );
 
     // Attach invoice details to each rental.
+    const calculationTime = new Date();
+
     const rentalsWithInvoices = rentals.map((rental) => {
       const invoice = invoiceMap.get(String(rental._id));
+
+      // Calculate an estimated penalty for active rentals.
+      // Returned rentals use their actual return timestamp.
+      const overdueEstimate = calculateOverduePenalty(
+        rental,
+        calculationTime
+      );
 
       const deposit = invoice
         ? depositMap.get(String(invoice._id))
         : null;
 
-      return {
-        ...rental,
+        return {
+          ...rental,
 
-        invoice: invoice
+          // Read-only overdue penalty estimate.
+          // No charge or deposit deduction occurs here.
+          overdueEstimate,
+
+          invoice: invoice
+
           ? {
               _id: invoice._id,
               invoiceNumber: invoice.invoiceNumber,
@@ -626,8 +788,8 @@ const approveRental = async (req, res, next) => {
           status: {
             $in: ["CONFIRMED", "ACTIVE"],
           },
-          startDate: { $lt: rental.endDate },
-          endDate: { $gt: rental.startDate },
+          startDate: { $lte: rental.endDate },
+          endDate: { $gte: rental.startDate },
         }).session(session);
 
         if (conflictingRental) {
@@ -1073,6 +1235,17 @@ const returnRental = async (req, res, next) => {
 
       const returnedAt = new Date();
 
+      // ==========================================
+      // CALCULATE FINAL OVERDUE PENALTY
+      // ==========================================
+
+      // Use the actual physical return time.
+      // This freezes the penalty calculation.
+      const finalOverduePenalty = calculateOverduePenalty(
+        rental,
+        returnedAt
+      );
+
       const [returnRecord] = await Return.create(
         [
           {
@@ -1109,6 +1282,22 @@ const returnRental = async (req, res, next) => {
 
       rental.status = "RETURNED";
       rental.returnedAt = returnedAt;
+
+      // Freeze the overdue amount at physical return.
+      rental.overdueDays = finalOverduePenalty.overdueDays;
+      rental.overduePenaltyAmount =
+        finalOverduePenalty.overduePenaltyAmount;
+
+      if (finalOverduePenalty.applicable) {
+        // The penalty must be reviewed by Clerk/Admin.
+        // No deduction is made automatically.
+        rental.overduePenaltyStatus = "PENDING_REVIEW";
+        rental.overduePenaltyReviewedBy = null;
+        rental.overduePenaltyReviewedAt = null;
+        rental.overduePenaltyReviewNotes = "";
+      } else {
+        rental.overduePenaltyStatus = "NOT_APPLICABLE";
+      }
 
       await rental.save({ session });
 
@@ -1545,14 +1734,82 @@ const getMyRentalById = async (req, res, next) => {
         .lean();
     }
 
+    // ==========================================
+    // CUSTOMER DEPOSIT DEDUCTION BREAKDOWN
+    // ==========================================
+
+    // Only include approved damage deductions
+    // belonging to this customer's rental.
+    const approvedDamageRecords = await DamageRecord.find({
+      rental: rental._id,
+      customer: req.user.userId,
+      deductionApprovalStatus: "APPROVED",
+    })
+      .select("approvedDeductionAmount")
+      .lean();
+
+    const approvedDamageDeduction = approvedDamageRecords.reduce(
+      (total, damage) =>
+        total + Number(damage.approvedDeductionAmount || 0),
+      0
+    );
+
+    // ==========================================
+    // ALLOCATE ACTUAL DEPOSIT DEDUCTIONS
+    // ==========================================
+
+    const totalDepositDeduction = Math.max(
+      0,
+      Number(deposit?.deductedAmount || 0)
+    );
+
+    // Damage charges are recovered first.
+    const damageDeductedFromDeposit = Math.min(
+      approvedDamageDeduction,
+      totalDepositDeduction
+    );
+
+    // Overdue penalties are recovered after damage.
+    const overdueDeductedFromDeposit = Math.max(
+      0,
+      totalDepositDeduction - damageDeductedFromDeposit
+    );
+
+    const approvedOverduePenalty = [
+      "APPROVED",
+      "SETTLED",
+    ].includes(rental.overduePenaltyStatus)
+      ? Number(rental.overduePenaltyAmount || 0)
+      : 0;
+
+    const overduePenaltyRecovered = Math.min(
+      overdueDeductedFromDeposit,
+      approvedOverduePenalty
+    );
+
+    const deductionBreakdown = {
+      approvedDamageDeduction,
+      approvedOverduePenalty,
+      damageRecovered: damageDeductedFromDeposit,
+      overduePenaltyRecovered,
+      totalDeductedFromDeposit: totalDepositDeduction,
+      overduePenaltyOutstanding: Math.max(
+        0,
+        approvedOverduePenalty - overduePenaltyRecovered
+      ),
+    };
+
+
     return res.status(200).json({
       success: true,
       data: {
         rental,
         invoice,
         deposit,
+        deductionBreakdown,
       },
     });
+
   } catch (error) {
     return handleError(error, res, next);
   }
@@ -1806,6 +2063,145 @@ const cancelRental = async (req, res, next) => {
    }
  };
 
+const reviewOverduePenalty = async (req, res, next) => {
+  try {
+    validId(req.params.id);
+
+    const { decision, notes } = req.body;
+
+    if (!["APPROVED", "REJECTED"].includes(decision)) {
+      fail(400, "Decision must be APPROVED or REJECTED");
+    }
+
+    const reviewNotes = optionalText(
+      notes,
+      "Overdue penalty review notes"
+    );
+
+    const result = await inTransaction(async (session) => {
+      const rental = await Rental.findById(
+        req.params.id
+      ).session(session);
+
+      if (!rental) {
+        fail(404, "Rental not found");
+      }
+
+      if (rental.status !== "RETURNED") {
+        fail(
+          409,
+          "Overdue penalties can only be reviewed after equipment return"
+        );
+      }
+
+      if (rental.overduePenaltyStatus !== "PENDING_REVIEW") {
+        fail(
+          409,
+          "This overdue penalty is not pending review"
+        );
+      }
+
+      const invoice = await Invoice.findOne({
+        rental: rental._id,
+      }).session(session);
+
+      if (!invoice) {
+        fail(
+          409,
+          "Rental invoice not found"
+        );
+      }
+
+      // Coordinate penalty review with the existing
+      // security deposit settlement process.
+      const deposit = await Deposit.findOne({
+        invoice: invoice._id,
+      }).session(session);
+
+      if (!deposit) {
+        fail(
+          409,
+          "Security deposit record not found"
+        );
+      }
+
+      if (deposit.status !== "HELD") {
+        fail(
+          409,
+          "Overdue penalty review is only allowed while the security deposit is held and settlement has not started"
+        );
+      }
+
+      // Lock the deposit to coordinate concurrent
+      // review and settlement operations.
+      const lockedDeposit = await Deposit.findOneAndUpdate(
+        {
+          _id: deposit._id,
+          status: "HELD",
+          settlementVersion: deposit.settlementVersion,
+        },
+        {
+          $inc: { settlementVersion: 1 },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!lockedDeposit) {
+        fail(
+          409,
+          "Deposit settlement changed. Refresh and try again."
+        );
+      }
+
+      const reviewedRental = await Rental.findOneAndUpdate(
+        {
+          _id: rental._id,
+          status: "RETURNED",
+          overduePenaltyStatus: "PENDING_REVIEW",
+        },
+        {
+          $set: {
+            overduePenaltyStatus: decision,
+            overduePenaltyReviewedBy: req.user.userId,
+            overduePenaltyReviewedAt: new Date(),
+            overduePenaltyReviewNotes: reviewNotes,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!reviewedRental) {
+        fail(
+          409,
+          "Overdue penalty has already been reviewed. Refresh and try again."
+        );
+      }
+
+      return reviewedRental;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        decision === "APPROVED"
+          ? "Overdue penalty approved successfully"
+          : "Overdue penalty rejected successfully",
+      data: {
+        rental: result,
+      },
+    });
+  } catch (error) {
+    return handleError(error, res, next);
+  }
+};
 
 // ============================================================
 // EXPORTS
@@ -1827,4 +2223,5 @@ module.exports = {
   getMyRentalById,
   cancelRental,
   completeRental,
+  reviewOverduePenalty,
 };

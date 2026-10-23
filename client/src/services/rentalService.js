@@ -74,6 +74,27 @@ export const getOverdueRentals = async () => {
   return response.data;
 };
 
+ // ==========================================
+ // REVIEW OVERDUE RENTAL PENALTY
+ // CLERK / STAFF ADMIN
+ // ==========================================
+
+export const reviewOverduePenalty = async (
+  rentalId,
+  decision,
+  notes = ""
+) => {
+  const response = await api.patch(
+    `/rentals/${rentalId}/overdue-penalty/review`,
+    {
+      decision,
+      notes,
+    }
+  );
+
+  return response.data;
+};
+
 export const getAllDamageRecords = async () => {
   const response = await api.get("/rentals/damage-records");
   return response.data;

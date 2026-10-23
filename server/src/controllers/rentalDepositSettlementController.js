@@ -23,6 +23,240 @@ const isValidRefundMethod = (method) => {
   return VALID_REFUND_METHODS.includes(method);
 };
 
+ // ==========================================
+ // VALIDATE OVERDUE PENALTY REVIEW
+ // BEFORE DEPOSIT SETTLEMENT
+ // ==========================================
+
+const validateOverduePenaltyReview = (rental) => {
+  const status =
+    rental.overduePenaltyStatus || "NOT_APPLICABLE";
+
+  if (status === "PENDING_REVIEW") {
+    const error = new Error(
+      "Overdue penalty must be approved or rejected before deposit settlement"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // APPROVED penalties will be included in
+  // the deposit deduction calculation later.
+  //
+  // REJECTED and NOT_APPLICABLE penalties
+  // do not create deductions.
+
+  if (
+    ![
+      "NOT_APPLICABLE",
+      "APPROVED",
+      "REJECTED",
+      "SETTLED",
+    ].includes(status)
+  ) {
+    const error = new Error(
+      "Invalid overdue penalty review status"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return true;
+};
+
+ // ==========================================
+ // GET APPROVED OVERDUE PENALTY AMOUNT
+ // ==========================================
+
+const getApprovedOverduePenalty = (rental) => {
+  validateOverduePenaltyReview(rental);
+
+  if (rental.overduePenaltyStatus !== "APPROVED") {
+    return 0;
+  }
+
+  const amount = rental.overduePenaltyAmount;
+
+  if (
+    typeof amount !== "number" ||
+    !Number.isFinite(amount) ||
+    amount < 0
+  ) {
+    const error = new Error(
+      "Approved overdue penalty amount is invalid"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+};
+
+ // ==========================================
+ // ALLOCATE SECURITY DEPOSIT DEDUCTIONS
+ // DAMAGE FIRST, THEN OVERDUE PENALTY
+ // ==========================================
+
+const calculateDepositDeductionAllocation = ({
+  depositAmount,
+  approvedDamageDeduction,
+  approvedOverduePenalty,
+}) => {
+  const roundCurrency = (value) =>
+    Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const deposit = Number(depositAmount);
+  const damage = Number(approvedDamageDeduction);
+  const overdue = Number(approvedOverduePenalty);
+
+  if (
+    ![deposit, damage, overdue].every(Number.isFinite) ||
+    deposit < 0 ||
+    damage < 0 ||
+    overdue < 0
+  ) {
+    const error = new Error(
+      "Invalid deposit deduction allocation amounts"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Allocate the deposit to approved damage first.
+  const damageRecovered = roundCurrency(
+    Math.min(deposit, damage)
+  );
+
+  // Allocate the remaining deposit to overdue penalties.
+  const remainingDeposit = roundCurrency(
+    Math.max(0, deposit - damageRecovered)
+  );
+
+  const overduePenaltyRecovered = roundCurrency(
+    Math.min(remainingDeposit, overdue)
+  );
+
+  const overduePenaltyOutstanding = roundCurrency(
+    Math.max(0, overdue - overduePenaltyRecovered)
+  );
+
+  const damageOutstanding = roundCurrency(
+    Math.max(0, damage - damageRecovered)
+  );
+
+  const totalDeduction = roundCurrency(
+    damageRecovered + overduePenaltyRecovered
+  );
+
+  const refundableAmount = roundCurrency(
+    Math.max(0, deposit - totalDeduction)
+  );
+
+  return {
+    damageRecovered,
+    damageOutstanding,
+    overduePenaltyRecovered,
+    overduePenaltyOutstanding,
+    totalDeduction,
+    refundableAmount,
+  };
+};
+
+const validateOverduePenaltyAllocation = ({
+  approvedOverduePenalty,
+  overduePenaltyRecovered,
+  overduePenaltyOutstanding,
+}) => {
+  const roundCurrency = (value) =>
+    Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const approved = Number(approvedOverduePenalty);
+  const recovered = Number(overduePenaltyRecovered);
+  const outstanding = Number(overduePenaltyOutstanding);
+
+  const amountsAreValid = [approved, recovered, outstanding].every(
+    (amount) => Number.isFinite(amount) && amount >= 0
+  );
+
+  if (!amountsAreValid) {
+    const error = new Error(
+      "Invalid overdue penalty recovery amounts"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const totalAccounted = roundCurrency(
+    recovered + outstanding
+  );
+
+  if (
+    Math.abs(totalAccounted - roundCurrency(approved)) > 0.001
+  ) {
+    const error = new Error(
+      "Overdue penalty recovery does not match the approved penalty"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return true;
+};
+
+const validateOverduePenaltySettlementStatus = (rental) => {
+  const status = rental.overduePenaltyStatus;
+
+  if (!["APPROVED", "SETTLED"].includes(status)) {
+    return true;
+  }
+
+  const recovered = Number(
+    rental.overduePenaltyRecoveredAmount
+  );
+
+  const outstanding = Number(
+    rental.overduePenaltyOutstandingAmount
+  );
+
+  const approved = Number(rental.overduePenaltyAmount);
+
+  // Validate recorded recovery amounts.
+  validateOverduePenaltyAllocation({
+    approvedOverduePenalty: approved,
+    overduePenaltyRecovered: recovered,
+    overduePenaltyOutstanding: outstanding,
+  });
+
+  // SETTLED means the entire penalty has been recovered.
+  if (status === "SETTLED" && outstanding !== 0) {
+    const error = new Error(
+      "Settled overdue penalty cannot have an outstanding balance"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // A fully recovered penalty must be marked SETTLED.
+  if (
+    status === "APPROVED" &&
+    approved > 0 &&
+    recovered === approved &&
+    outstanding === 0
+  ) {
+    const error = new Error(
+      "Fully recovered overdue penalty must be marked SETTLED"
+    );
+
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return true;
+};
 
 // ==========================================
 // SETTLE RENTAL SECURITY DEPOSIT
@@ -55,6 +289,12 @@ const settleRentalDeposit = async (req, res, next) => {
         message: "Rental must be returned before deposit settlement",
       });
     }
+
+    // ==========================================
+    // VERIFY OVERDUE PENALTY REVIEW
+    // ==========================================
+
+    validateOverduePenaltyReview(rental);
 
     const returnRecord = await Return.findOne({
       rental: rental._id,
@@ -166,7 +406,11 @@ const settleRentalDeposit = async (req, res, next) => {
       });
     }
 
-    const totalApprovedDeduction = damageRecords.reduce(
+    // ==========================================
+    // CALCULATE APPROVED DAMAGE DEDUCTIONS
+    // ==========================================
+
+    const totalApprovedDamageDeduction = damageRecords.reduce(
       (total, damage) =>
         total +
         (damage.deductionApprovalStatus === "APPROVED"
@@ -175,15 +419,35 @@ const settleRentalDeposit = async (req, res, next) => {
       0
     );
 
-    const deductedAmount = Math.min(
-      depositAmount,
-      totalApprovedDeduction
-    );
+    // ==========================================
+    // INCLUDE APPROVED OVERDUE PENALTY
+    // ==========================================
 
-    const refundableAmount = Math.max(
-      0,
-      depositAmount - deductedAmount
-    );
+    const approvedOverduePenalty =
+      getApprovedOverduePenalty(rental);
+
+    const totalApprovedDeduction =
+      Math.round(
+        (
+          totalApprovedDamageDeduction +
+          approvedOverduePenalty +
+          Number.EPSILON
+        ) * 100
+      ) / 100;
+
+    // ==========================================
+    // ALLOCATE SECURITY DEPOSIT
+    // DAMAGE FIRST, THEN OVERDUE PENALTY
+    // ==========================================
+
+    const allocation = calculateDepositDeductionAllocation({
+      depositAmount,
+      approvedDamageDeduction: totalApprovedDamageDeduction,
+      approvedOverduePenalty,
+    });
+
+    const deductedAmount = allocation.totalDeduction;
+    const refundableAmount = allocation.refundableAmount;
 
     return res.status(200).json({
       success: true,
@@ -195,16 +459,33 @@ const settleRentalDeposit = async (req, res, next) => {
         depositStatus: deposit.status,
         depositAmount,
         totalRepairCost,
+        totalApprovedDamageDeduction,
+        approvedOverduePenalty,
         totalApprovedDeduction,
         deductedAmount,
         refundableAmount,
+        damageRecovered: allocation.damageRecovered,
+        damageOutstanding: allocation.damageOutstanding,
+        overduePenaltyRecovered:
+          allocation.overduePenaltyRecovered,
+        overduePenaltyOutstanding:
+          allocation.overduePenaltyOutstanding,
         refundRequired: refundableAmount > 0,
         settlementStatus: "PREVIEW_ONLY",
       },
     });
+
   } catch (error) {
-    next(error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return next(error);
   }
+
 };
 
 
@@ -257,6 +538,12 @@ const prepareRentalDepositRefund = async (req, res, next) => {
           "Rental must be returned before preparing a deposit refund",
       });
     }
+
+    // ==========================================
+    // VERIFY OVERDUE PENALTY REVIEW
+    // ==========================================
+
+    validateOverduePenaltyReview(rental);
 
     // Confirm the equipment return was recorded.
     const returnRecord = await Return.findOne({
@@ -443,47 +730,96 @@ const totalRepairCost = damageRecords.reduce(
   0
 );
 
-const totalApprovedDeduction = damageRecords.reduce(
-  (total, damage) =>
-    total +
-    (damage.deductionApprovalStatus === "APPROVED"
-      ? Number(damage.approvedDeductionAmount)
-      : 0),
-  0
-);
+    // ==========================================
+    // CALCULATE APPROVED DAMAGE DEDUCTIONS
+    // ==========================================
 
-const depositAmount = Number(deposit.amount);
+    const totalApprovedDamageDeduction = damageRecords.reduce(
+      (total, damage) =>
+        total +
+        (damage.deductionApprovalStatus === "APPROVED"
+          ? Number(damage.approvedDeductionAmount)
+          : 0),
+      0
+    );
 
-const proposedDeduction = Math.min(
-  depositAmount,
-  totalApprovedDeduction
-);
+    // ==========================================
+    // INCLUDE APPROVED OVERDUE PENALTY
+    // ==========================================
 
-const proposedRefund = Math.max(
-  0,
-  depositAmount - proposedDeduction
-);
+    const approvedOverduePenalty =
+      getApprovedOverduePenalty(rental);
+
+    const totalApprovedDeduction =
+      Math.round(
+        (
+          totalApprovedDamageDeduction +
+          approvedOverduePenalty +
+          Number.EPSILON
+        ) * 100
+      ) / 100;
+
+    const depositAmount = Number(deposit.amount);
+
+    // ==========================================
+    // ALLOCATE SECURITY DEPOSIT DEDUCTIONS
+    // DAMAGE FIRST, THEN OVERDUE PENALTY
+    // ==========================================
+
+    const allocation = calculateDepositDeductionAllocation({
+      depositAmount,
+      approvedDamageDeduction: totalApprovedDamageDeduction,
+      approvedOverduePenalty,
+    });
+
+    const proposedDeduction = allocation.totalDeduction;
+    const proposedRefund = allocation.refundableAmount;
 
   return res.status(200).json({
     success: true,
     message: "Refund preparation validation successful",
-    data: {
-      rentalId: rental._id,
-      invoiceId: invoice._id,
-      depositId: deposit._id,
-      refundMethod,
-      depositAmount,
-      totalRepairCost,
-      proposedDeduction,
-      proposedRefund,
-      totalApprovedDeduction,
-      status: "VALIDATION_ONLY",
-    },
+
+      data: {
+        rentalId: rental._id,
+        invoiceId: invoice._id,
+        depositId: deposit._id,
+        refundMethod,
+
+        depositAmount,
+        totalRepairCost,
+
+        totalApprovedDamageDeduction,
+        approvedOverduePenalty,
+        totalApprovedDeduction,
+
+        proposedDeduction,
+        proposedRefund,
+
+        damageRecovered: allocation.damageRecovered,
+        damageOutstanding: allocation.damageOutstanding,
+
+        overduePenaltyRecovered:
+          allocation.overduePenaltyRecovered,
+
+        overduePenaltyOutstanding:
+          allocation.overduePenaltyOutstanding,
+
+        status: "VALIDATION_ONLY",
+      },
+
   }); 
 
   } catch (error) {
-    next(error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return next(error);
   }
+
 };
 
 
@@ -782,6 +1118,12 @@ const createPendingRentalRefund = async (req, res, next) => {
         throw error;
       }
 
+      // ==========================================
+      // PREVENT REFUND BEFORE OVERDUE REVIEW
+      // ==========================================
+
+      validateOverduePenaltyReview(rental);
+
       const returnRecord = await Return.findOne({
         rental: rental._id,
       }).session(session);
@@ -913,32 +1255,71 @@ const createPendingRentalRefund = async (req, res, next) => {
         throw error;
       }
 
-      const totalApprovedDeduction = damageRecords.reduce(
-        (total, damage) =>
-          total +
-          (damage.deductionApprovalStatus === "APPROVED"
-            ? Number(damage.approvedDeductionAmount)
-            : 0),
-        0
-      );
+      // ==========================================
+      // CALCULATE APPROVED DAMAGE DEDUCTIONS
+      // ==========================================
+
+      const totalApprovedDamageDeduction =
+        damageRecords.reduce(
+          (total, damage) =>
+            total +
+            (damage.deductionApprovalStatus === "APPROVED"
+              ? Number(damage.approvedDeductionAmount)
+              : 0),
+          0
+        );
+
+      // ==========================================
+      // INCLUDE APPROVED OVERDUE PENALTY
+      // ==========================================
+
+      const approvedOverduePenalty =
+        getApprovedOverduePenalty(rental);
+
+      const totalApprovedDeduction =
+        Math.round(
+          (
+            totalApprovedDamageDeduction +
+            approvedOverduePenalty +
+            Number.EPSILON
+          ) * 100
+        ) / 100;
 
       const depositAmount = Number(deposit.amount);
 
       if (
         !Number.isFinite(totalApprovedDeduction) ||
-        totalApprovedDeduction > depositAmount
+        totalApprovedDeduction < 0
       ) {
         const error = new Error(
-          "Approved deductions exceed the security deposit"
+          "Invalid total approved deduction amount"
         );
         error.statusCode = 409;
         throw error;
       }
 
-      const deductionAmount = totalApprovedDeduction;
-      const refundAmount = depositAmount - deductionAmount;
+      // ==========================================
+      // ALLOCATE SECURITY DEPOSIT
+      // DAMAGE FIRST, THEN OVERDUE PENALTY
+      // ==========================================
 
-      
+      const allocation = calculateDepositDeductionAllocation({
+        depositAmount,
+        approvedDamageDeduction: totalApprovedDamageDeduction,
+        approvedOverduePenalty,
+      });
+
+      // Verify that recovered + outstanding equals
+      // the approved overdue penalty.
+      validateOverduePenaltyAllocation({
+        approvedOverduePenalty,
+        overduePenaltyRecovered: allocation.overduePenaltyRecovered,
+        overduePenaltyOutstanding: allocation.overduePenaltyOutstanding,
+      });
+
+      const deductionAmount = allocation.totalDeduction;
+      const refundAmount = allocation.refundableAmount;
+
         // ==========================================
         // PREPARE ATOMIC DEPOSIT STATUS TRANSITION
         // ==========================================
@@ -1016,6 +1397,66 @@ const createPendingRentalRefund = async (req, res, next) => {
         { session }
       );
 
+      // ==========================================
+      // RECORD OVERDUE PENALTY RECOVERY
+      // DURING PENDING REFUND CREATION
+      // ==========================================
+
+      if (rental.overduePenaltyStatus === "APPROVED") {
+        const penaltyFullyRecovered =
+          allocation.overduePenaltyOutstanding === 0;
+
+        const updatedRental = await Rental.findOneAndUpdate(
+          {
+            _id: rental._id,
+            status: "RETURNED",
+            overduePenaltyStatus: "APPROVED",
+          },
+          {
+            $set: {
+              overduePenaltyRecoveredAmount:
+                allocation.overduePenaltyRecovered,
+
+              overduePenaltyOutstandingAmount:
+                allocation.overduePenaltyOutstanding,
+
+              overduePenaltyStatus: penaltyFullyRecovered
+                ? "SETTLED"
+                : "APPROVED",
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+            session,
+          }
+        );
+
+        if (!updatedRental) {
+          const error = new Error(
+            "Overdue penalty recovery could not be recorded. Refresh and try again."
+          );
+
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      // ==========================================
+      // CALCULATE OUTSTANDING BALANCE
+      // ==========================================
+
+      const outstandingBalance = Math.max(
+        0,
+        Math.round(
+          (
+            totalApprovedDeduction -
+            deductionAmount +
+            Number.EPSILON
+          ) * 100
+        ) / 100
+      );
+
       validatedData = {
         rentalId: rental._id,
         invoiceId: invoice._id,
@@ -1023,8 +1464,20 @@ const createPendingRentalRefund = async (req, res, next) => {
         refundId: pendingRefund._id,
         refundMethod,
         depositAmount,
+        totalApprovedDamageDeduction,
+        approvedOverduePenalty,
+        totalApprovedDeduction,
         deductionAmount,
         refundAmount,
+        outstandingBalance,
+        damageRecovered: allocation.damageRecovered,
+        damageOutstanding: allocation.damageOutstanding,
+
+        overduePenaltyRecovered:
+          allocation.overduePenaltyRecovered,
+
+        overduePenaltyOutstanding:
+          allocation.overduePenaltyOutstanding,
         refundStatus: pendingRefund.status,
         depositStatus: claimedDeposit.status,
       };
@@ -1167,6 +1620,15 @@ const confirmRentalRefundPayout = async (req, res, next) => {
       const depositAmount = Number(deposit.amount);
       const deductedAmount = Number(deposit.deductedAmount);
       const refundAmount = Number(refund.amount);
+
+      // ==========================================
+      // VERIFY OVERDUE PENALTY REVIEW AND SETTLEMENT
+      // BEFORE REFUND PAYOUT CONFIRMATION
+      // ==========================================
+
+      validateOverduePenaltyReview(rental);
+
+      validateOverduePenaltySettlementStatus(rental);
 
       if (
         ![depositAmount, deductedAmount, refundAmount].every(
@@ -1339,6 +1801,13 @@ const settleFullRentalDepositDeduction = async (req, res, next) => {
         throw error;
       }
 
+      // ==========================================
+      // VERIFY OVERDUE PENALTY REVIEW
+      // BEFORE FULL DEPOSIT DEDUCTION
+      // ==========================================
+
+      validateOverduePenaltyReview(rental);
+
       const returnRecord = await Return.findOne({
         rental: rental._id,
       }).session(session);
@@ -1439,14 +1908,6 @@ const settleFullRentalDepositDeduction = async (req, res, next) => {
         rental: rental._id,
       }).session(session);
 
-      if (damageRecords.length === 0) {
-        const error = new Error(
-          "Full deduction requires approved damage records"
-        );
-        error.statusCode = 409;
-        throw error;
-      }
-
       const invalidDamage = damageRecords.some((damage) => {
         const repairCost = Number(damage.repairCost);
         const approved = Number(
@@ -1480,23 +1941,84 @@ const settleFullRentalDepositDeduction = async (req, res, next) => {
       // CALCULATE APPROVED DEDUCTIONS
       // ==========================================
 
-      const totalApprovedDeduction = damageRecords.reduce(
-        (total, damage) =>
-          total +
-          (damage.deductionApprovalStatus === "APPROVED"
-            ? Number(damage.approvedDeductionAmount)
-            : 0),
-        0
-      );
+      // ==========================================
+      // CALCULATE APPROVED DAMAGE DEDUCTIONS
+      // ==========================================
+
+      const totalApprovedDamageDeduction =
+        damageRecords.reduce(
+          (total, damage) =>
+            total +
+            (damage.deductionApprovalStatus === "APPROVED"
+              ? Number(damage.approvedDeductionAmount)
+              : 0),
+          0
+        );
+
+      // ==========================================
+      // INCLUDE APPROVED OVERDUE PENALTY
+      // ==========================================
+
+      const approvedOverduePenalty =
+        getApprovedOverduePenalty(rental);
+
+      const totalApprovedDeduction =
+        Math.round(
+          (
+            totalApprovedDamageDeduction +
+            approvedOverduePenalty +
+            Number.EPSILON
+          ) * 100
+        ) / 100;
 
       const depositAmount = Number(deposit.amount);
 
+      // ==========================================
+      // ALLOCATE FULL SECURITY DEPOSIT
+      // DAMAGE FIRST, THEN OVERDUE PENALTY
+      // ==========================================
+
+      const allocation = calculateDepositDeductionAllocation({
+        depositAmount,
+        approvedDamageDeduction: totalApprovedDamageDeduction,
+        approvedOverduePenalty,
+      });
+
+      // ==========================================
+      // VALIDATE OVERDUE PENALTY ALLOCATION
+      // BEFORE FULL DEPOSIT SETTLEMENT
+      // ==========================================
+
+      validateOverduePenaltyAllocation({
+        approvedOverduePenalty,
+        overduePenaltyRecovered:
+          allocation.overduePenaltyRecovered,
+        overduePenaltyOutstanding:
+          allocation.overduePenaltyOutstanding,
+      });
+
+      // ==========================================
+      // VERIFY FULL DEPOSIT ALLOCATION
+      // ==========================================
+
       if (
-        !Number.isFinite(totalApprovedDeduction) ||
-        Math.abs(totalApprovedDeduction - depositAmount) > 0.001
+        Math.abs(allocation.totalDeduction - depositAmount) > 0.001 ||
+        allocation.refundableAmount !== 0
       ) {
         const error = new Error(
-          "Full deduction requires approved deductions equal to the security deposit"
+          "Full deposit deduction allocation does not reconcile"
+        );
+
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (
+        !Number.isFinite(totalApprovedDeduction) ||
+        totalApprovedDeduction < depositAmount
+      ) {
+        const error = new Error(
+          "Full deduction requires approved deductions to cover the security deposit"
         );
         error.statusCode = 409;
         throw error;
@@ -1539,7 +2061,7 @@ const settleFullRentalDepositDeduction = async (req, res, next) => {
             settledAt: now,
             settledBy: req.user.userId,
             settlementNotes:
-              "Full security deposit deducted for approved equipment damage",
+              "Full security deposit deducted for approved damage and/or overdue penalties",
           },
         },
         {
@@ -1557,15 +2079,97 @@ const settleFullRentalDepositDeduction = async (req, res, next) => {
         throw error;
       }
 
+      // ==========================================
+      // RECORD OVERDUE PENALTY RECOVERY
+      // ==========================================
+
+      if (rental.overduePenaltyStatus === "APPROVED") {
+        const penaltyFullyRecovered =
+          allocation.overduePenaltyOutstanding === 0;
+
+        const updatedRental = await Rental.findOneAndUpdate(
+          {
+            _id: rental._id,
+            status: "RETURNED",
+            overduePenaltyStatus: "APPROVED",
+          },
+          {
+            $set: {
+              overduePenaltyRecoveredAmount:
+                allocation.overduePenaltyRecovered,
+
+              overduePenaltyOutstandingAmount:
+                allocation.overduePenaltyOutstanding,
+
+              overduePenaltyStatus: penaltyFullyRecovered
+                ? "SETTLED"
+                : "APPROVED",
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+            session,
+          }
+        );
+
+        if (!updatedRental) {
+          const error = new Error(
+            "Overdue penalty settlement changed. Refresh and try again."
+          );
+
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      // ==========================================
+      // CALCULATE OUTSTANDING BALANCE
+      // ==========================================
+
+      const outstandingBalance =
+        Math.max(
+          0,
+          Math.round(
+            (
+              totalApprovedDeduction -
+              depositAmount +
+              Number.EPSILON
+            ) * 100
+          ) / 100
+        );
+
+      // ==========================================
+      // SETTLEMENT RESPONSE
+      // ==========================================
+
       settlementResult = {
         rentalId: rental._id,
         invoiceId: invoice._id,
         depositId: settledDeposit._id,
+
         depositAmount,
+
+        totalApprovedDamageDeduction,
+        approvedOverduePenalty,
+        totalApprovedDeduction,
+
         deductionAmount: depositAmount,
         refundAmount: 0,
+        outstandingBalance,
+
+        damageRecovered: allocation.damageRecovered,
+        damageOutstanding: allocation.damageOutstanding,
+
+        overduePenaltyRecovered:
+          allocation.overduePenaltyRecovered,
+
+        overduePenaltyOutstanding:
+          allocation.overduePenaltyOutstanding,
+
         depositStatus: settledDeposit.status,
       };
+
     });
 
     return res.status(200).json({

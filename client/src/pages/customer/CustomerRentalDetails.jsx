@@ -307,10 +307,37 @@ const CustomerRentalDetails = () => {
                     ].includes(deposit.status) && (
                         <div className="space-y-2 rounded-lg bg-gray-50 p-3">
 
+                    {details.deductionBreakdown ? (
+                      <>
                         <p>
-                            <strong>Recorded Damage Deductions:</strong>{" "}
-                            {formatMoney(deposit.deductedAmount ?? 0)}
+                          <strong>Damage Deductions:</strong>{" "}
+                          {formatMoney(
+                            details.deductionBreakdown.damageRecovered
+                          )}
                         </p>
+
+                        <p>
+                          <strong>Overdue Rental Penalty:</strong>{" "}
+                          {formatMoney(
+                            details.deductionBreakdown.overduePenaltyRecovered
+                          )}
+                        </p>
+
+                        <div className="border-t border-gray-200 pt-2">
+                          <p className="font-semibold text-gray-900">
+                            <strong>Total Security Deposit Deductions:</strong>{" "}
+                            {formatMoney(
+                              details.deductionBreakdown.totalDeductedFromDeposit
+                            )}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p>
+                        <strong>Total Security Deposit Deductions:</strong>{" "}
+                        {formatMoney(deposit.deductedAmount ?? 0)}
+                      </p>
+                    )}
 
                         <p>
                             <strong>Refundable Balance:</strong>{" "}

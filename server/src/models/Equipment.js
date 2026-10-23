@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const equipmentSchema = new mongoose.Schema(
@@ -45,6 +46,20 @@ const equipmentSchema = new mongoose.Schema(
       type: Number,
       required: [true, "Security deposit is required"],
       min: [0, "Security deposit cannot be negative"],
+    },
+
+    // ==========================================
+    // OVERDUE PENALTY POLICY
+    // ==========================================
+
+    // Percentage of the equipment's daily rental price
+    // charged for each started 24-hour overdue period.
+    overduePenaltyRate: {
+      type: Number,
+      default: 20,
+      required: true,
+      min: [0, "Overdue penalty rate cannot be negative"],
+      max: [100, "Overdue penalty rate cannot exceed 100%"],
     },
 
     condition: {

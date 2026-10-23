@@ -11,6 +11,7 @@ import {
   completeRental,
   getOverdueRentals,
   getAllDamageRecords,
+  reviewOverduePenalty,
 } from "../../services/rentalService";
 
 import DepositSettlementPanel from "../../components/rentals/DepositSettlementPanel";
@@ -45,6 +46,25 @@ const RentalManagement = () => {
     condition: "GOOD",
     damageDescription: "",
   });
+
+  // ==========================================
+  // OVERDUE PENALTY REVIEW MODAL
+  // ==========================================
+
+  const [penaltyReviewRental, setPenaltyReviewRental] =
+    useState(null);
+
+  const [penaltyDecision, setPenaltyDecision] =
+    useState("APPROVED");
+
+  const [penaltyReviewNotes, setPenaltyReviewNotes] =
+    useState("");
+
+  const [penaltyReviewError, setPenaltyReviewError] =
+    useState("");
+
+  const [penaltyReviewConfirm, setPenaltyReviewConfirm] =
+    useState(false);
 
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -458,6 +478,106 @@ useEffect(() => {
     );
   };
 
+  // ==========================================
+  // OPEN OVERDUE PENALTY REVIEW MODAL
+  // ==========================================
+
+  const openPenaltyReviewModal = (rental) => {
+    if (
+      rental.status !== "RETURNED" ||
+      rental.overduePenaltyStatus !== "PENDING_REVIEW"
+    ) {
+      setError("This overdue penalty is not available for review.");
+      return;
+    }
+
+    setPenaltyReviewRental(rental);
+    setPenaltyDecision("APPROVED");
+    setPenaltyReviewNotes("");
+    setPenaltyReviewError("");
+    setPenaltyReviewConfirm(false);
+  };
+
+  // ==========================================
+  // CLOSE OVERDUE PENALTY REVIEW MODAL
+  // ==========================================
+
+  const closePenaltyReviewModal = () => {
+    if (actionLoading !== null) return;
+
+    setPenaltyReviewRental(null);
+    setPenaltyDecision("APPROVED");
+    setPenaltyReviewNotes("");
+    setPenaltyReviewError("");
+    setPenaltyReviewConfirm(false);
+  };
+
+  // ==========================================
+  // SUBMIT OVERDUE PENALTY REVIEW
+  // ==========================================
+
+  const handleOverduePenaltyReview = async () => {
+    if (!penaltyReviewRental || actionLoading !== null) {
+      return;
+    }
+
+    const rental = penaltyReviewRental;
+    const decision = penaltyDecision;
+
+    // Validate rental eligibility.
+    if (
+      rental.status !== "RETURNED" ||
+      rental.overduePenaltyStatus !== "PENDING_REVIEW"
+    ) {
+      setPenaltyReviewError(
+        "This overdue penalty is no longer available for review."
+      );
+      return;
+    }
+
+    // First click displays confirmation inside the modal.
+    if (!penaltyReviewConfirm) {
+      setPenaltyReviewConfirm(true);
+      setPenaltyReviewError("");
+      return;
+    }
+
+    try {
+      setActionLoading(rental._id);
+      setPenaltyReviewError("");
+      setError("");
+      setSuccess("");
+
+      await reviewOverduePenalty(
+        rental._id,
+        decision,
+        penaltyReviewNotes.trim()
+      );
+
+      await refreshRentals();
+
+      setSuccess(
+        decision === "APPROVED"
+          ? "Overdue penalty approved successfully."
+          : "Overdue penalty rejected successfully."
+      );
+
+      // Close and reset the modal after successful review.
+      setPenaltyReviewRental(null);
+      setPenaltyDecision("APPROVED");
+      setPenaltyReviewNotes("");
+      setPenaltyReviewError("");
+      setPenaltyReviewConfirm(false);
+    } catch (err) {
+      setPenaltyReviewError(
+        err.response?.data?.message ||
+          "Failed to review overdue penalty. Please try again."
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleComplete = async (rental) => {
     if (actionLoading !== null) {
       return;
@@ -688,6 +808,315 @@ const detailsField = (label, value) => (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
       <div className="mx-auto max-w-7xl">
 
+  {/* ==========================================
+      OVERDUE PENALTY REVIEW MODAL
+  ========================================== */}
+
+  {penaltyReviewRental && (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/60 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="penalty-review-title"
+        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
+        {/* MODAL HEADER */}
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
+              Rental Management
+            </p>
+
+            <h2
+              id="penalty-review-title"
+              className="mt-1 text-xl font-bold text-gray-950"
+            >
+              Review Overdue Penalty
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Review the calculated penalty before deposit settlement.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={closePenaltyReviewModal}
+            disabled={actionLoading !== null}
+            aria-label="Close penalty review"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* SCROLLABLE MODAL CONTENT */}
+        <div className="space-y-5 overflow-y-auto px-6 py-5">
+          {/* RENTAL INFORMATION */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-base font-bold text-gray-900">
+                {penaltyReviewRental.equipment?.name || "Unknown Equipment"}
+              </p>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Customer:{" "}
+                {penaltyReviewRental.customer?.name || "Unknown Customer"}
+              </p>
+            </div>
+
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+              Pending Review
+            </span>
+          </div>
+
+          {/* DATE INFORMATION */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-medium text-gray-500">
+                Return Deadline
+              </p>
+              <p className="mt-1 text-sm font-semibold text-gray-900">
+                {penaltyReviewRental.endDate
+                  ? new Date(penaltyReviewRental.endDate).toLocaleString(
+                      "en-GB",
+                      {
+                        timeZone: "Asia/Colombo",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }
+                    )
+                  : "Not available"}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-medium text-gray-500">
+                Actual Return
+              </p>
+              <p className="mt-1 text-sm font-semibold text-gray-900">
+                {penaltyReviewRental.returnedAt
+                  ? new Date(penaltyReviewRental.returnedAt).toLocaleString(
+                      "en-GB",
+                      {
+                        timeZone: "Asia/Colombo",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }
+                    )
+                  : "Not available"}
+              </p>
+            </div>
+          </div>
+
+          {/* PENALTY BREAKDOWN */}
+          <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+            <h3 className="mb-4 text-sm font-bold text-gray-900">
+              Penalty Breakdown
+            </h3>
+
+            <div className="space-y-3">
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-gray-600">
+                  Penalty per started day
+                </span>
+                <span className="font-semibold text-gray-900">
+                  {formatMoney(
+                    penaltyReviewRental.overduePenaltyPerDay ?? 0
+                  )}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-gray-600">
+                  Overdue duration
+                </span>
+                <span className="font-semibold text-gray-900">
+                  {penaltyReviewRental.overdueDays ?? 0} day(s)
+                </span>
+              </div>
+
+              <div className="border-t border-orange-200 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-gray-900">
+                    Total Penalty
+                  </span>
+
+                  <span className="text-2xl font-extrabold text-orange-700">
+                    {formatMoney(
+                      penaltyReviewRental.overduePenaltyAmount ?? 0
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* REVIEW DECISION */}
+          {!penaltyReviewConfirm ? (
+            <>
+              <fieldset>
+                <legend className="mb-3 text-sm font-bold text-gray-900">
+                  Review Decision
+                </legend>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label
+                    className={`cursor-pointer rounded-xl border-2 p-4 transition ${
+                      penaltyDecision === "APPROVED"
+                        ? "border-green-500 bg-green-50"
+                        : "border-gray-200 hover:border-green-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="penaltyDecision"
+                      value="APPROVED"
+                      checked={penaltyDecision === "APPROVED"}
+                      onChange={() => setPenaltyDecision("APPROVED")}
+                      className="accent-green-600"
+                    />
+
+                    <span className="ml-2 text-sm font-bold text-gray-900">
+                      Approve
+                    </span>
+
+                    <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                      Include the approved penalty in deposit settlement.
+                    </p>
+                  </label>
+
+                  <label
+                    className={`cursor-pointer rounded-xl border-2 p-4 transition ${
+                      penaltyDecision === "REJECTED"
+                        ? "border-red-500 bg-red-50"
+                        : "border-gray-200 hover:border-red-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="penaltyDecision"
+                      value="REJECTED"
+                      checked={penaltyDecision === "REJECTED"}
+                      onChange={() => setPenaltyDecision("REJECTED")}
+                      className="accent-red-600"
+                    />
+
+                    <span className="ml-2 text-sm font-bold text-gray-900">
+                      Reject
+                    </span>
+
+                    <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                      Exclude this penalty from deposit deductions.
+                    </p>
+                  </label>
+                </div>
+              </fieldset>
+
+              {/* REVIEW NOTES */}
+              <label className="block">
+                <span className="text-sm font-bold text-gray-900">
+                  Review Notes{" "}
+                  <span className="font-normal text-gray-400">
+                    (Optional)
+                  </span>
+                </span>
+
+                <textarea
+                  value={penaltyReviewNotes}
+                  onChange={(event) =>
+                    setPenaltyReviewNotes(event.target.value)
+                  }
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Add a reason or internal review note..."
+                  className="mt-2 w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+              </label>
+            </>
+          ) : (
+            /* CONFIRMATION STEP */
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="text-base font-bold text-gray-900">
+                Confirm Penalty{" "}
+                {penaltyDecision === "APPROVED"
+                  ? "Approval"
+                  : "Rejection"}
+              </h3>
+
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                Are you sure you want to{" "}
+                <strong>
+                  {penaltyDecision === "APPROVED"
+                    ? "approve"
+                    : "reject"}
+                </strong>{" "}
+                the overdue penalty of{" "}
+                <strong>
+                  {formatMoney(
+                    penaltyReviewRental.overduePenaltyAmount ?? 0
+                  )}
+                </strong>
+                ?
+              </p>
+
+              <p className="mt-2 text-xs text-gray-500">
+                This decision will be saved to the rental record.
+              </p>
+            </div>
+          )}
+
+          {/* ERROR MESSAGE */}
+          {penaltyReviewError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+            >
+              {penaltyReviewError}
+            </div>
+          )}
+        </div>
+
+        {/* MODAL FOOTER */}
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+          <button
+            type="button"
+            disabled={actionLoading !== null}
+            onClick={
+              penaltyReviewConfirm
+                ? () => setPenaltyReviewConfirm(false)
+                : closePenaltyReviewModal
+            }
+            className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+          >
+            {penaltyReviewConfirm ? "Back" : "Cancel"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOverduePenaltyReview}
+            disabled={actionLoading !== null}
+            className={`rounded-xl px-5 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              penaltyDecision === "APPROVED"
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-red-600 hover:bg-red-700"
+            }`}
+          >
+            {actionLoading === penaltyReviewRental._id
+              ? "Processing..."
+              : penaltyReviewConfirm
+                ? `Confirm ${
+                    penaltyDecision === "APPROVED"
+                      ? "Approval"
+                      : "Rejection"
+                  }`
+                : "Continue"}
+          </button>
+        </div>
+      </section>
+    </div>
+  )}
+
     {/* RENTAL DETAILS MODAL */}
     {detailsRental && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -809,6 +1238,76 @@ const detailsField = (label, value) => (
                   formatDate(detailsRental.updatedAt)
                 )}
               </div>
+            </section>
+
+            {/* OVERDUE PENALTY INFORMATION */}
+            <section>
+              <h3 className="mb-3 text-lg font-bold text-gray-900">
+                Overdue Penalty Information
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailsField(
+                  "Overdue Penalty Status",
+                  detailsRental.overduePenaltyStatus || "NOT_APPLICABLE"
+                )}
+
+                {detailsField(
+                  "Final Overdue Days",
+                  detailsRental.returnedAt
+                    ? detailsRental.overdueDays ?? 0
+                    : "Not yet returned"
+                )}
+
+                {detailsField(
+                  "Final Overdue Penalty",
+                  detailsRental.returnedAt
+                    ? formatMoney(detailsRental.overduePenaltyAmount ?? 0)
+                    : "Not yet finalized"
+                )}
+
+                {detailsField(
+                  "Estimated Overdue Days",
+                  detailsRental.status === "ACTIVE"
+                    ? detailsRental.overdueEstimate?.overdueDays ?? 0
+                    : "Not applicable"
+                )}
+
+                {detailsField(
+                  "Estimated Overdue Penalty",
+                  detailsRental.status === "ACTIVE"
+                    ? formatMoney(
+                        detailsRental.overdueEstimate?.overduePenaltyAmount ?? 0
+                      )
+                    : "Not applicable"
+                )}
+
+                {detailsField(
+                  "Penalty Review Notes",
+                  detailsRental.overduePenaltyReviewNotes || "None"
+                )}
+              </div>
+
+              {detailsRental.overduePenaltyStatus === "PENDING_REVIEW" && (
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
+                  This overdue penalty requires Clerk/Admin review before
+                  security deposit settlement.
+                </p>
+              )}
+
+              {detailsRental.overduePenaltyStatus === "APPROVED" && (
+                <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                  The overdue penalty has been approved. Any applicable
+                  deduction will be handled during deposit settlement.
+                </p>
+              )}
+
+              {detailsRental.overduePenaltyStatus === "REJECTED" && (
+                <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                  The overdue penalty was rejected. No overdue penalty
+                  deduction should be applied.
+                </p>
+              )}
             </section>
 
             {/* INVOICE AND DEPOSIT */}
@@ -979,11 +1478,14 @@ const detailsField = (label, value) => (
                 {depositError}
               </p>
             ) : (
-              <DepositSettlementPanel
-                key={selectedDepositRental._id}
-                rentalId={selectedDepositRental._id}
-                damageRecords={depositDamageRecords}
-                onUpdated={async () => {
+
+                  <DepositSettlementPanel
+                    key={selectedDepositRental._id}
+                    rentalId={selectedDepositRental._id}
+                    depositSettled={selectedDepositRental.depositSettled === true}
+                    damageRecords={depositDamageRecords}
+                    onUpdated={async () => {
+
                   await refreshRentals();
 
                   const result = await getAllDamageRecords();
@@ -1363,15 +1865,42 @@ const detailsField = (label, value) => (
                           to {formatDate(rental.endDate)}
                         </p>
 
-                        {rental.daysOverdue > 0 && (
-                          <p className="mt-1 font-semibold text-red-600">
-                            {rental.daysOverdue} day
-                            {rental.daysOverdue === 1
-                              ? ""
-                              : "s"}{" "}
-                            overdue
-                          </p>
-                        )}
+                        {/* ACTIVE RENTAL - ESTIMATED OVERDUE PENALTY */}
+                        {rental.status === "ACTIVE" &&
+                          rental.overdueEstimate?.overdueDays > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs font-semibold text-red-600">
+                                {rental.overdueEstimate.overdueDays} overdue day(s)
+                              </p>
+
+                              <p className="text-xs font-medium text-red-700">
+                                Estimated Penalty:{" "}
+                                {formatMoney(
+                                  rental.overdueEstimate.overduePenaltyAmount
+                                )}
+                              </p>
+                            </div>
+                          )}
+
+                        {/* RETURNED / COMPLETED RENTAL - FINAL OVERDUE PENALTY */}
+                        {["RETURNED", "COMPLETED"].includes(rental.status) &&
+                          rental.overdueDays > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs font-semibold text-red-600">
+                                {rental.overdueDays} overdue day(s)
+                              </p>
+
+                              <p className="text-xs font-medium text-gray-700">
+                                Final Penalty:{" "}
+                                {formatMoney(rental.overduePenaltyAmount)}
+                              </p>
+
+                              <span className="inline-block rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                                {rental.overduePenaltyStatus || "NOT_APPLICABLE"}
+                              </span>
+                            </div>
+                          )}
+
                       </td>
 
                       <td className="px-6 py-4 font-medium text-gray-900">
@@ -1492,6 +2021,20 @@ const detailsField = (label, value) => (
                               Return Equipment
                             </button>
                           )}
+
+                          {/* OVERDUE PENALTY REVIEW - ADMIN / CLERK */}
+                          {rental.status === "RETURNED" &&
+                            rental.overduePenaltyStatus === "PENDING_REVIEW" && (
+                              <button
+                                type="button"
+                                onClick={() => openPenaltyReviewModal(rental)}
+                                disabled={actionLoading !== null}
+                                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition-colors hover:border-amber-400 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <span aria-hidden="true">⚖</span>
+                                Review Penalty
+                              </button>
+                            )}
 
                           {rental.status === "RETURNED" && (
                             <button

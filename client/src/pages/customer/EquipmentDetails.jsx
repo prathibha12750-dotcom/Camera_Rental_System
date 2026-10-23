@@ -50,16 +50,28 @@ const shiftMonth = (month, delta) => {
 
 const isBlockedDay = (day, periods) =>
   periods.some(({ startDate, endDate }) => {
-    // Rental intervals are [startDate, endDate).
+    // Both start and end dates are unavailable.
+    // The customer can keep the equipment until
+    // 6:00 PM on the selected end date.
     const start = dateKey(new Date(startDate));
     const end = dateKey(new Date(endDate));
-    return day >= start && day < end;
+
+    return day >= start && day <= end;
   });
 
 const periodHasBlockedDay = (start, end, periods) => {
-  for (let day = start; day < end; day = addDays(day, 1)) {
-    if (isBlockedDay(day, periods)) return true;
+  // Include the selected return date because
+  // the equipment remains reserved until 6:00 PM.
+  for (
+    let day = start;
+    day <= end;
+    day = addDays(day, 1)
+  ) {
+    if (isBlockedDay(day, periods)) {
+      return true;
+    }
   }
+
   return false;
 };
 

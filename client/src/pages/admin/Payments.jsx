@@ -226,10 +226,13 @@ const Payments = () => {
       0
     );
 
-  const remainingAmount = Math.max(
-    invoiceTotal - paidAmount,
-    0
-  );
+  const remainingAmount =
+    Math.max(
+      0,
+      Math.round(
+        (invoiceTotal - paidAmount) * 100
+      )
+    ) / 100;
 
   // ==========================================
   // RECORD PAYMENT
@@ -579,10 +582,11 @@ const Payments = () => {
                   submitting
                 }
                 min="0.01"
-                step="0.01"
+                step="0.01"             
                 max={
-                  remainingAmount ||
-                  undefined
+                  selectedInvoice
+                    ? remainingAmount
+                    : undefined
                 }
                 placeholder="Enter payment amount"
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"

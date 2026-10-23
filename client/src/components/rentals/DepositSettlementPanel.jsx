@@ -49,11 +49,14 @@ const getList = (result, possibleKeys = []) => {
 // MAIN COMPONENT
 // ============================================================
 
+
 export default function DepositSettlementPanel({
   rentalId,
+  depositSettled = false,
   damageRecords = [],
   onUpdated,
 }) {
+
   const { user } = useAuth();
   const canReviewDeductions =
     user?.role === "CLERK" ||
@@ -123,17 +126,34 @@ export default function DepositSettlementPanel({
       setPreviewRentalId(requestedRentalId);
 
       return true;
-    } catch (err) {
-      if (requestId !== previewRequestRef.current) {
+      } catch (err) {
+        if (requestId !== previewRequestRef.current) {
+          return false;
+        }
+
+        setPreview(null);
+        setPreviewRentalId(null);
+
+        const status = err?.response?.status;
+        const errorMessage = getError(err);
+
+        // A completed refund is checked separately before the UI
+        // displays a successful settlement.
+        if (
+          status === 409 &&
+          errorMessage
+            .toLowerCase()
+            .includes("security deposit is not available for settlement")
+        ) {
+          setError("");
+          return false;
+        }
+
+        // Other errors must remain visible.
+        setError(errorMessage);
+
         return false;
-      }
-
-      setPreview(null);
-      setPreviewRentalId(null);
-      setError(getError(err));
-
-      return false;
-    } finally {
+      }finally {
       if (requestId === previewRequestRef.current) {
         setLoading(false);
       }
@@ -405,6 +425,7 @@ export default function DepositSettlementPanel({
     !refundLookupLoading &&
     previewIsCurrent &&
     refundLookupIsCurrent &&
+    preview?.depositStatus === "HELD" &&
     !existingRefund;
 
   // ============================================================
@@ -694,7 +715,10 @@ export default function DepositSettlementPanel({
 
   const fullDeduction =
     previewIsCurrent &&
+    preview?.depositStatus === "HELD" &&
     Number(preview.depositAmount) > 0 &&
+    Number(preview.deductedAmount) ===
+      Number(preview.depositAmount) &&
     refundAmount === 0;
 
   const buttonClass =
@@ -750,6 +774,44 @@ export default function DepositSettlementPanel({
         </div>
       )}
 
+      {/* COMPLETED SECURITY DEPOSIT SETTLEMENT */}
+      {depositSettled === true && (
+        <div
+          role="status"
+          className="rounded-xl border border-green-200 bg-green-50 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 text-green-700">
+              ✓
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-green-900">
+                Security Deposit Settled
+              </h3>
+
+              <p className="mt-1 text-sm text-green-800">
+                The security deposit settlement has been completed.
+                No further deposit settlement action is required.
+              </p>
+
+              {String(existingRefund?.status || "").toUpperCase() ===
+                "COMPLETED" && (
+                <p className="mt-2 text-sm font-medium text-green-900">
+                  Refund completed:{" "}
+                  {formatMoney(
+                    existingRefund.amount ??
+                      existingRefund.refundAmount ??
+                      existingRefund.totalAmount ??
+                      0
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DEPOSIT SUMMARY */}
       {previewIsCurrent && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -789,6 +851,78 @@ export default function DepositSettlementPanel({
         A preview does not confirm that the deposit has been
         settled.
       </p>
+
+      {/* OVERDUE PENALTY SETTLEMENT BREAKDOWN */}
+      {previewIsCurrent && (
+        <div className="space-y-3 border-t pt-4">
+          <h3 className="text-base font-bold text-gray-900">
+            Overdue Penalty Settlement
+          </h3>
+
+          <p className="text-sm text-gray-500">
+            Security deposit deductions are allocated to approved
+            damage charges first, followed by approved overdue
+            penalties.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              [
+                "Approved Damage Charges",
+                preview.totalApprovedDamageDeduction,
+              ],
+              [
+                "Damage Covered by Deposit",
+                preview.damageRecovered,
+              ],
+              [
+                "Approved Overdue Penalty",
+                preview.approvedOverduePenalty,
+              ],
+              [
+                "Penalty Covered by Deposit",
+                preview.overduePenaltyRecovered,
+              ],
+              [
+                "Outstanding Overdue Penalty",
+                preview.overduePenaltyOutstanding,
+              ],
+              [
+                "Actual Deposit Deduction",
+                preview.deductedAmount,
+              ],
+            ].map(([label, amount]) => (
+              <div
+                key={label}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+              >
+                <p className="text-xs font-medium text-gray-500">
+                  {label}
+                </p>
+
+                <p className="mt-1 text-base font-bold text-gray-900">
+                  {formatMoney(amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {Number(preview.overduePenaltyOutstanding || 0) > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Outstanding Overdue Penalty
+              </p>
+
+              <p className="mt-1 text-sm text-amber-800">
+                The security deposit cannot cover the full approved
+                overdue penalty. The remaining{" "}
+                {formatMoney(preview.overduePenaltyOutstanding)}{" "}
+                must be tracked separately.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* DAMAGE DEDUCTION REVIEW */}
       {canReviewDeductions && (

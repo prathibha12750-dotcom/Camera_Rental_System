@@ -16,6 +16,7 @@ const {
   getMyRentalById,
   cancelRental,
   completeRental,
+  reviewOverduePenalty,
 } = require("../controllers/rentalController");
 
 const {
@@ -356,5 +357,15 @@ router.patch(
   completeRental
 );
 
+ // ==========================================
+ // REVIEW OVERDUE RENTAL PENALTY
+ // CLERK OR STAFF ADMIN
+ // ==========================================
+router.patch(
+  "/:id/overdue-penalty/review",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN", "CLERK"),
+  reviewOverduePenalty
+);
 
 module.exports = router;
