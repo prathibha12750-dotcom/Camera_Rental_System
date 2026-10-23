@@ -33,3 +33,13 @@ input {
 button:disabled {
   cursor: not-allowed;
 }
+
+/* Hide sidebar scrollbar while preserving scrolling */
+.sidebar-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}

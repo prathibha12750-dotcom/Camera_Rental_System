@@ -78,6 +78,7 @@ const DamageMaintenance = () => {
 
   const [damageRecords, setDamageRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
 
   const [error, setError] = useState("");
@@ -140,6 +141,27 @@ const DamageMaintenance = () => {
       result?.data?.damageRecords || []
     );
   };
+
+const handleManualRefresh = async () => {
+  if (refreshing || actionLoading !== null) return;
+
+  try {
+    setRefreshing(true);
+    setError("");
+    setSuccess("");
+
+    await refreshDamageRecords();
+
+    setSuccess("Damage records refreshed successfully.");
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+        "Failed to refresh damage records."
+    );
+  } finally {
+    setRefreshing(false);
+  }
+};
 
   // ==========================================
   // NORMAL STATUS UPDATES
@@ -364,6 +386,22 @@ const DamageMaintenance = () => {
     setCurrentPage(1);
   };
 
+const handleSummaryCardClick = (status) => {
+  // Clicking the selected card again shows all statuses.
+  const nextStatus = statusFilter === status ? "ALL" : status;
+
+  setStatusFilter(nextStatus);
+  setSearchTerm("");
+  setDateFrom("");
+  setDateTo("");
+  setCurrentPage(1);
+
+  document.getElementById("damage-records-section")?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
   const clearFilters = () => {
     setSearchTerm("");
     setStatusFilter("ALL");
@@ -447,11 +485,20 @@ const DamageMaintenance = () => {
               status: "RESOLVED",
               accent: "text-emerald-600",
             },
-          ].map((item) => (
-            <div
-              key={item.status}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
+
+            ].map((item) => (
+              <button
+                key={item.status}
+                type="button"
+                onClick={() => handleSummaryCardClick(item.status)}
+                aria-pressed={statusFilter === item.status}
+                className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-orange-500 ${
+                  statusFilter === item.status
+                    ? "border-orange-500 ring-2 ring-orange-100"
+                    : "border-slate-200"
+                }`}
+              >
+
               <p className="text-xs font-semibold text-slate-500 sm:text-sm">
                 {item.label}
               </p>
@@ -466,21 +513,73 @@ const DamageMaintenance = () => {
                   ).length
                 }
               </p>
-            </div>
+            </button>
           ))}
         </div>
 
-        {/* RECORDS */}
-        <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-          <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-            <h2 className="text-lg font-bold text-slate-950">
-              Damage Records
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Review and manage equipment damage cases.
+        {statusFilter !== "ALL" && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+            <p className="text-sm font-medium text-orange-800">
+              Showing {formatStatus(statusFilter)} records
+              <span className="ml-2 font-bold">
+                ({filteredDamageRecords.length})
+              </span>
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("ALL");
+                setCurrentPage(1);
+              }}
+              className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-orange-700 ring-1 ring-orange-200 transition hover:bg-orange-100"
+            >
+              Show All Records
+            </button>
+          </div>
+        )}
+
+        {/* RECORDS */}
+          <section
+            id="damage-records-section"
+            className="mt-7 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          >
+
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">
+                Damage Records
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Review and manage equipment damage cases.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={refreshing || busy || loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20 11a8 8 0 0 0-14-5L4 8" />
+                <path d="M4 4v4h4" />
+                <path d="M4 13a8 8 0 0 0 14 5l2-2" />
+                <path d="M20 20v-4h-4" />
+              </svg>
+
+              {refreshing ? "Refreshing..." : "Refresh Records"}
+            </button>
           </div>
 
           {/* FILTERS */}
@@ -639,203 +738,157 @@ const DamageMaintenance = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-[1100px] w-full divide-y divide-slate-200 text-left">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {[
-                        "Equipment",
-                        "Customer",
-                        "Damage",
-                        "Status",
-                        "Reported",
-                        "Action",
-                      ].map((heading) => (
-                        <th
-                          key={heading}
-                          className={`px-5 py-4 text-xs font-bold uppercase tracking-wide text-slate-600 ${
-                            heading === "Action"
-                              ? "min-w-[260px]"
-                              : ""
-                          }`}
-                        >
-                          {heading}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
 
-                  <tbody className="divide-y divide-slate-100">
-                    {paginatedDamageRecords.map(
-                      (record) => (
-                        <tr
-                          key={record._id}
-                          className="transition hover:bg-slate-50/80"
-                        >
-                          {/* EQUIPMENT */}
-                          <td className="px-5 py-5 align-top">
-                            <p className="font-semibold text-slate-900">
-                              {record.equipment?.name ||
-                                "Unknown Equipment"}
-                            </p>
+            <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-2">
+              {paginatedDamageRecords.map((record) => (
+                <article
+                  key={record._id}
+                  className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-orange-200 hover:shadow-md sm:p-5"
+                >
+                  {/* EQUIPMENT AND STATUS */}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-base font-bold text-slate-950">
+                        {record.equipment?.name || "Unknown Equipment"}
+                      </p>
 
-                            <p className="mt-1 text-xs text-slate-500">
-                              {[
-                                record.equipment?.brand,
-                                record.equipment?.model,
-                              ]
-                                .filter(Boolean)
-                                .join(" ") || "—"}
-                            </p>
-                          </td>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {[
+                          record.equipment?.brand,
+                          record.equipment?.model,
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || "—"}
+                      </p>
+                    </div>
 
-                          {/* CUSTOMER */}
-                          <td className="px-5 py-5 align-top">
-                            <p className="font-medium text-slate-900">
-                              {record.customer?.name || "—"}
-                            </p>
+                    <StatusBadge status={record.status} />
+                  </div>
 
-                            <p className="mt-1 text-xs text-slate-500">
-                              {record.customer?.email || "—"}
-                            </p>
-                          </td>
+                  {/* CUSTOMER AND DATE */}
+                  <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Customer
+                      </p>
 
-                          {/* DAMAGE */}
-                          <td className="max-w-[240px] px-5 py-5 align-top">
-                            <p className="text-sm leading-5 text-slate-700">
-                              {record.description || "—"}
-                            </p>
+                      <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+                        {record.customer?.name || "—"}
+                      </p>
 
-                            {record.status === "RESOLVED" &&
-                              record.repairCost != null && (
-                                <p className="mt-2 text-xs font-semibold text-slate-500">
-                                  Repair:{" "}
-                                  {formatMoney(record.repairCost)}
-                                </p>
-                              )}
-                          </td>
+                      <p className="mt-1 break-all text-xs text-slate-500">
+                        {record.customer?.email || "—"}
+                      </p>
+                    </div>
 
-                          {/* STATUS */}
-                          <td className="px-5 py-5 align-top">
-                            <StatusBadge status={record.status} />
-                          </td>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Reported Date
+                      </p>
 
-                          {/* DATE */}
-                          <td className="whitespace-nowrap px-5 py-5 text-sm text-slate-600 align-top">
-                            {formatDate(record.createdAt)}
-                          </td>
+                      <p className="mt-1 text-sm font-medium text-slate-700">
+                        {formatDate(record.createdAt)}
+                      </p>
+                    </div>
+                  </div>
 
-                          {/* ACTIONS */}
-                          <td className="min-w-[260px] px-5 py-5 align-top">
-                            {record.status === "REPORTED" && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() =>
-                                  handleDamageStatusUpdate(
-                                    record,
-                                    "UNDER_INSPECTION"
-                                  )
-                                }
-                                className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {actionLoading === record._id
-                                  ? "Updating..."
-                                  : "Start Inspection"}
-                              </button>
-                            )}
+                  {/* DAMAGE DESCRIPTION */}
+                  <div className="mt-4 flex-1 rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Damage Description
+                    </p>
 
-                            {record.status ===
-                              "UNDER_INSPECTION" && (
-                              <div className="flex flex-nowrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    handleDamageStatusUpdate(
-                                      record,
-                                      "MAINTENANCE"
-                                    )
-                                  }
-                                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5L15 12l-3-3 2.7-2.7Z" />
-                                  </svg>
-                                  Maintenance
-                                </button>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                      {record.description || "—"}
+                    </p>
 
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    openResolutionDialog(record)
-                                  }
-                                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="m5 12 4 4L19 6" />
-                                  </svg>
-                                  Resolve
-                                </button>
-                              </div>
-                            )}
+                    {record.status === "RESOLVED" &&
+                      record.repairCost != null && (
+                        <p className="mt-3 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-700">
+                          Repair Cost: {formatMoney(record.repairCost)}
+                        </p>
+                      )}
+                  </div>
 
-                            {record.status === "MAINTENANCE" && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() =>
-                                  openResolutionDialog(record)
-                                }
-                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="h-4 w-4"
-                                  aria-hidden="true"
-                                >
-                                  <path d="m5 12 4 4L19 6" />
-                                </svg>
-                                Complete Repair
-                              </button>
-                            )}
-
-                            {record.status === "RESOLVED" && (
-                              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
-                                ✓ Resolved
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      )
+                  {/* ACTIONS */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                    {record.status === "REPORTED" && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          handleDamageStatusUpdate(
+                            record,
+                            "UNDER_INSPECTION"
+                          )
+                        }
+                        className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {actionLoading === record._id
+                          ? "Updating..."
+                          : "Start Inspection"}
+                      </button>
                     )}
-                  </tbody>
-                </table>
-              </div>
+
+                    {record.status === "UNDER_INSPECTION" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            handleDamageStatusUpdate(
+                              record,
+                              "MAINTENANCE"
+                            )
+                          }
+                          className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {actionLoading === record._id
+                            ? "Updating..."
+                            : "Start Maintenance"}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => openResolutionDialog(record)}
+                          className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Resolve
+                        </button>
+                      </>
+                    )}
+
+                    {record.status === "MAINTENANCE" && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => openResolutionDialog(record)}
+                        className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Complete Repair
+                      </button>
+                    )}
+
+                    {record.status === "RESOLVED" && (
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden="true"
+                        >
+                          <path d="m5 12 4 4L19 6" />
+                        </svg>
+                        Resolved
+                      </span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
 
               {/* PAGINATION */}
               <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

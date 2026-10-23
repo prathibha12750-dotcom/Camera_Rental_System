@@ -13,18 +13,11 @@ import AppSidebar from "./AppSidebar";
 
 
 const AppLayout = () => {
-
   const { user } = useAuth();
-
-  const [
-    mobileMenuOpen,
-    setMobileMenuOpen,
-  ] = useState(false);
-
-  const [
-    photographerIdentity,
-    setPhotographerIdentity,
-  ] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen,] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => {setSidebarCollapsed((previous) => !previous);};
+  const [photographerIdentity,setPhotographerIdentity,] = useState(null);
 
 
   // ==========================================
@@ -167,27 +160,17 @@ const AppLayout = () => {
       {/* ======================================
           DESKTOP SIDEBAR
       ====================================== */}
-
-      <div className="
-        fixed
-        inset-y-0
-        left-0
-        z-40
-        hidden
-        w-72
-        border-r
-        border-gray-200
-        lg:block
-      ">
-
-        <AppSidebar
-          photographerIdentity={
-            photographerIdentity
-          }
-        />
-
+      <div
+        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-gray-200 bg-white transition-[width] duration-300 ease-in-out lg:block ${
+          sidebarCollapsed ? "w-20" : "w-72"
+        }`}
+      >
+      <AppSidebar
+        photographerIdentity={photographerIdentity}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
       </div>
-
 
       {/* ======================================
           MOBILE SIDEBAR
@@ -296,10 +279,12 @@ const AppLayout = () => {
 
       {/* ======================================
           MAIN APPLICATION AREA
-      ====================================== */}
-
-      <div className="lg:pl-72">
-
+      ====================================== */} 
+        <div
+          className={`min-w-0 transition-[padding] duration-300 ease-in-out ${
+            sidebarCollapsed ? "lg:pl-20" : "lg:pl-72"
+          }`}
+        >
         <AppHeader
           onMenuClick={() =>
             setMobileMenuOpen(true)

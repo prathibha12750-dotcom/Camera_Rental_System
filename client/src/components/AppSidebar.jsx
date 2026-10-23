@@ -108,7 +108,7 @@ const navigationByRole = {
     {
       label: "Photographer Subscriptions",
       to: "/photographer-subscriptions",
-      icon: "photographers",
+      icon: "photographer-subscriptions",
     },
     {
       label: "Subscription Payments",
@@ -286,8 +286,27 @@ const Icon = ({ name }) => {
     );
   }
 
-  // SUBSCRIPTION
+  // PHOTOGRAPHER SUBSCRIPTIONS
+  // Camera + recurring subscription indicator
+  if (name === "photographer-subscriptions") {
+    return (
+      <svg {...commonProps}>
+        {/* Camera body */}
+        <path d="M3 9a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v4" />
 
+        {/* Camera lens */}
+        <circle cx="12" cy="12" r="3" />
+
+        {/* Subscription renewal */}
+        <path d="M16 18a3 3 0 0 1 5-2" />
+        <path d="M21 13v3h-3" />
+        <path d="M21 18a3 3 0 0 1-5 2" />
+        <path d="M16 23v-3h3" />
+      </svg>
+    );
+  }
+
+  // SUBSCRIPTION
   if (name === "subscription") {
     return (
       <svg {...commonProps}>
@@ -446,10 +465,12 @@ const Icon = ({ name }) => {
 // SIDEBAR
 // ==========================================
 
-const AppSidebar = ({
-  photographerIdentity = null,
-  onNavigate,
-}) => {
+  const AppSidebar = ({
+    photographerIdentity = null,
+    onNavigate,
+    collapsed = false,
+    onToggleCollapse,
+  }) => {
 
   const navigate = useNavigate();
 
@@ -506,115 +527,123 @@ const AppSidebar = ({
   return (
     <aside className="flex h-full flex-col bg-white">
 
-      {/* ======================================
-          BRAND
-      ====================================== */}
-
-      <div className="flex h-20 items-center px-5">
-
+      {/* BRAND AND SIDEBAR TOGGLE */}
+      <div
+        className={`flex h-20 shrink-0 items-center border-b border-gray-100 ${
+          collapsed ? "justify-center px-2" : "justify-between px-4"
+        }`}
+      >
         <NavLink
-          to={
-            navigation[0]?.to ||
-            "/"
-          }
+          to={navigation[0]?.to || "/"}
           onClick={onNavigate}
-          className="
-            flex items-center gap-3 rounded-xl
-            focus:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-orange-500
-            focus-visible:ring-offset-2
-          "
+          title={collapsed ? "Southern Camera Rent" : undefined}
+          className="flex min-w-0 items-center gap-2 rounded-xl focus-visible:outline-2 focus-visible:outline-orange-500"
         >
+          <img
+            src="/scr-logo.jpg"
+            alt="Southern Camera Rent"
+            className={`shrink-0 rounded-xl object-contain ${
+              collapsed ? "h-10 w-10" : "h-11 w-11"
+            }`}
+          />
 
-        <img
-          src="/scr-logo.jpg"
-          alt="Southern Camera Rent"
-          className="h-12 w-12 rounded-xl object-contain"
-        />
-
-
-          <div className="min-w-0">
-
-            <p className="
-              truncate
-              text-sm
-              font-bold
-              tracking-tight
-              text-gray-950
-            ">
-              Southern Camera Rent
-            </p>
-
-            <p className="
-              truncate
-              text-[11px]
-              text-gray-500
-            ">
-              Equipment & Photographer Services
-            </p>
-
-          </div>
-
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-gray-950">
+                Southern Camera Rent
+              </p>
+              <p className="truncate text-[10px] text-gray-500">
+                Equipment & Photographer Services
+              </p>
+            </div>
+          )}
         </NavLink>
 
+        {!collapsed && onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-2 focus-visible:outline-orange-500"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        )}
       </div>
 
+      {/* EXPAND BUTTON */}
+      {collapsed && onToggleCollapse && (
+        <div className="flex justify-center border-b border-gray-100 py-2">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-2 focus-visible:outline-orange-500"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ======================================
           NAVIGATION
       ====================================== */}
-
       <nav
-        className="
-          flex-1
-          space-y-1
-          overflow-y-auto
-          px-3
-          py-5
-        "
+        className={`sidebar-scroll-hidden min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-5 ${
+          collapsed ? "px-2" : "px-3"
+        }`}
         aria-label="Main navigation"
       >
-
+        
         {navigation.map((item) => (
 
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              [
-                `
-                group
-                flex
-                items-center
-                gap-3
-                rounded-xl
-                px-3
-                py-2.5
-                text-sm
-                font-medium
-                transition
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-orange-500
-                focus-visible:ring-offset-2
-                `,
-                isActive
-                  ? "bg-orange-50 text-orange-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-950",
-              ].join(" ")
-            }
-          >
-
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          onClick={onNavigate}
+          title={collapsed ? item.label : undefined}
+          aria-label={collapsed ? item.label : undefined}
+          className={({ isActive }) =>
+            [
+              "group flex items-center rounded-xl py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+              collapsed
+                ? "justify-center px-2"
+                : "gap-3 px-3",
+              isActive
+                ? "bg-orange-50 text-orange-700"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-950",
+            ].join(" ")
+          }
+        >
+          <span className="shrink-0">
             <Icon name={item.icon} />
+          </span>
 
-            <span>
-              {item.label}
-            </span>
-
-          </NavLink>
+          {!collapsed && (
+            <span className="min-w-0">{item.label}</span>
+          )}
+        </NavLink>
 
         ))}
 
@@ -626,157 +655,84 @@ const AppSidebar = ({
       ====================================== */}
 
       <div className="border-t border-gray-200 p-3">
-
         {profilePath ? (
-
           <button
             type="button"
             onClick={handleProfileClick}
-            className="
-              flex
-              w-full
-              items-center
-              gap-3
-              rounded-xl
-              p-2.5
-              text-left
-              transition
-              hover:bg-gray-50
-              focus:outline-none
-              focus-visible:ring-2
-              focus-visible:ring-orange-500
-              focus-visible:ring-offset-2
-            "
+            title={collapsed ? `${user?.name || "User"} — Profile` : undefined}
+            aria-label={collapsed ? "Open profile" : undefined}
+            className={`flex w-full items-center rounded-xl p-2 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-orange-500 ${
+              collapsed ? "justify-center" : "gap-3 text-left"
+            }`}
           >
-
-            <UserAvatar
-              name={user?.name}
-              imageUrl={
-                photographerIdentity?.profileImage ||
-                ""
-              }
-            />
-
-
-            <div className="min-w-0 flex-1">
-
-              <p className="
-                truncate
-                text-sm
-                font-semibold
-                text-gray-950
-              ">
-                {user?.name || "User"}
-              </p>
-
-
-              <p className="
-                truncate
-                text-xs
-                text-gray-500
-              ">
-
-                {user?.role === "PHOTOGRAPHER"
-                  ? photographerIdentity?.specialization ||
-                    roleLabels[user?.role]
-                  : roleLabels[user?.role]}
-
-              </p>
-
+            <div className="shrink-0">
+              <UserAvatar
+                name={user?.name}
+                imageUrl={photographerIdentity?.profileImage || ""}
+              />
             </div>
 
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-950">
+                  {user?.name || "User"}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  {user?.role === "PHOTOGRAPHER"
+                    ? photographerIdentity?.specialization ||
+                      roleLabels[user?.role]
+                    : roleLabels[user?.role]}
+                </p>
+              </div>
+            )}
           </button>
-
         ) : (
-
-          <div className="
-            flex
-            items-center
-            gap-3
-            rounded-xl
-            p-2.5
-          ">
-
-            <UserAvatar
-              name={user?.name}
-            />
-
-
-            <div className="min-w-0 flex-1">
-
-              <p className="
-                truncate
-                text-sm
-                font-semibold
-                text-gray-950
-              ">
-                {user?.name || "User"}
-              </p>
-
-              <p className="
-                truncate
-                text-xs
-                text-gray-500
-              ">
-                {roleLabels[user?.role] ||
-                  user?.role}
-              </p>
-
+          <div
+            title={collapsed ? user?.name || "User" : undefined}
+            className={`flex items-center rounded-xl p-2 ${
+              collapsed ? "justify-center" : "gap-3"
+            }`}
+          >
+            <div className="shrink-0">
+              <UserAvatar name={user?.name} />
             </div>
 
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-950">
+                  {user?.name || "User"}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  {roleLabels[user?.role] || user?.role}
+                </p>
+              </div>
+            )}
           </div>
-
         )}
-
-
-        {/* ==================================
-            LOGOUT
-        ================================== */}
 
         <button
           type="button"
           onClick={handleLogout}
-          className="
-            mt-2
-            flex
-            w-full
-            items-center
-            gap-3
-            rounded-xl
-            px-3
-            py-2.5
-            text-sm
-            font-medium
-            text-gray-600
-            transition
-            hover:bg-red-50
-            hover:text-red-600
-            focus:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-red-500
-            focus-visible:ring-offset-2
-          "
+          title={collapsed ? "Logout" : undefined}
+          aria-label={collapsed ? "Logout" : undefined}
+          className={`mt-2 flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-500 ${
+            collapsed ? "justify-center px-2" : "gap-3 px-3"
+          }`}
         >
-
           <svg
-            className="h-5 w-5"
+            className="h-5 w-5 shrink-0"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth="1.8"
             aria-hidden="true"
           >
-
             <path d="M10 17l5-5-5-5M15 12H3" />
-
             <path d="M13 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" />
-
           </svg>
 
-          Logout
-
+          {!collapsed && <span>Logout</span>}
         </button>
-
       </div>
 
     </aside>
