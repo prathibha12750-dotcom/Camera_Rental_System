@@ -1114,8 +1114,62 @@ const Users = () => {
                   <tbody className="divide-y divide-gray-100">
                     {paginatedStaffAccounts.map((account) => (
                       <tr
+
                         key={account._id}
-                        className="transition hover:bg-gray-50"
+                        role={
+                          account.role === "PHOTOGRAPHER" ||
+                          (account.role === "CLERK" && isAdmin)
+                            ? "link"
+                            : undefined
+                        }
+                        className={`transition ${
+                          account.role === "PHOTOGRAPHER" ||
+                          (account.role === "CLERK" && isAdmin)
+                            ? "cursor-pointer hover:bg-orange-50 focus:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-400"
+                            : ""
+                        }`}
+
+                      onClick={() => {
+                        if (account.role === "PHOTOGRAPHER") {
+                          navigate(
+                            `${isAdmin ? "/admin" : "/clerk"}/photographers/${account._id}`
+                          );
+                        } else if (account.role === "CLERK" && isAdmin) {
+                          navigate(`/admin/clerks/${account._id}`);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+
+                        if (
+                          account.role !== "PHOTOGRAPHER" &&
+                          !(account.role === "CLERK" && isAdmin)
+                        ) {
+                          return;
+                        }
+
+                        event.preventDefault();
+
+                        if (account.role === "PHOTOGRAPHER") {
+                          navigate(
+                            `${isAdmin ? "/admin" : "/clerk"}/photographers/${account._id}`
+                          );
+                        } else {
+                          navigate(`/admin/clerks/${account._id}`);
+                        }
+                      }}
+                      tabIndex={
+                        account.role === "PHOTOGRAPHER" ||
+                        (account.role === "CLERK" && isAdmin)
+                          ? 0
+                          : undefined
+                      }
+                      aria-label={
+                        account.role === "PHOTOGRAPHER" ||
+                        (account.role === "CLERK" && isAdmin)
+                          ? `View ${account.name} details`
+                          : undefined
+                      }
                       >
                         <td className="px-4 py-4">
                           <p className="text-sm font-semibold text-gray-900">
@@ -1160,9 +1214,10 @@ const Users = () => {
                         <td className="px-4 py-4 text-right">
                           <button
                             type="button"
-                            onClick={() =>
-                              handleAccountStatusChange(account)
-                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleAccountStatusChange(account);
+                            }}
                             disabled={
                               updatingAccountId === account._id
                             }

@@ -10,9 +10,13 @@ const {
   deleteCustomer,
   getPhotographerApplications,
   getPhotographerApplicationById,
+  getPhotographerById,
+  getPhotographerBookingHistory,
   reviewPhotographerApplication,
   updateStaffAccountStatus,
   getStaffAccounts,
+  getClerkById,
+  getClerkWorkHistory,
 } = require("../controllers/adminController");
 
 
@@ -108,6 +112,31 @@ router.post(
 );
 
 // ==========================================
+// GET PHOTOGRAPHER DETAILS
+// CLERK AND STAFF_ADMIN
+// ==========================================
+
+router.get(
+  "/photographers/:id",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getPhotographerById
+);
+
+// ==========================================
+// GET PHOTOGRAPHER BOOKING HISTORY
+// CLERK AND STAFF_ADMIN
+// ==========================================
+
+router.get(
+  "/photographers/:id/history",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getPhotographerBookingHistory
+);
+
+
+// ==========================================
 // CREATE CLERK ACCOUNT
 // STAFF_ADMIN ONLY
 // ==========================================
@@ -119,6 +148,24 @@ router.post(
   createClerk
 );  
 
+ // ==========================================
+ // CLERK DETAILS AND WORK HISTORY
+ // STAFF ADMIN ONLY
+ // ==========================================
+
+router.get(
+  "/clerks/:id",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getClerkById
+);
+
+router.get(
+  "/clerks/:id/history",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getClerkWorkHistory
+);
 
 // Abilash routes starts here
 

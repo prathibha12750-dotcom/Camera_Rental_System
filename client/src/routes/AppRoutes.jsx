@@ -89,6 +89,8 @@ import AdminPhotographerApplications from "../pages/admin/AdminPhotographerAppli
 
 import Users from "../pages/admin/Users";
 import CustomerDetails from "../pages/admin/CustomerDetails";
+import AdminPhotographerDetails from "../pages/admin/PhotographerDetails";
+import ClerkDetails from "../pages/admin/ClerkDetails";
 import Invoices from "../pages/admin/Invoices";
 import Payments from "../pages/admin/Payments";
 import Deposits from "../pages/admin/Deposits";
@@ -534,6 +536,11 @@ const AppRoutes = () => {
               element={<CustomerDetails />}
             />
 
+            <Route
+              path="/clerk/photographers/:photographerId"
+              element={<AdminPhotographerDetails />}
+            />
+
               {/* Clerk can access this before
                   changing temporary password */}
 
@@ -662,6 +669,15 @@ const AppRoutes = () => {
                   element={<CustomerDetails />}
                 />
 
+                <Route
+                  path="/admin/photographers/:photographerId"
+                  element={<AdminPhotographerDetails />}
+                />
+
+                <Route
+                  path="/admin/clerks/:clerkId"
+                  element={<ClerkDetails />}
+                />
 
                 {/* Invoice Management */}
 

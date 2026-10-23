@@ -1944,6 +1944,367 @@ const getStaffAccounts = async (req, res, next) => {
   }
 };
 
+// ==========================================
+// GET PHOTOGRAPHER DETAILS BY USER ID
+// ADMIN ONLY
+// GET /api/admin/photographers/:id
+// ==========================================
+
+const getPhotographerById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validate User account ID
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer user ID.",
+      });
+    }
+
+    // Find the photographer's login account
+    const user = await User.findOne({
+      _id: id,
+      role: "PHOTOGRAPHER",
+    })
+      .select(
+        "name email role status mustChangePassword " +
+        "createdAt updatedAt"
+      )
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer account not found.",
+      });
+    }
+
+    // Photographer.user references User._id
+    const photographer = await Photographer.findOne({
+      user: user._id,
+    })
+      .select(
+        "user bio specialization location hourlyRate " +
+        "packageRates profileImage subscriptionStatus " +
+        "trialEndsAt subscriptionStartDate " +
+        "subscriptionEndDate gracePeriodEndsAt " +
+        "createdAt updatedAt"
+      )
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Photographer details retrieved successfully.",
+      data: {
+        user,
+        photographer,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// GET PHOTOGRAPHER BOOKING HISTORY
+// ADMIN ONLY
+// GET /api/admin/photographers/:id/history
+// ==========================================
+
+const getPhotographerBookingHistory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // The URL contains the User account ID.
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer user ID.",
+      });
+    }
+
+    const user = await User.findOne({
+      _id: id,
+      role: "PHOTOGRAPHER",
+    })
+      .select("_id name email")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer account not found.",
+      });
+    }
+
+    // Resolve the Photographer profile ID.
+    const photographer = await Photographer.findOne({
+      user: user._id,
+    })
+      .select("_id")
+      .lean();
+
+    if (!photographer) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer profile not found.",
+      });
+    }
+
+    // Retrieve actual booking records.
+    const bookings = await Booking.find({
+      photographer: photographer._id,
+    })
+      .select(
+        "customer date startTime endTime pricingType " +
+        "durationHours packageNameAtBooking totalAmount " +
+        "status createdAt"
+      )
+      .populate({
+        path: "customer",
+        select: "name email",
+      })
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
+    const now = new Date();
+
+    const summary = {
+      totalBookings: bookings.length,
+      requestedBookings: 0,
+      confirmedBookings: 0,
+      completedBookings: 0,
+      rejectedBookings: 0,
+      cancelledBookings: 0,
+      upcomingBookings: 0,
+      completedBookingValue: 0,
+    };
+
+    for (const booking of bookings) {
+      switch (booking.status) {
+        case "REQUESTED":
+          summary.requestedBookings += 1;
+          break;
+        case "CONFIRMED":
+          summary.confirmedBookings += 1;
+          break;
+        case "COMPLETED":
+          summary.completedBookings += 1;
+          summary.completedBookingValue +=
+            booking.totalAmount || 0;
+          break;
+        case "REJECTED":
+          summary.rejectedBookings += 1;
+          break;
+        case "CANCELLED":
+          summary.cancelledBookings += 1;
+          break;
+        default:
+          break;
+      }
+
+      // Upcoming means a future booking date
+      // that has not been rejected or cancelled.
+      if (
+        booking.date &&
+        new Date(booking.date) >= now &&
+        ["REQUESTED", "CONFIRMED"].includes(booking.status)
+      ) {
+        summary.upcomingBookings += 1;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Photographer booking history retrieved successfully.",
+      data: {
+        photographer: user,
+        summary,
+        bookings,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+ // ==========================================
+ // GET CLERK DETAILS BY USER ID
+ // STAFF ADMIN ONLY
+ // ==========================================
+
+const getClerkById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid clerk user ID.",
+      });
+    }
+
+    // Retrieve only a Clerk account
+    const clerk = await User.findOne({
+      _id: id,
+      role: "CLERK",
+    })
+      .select(
+        "name email role status mustChangePassword createdAt updatedAt"
+      )
+      .lean();
+
+    if (!clerk) {
+      return res.status(404).json({
+        success: false,
+        message: "Clerk account not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Clerk details retrieved successfully.",
+      data: {
+        clerk,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+ // ==========================================
+ // GET CLERK WORK HISTORY
+ // STAFF ADMIN ONLY
+ // ==========================================
+
+const getClerkWorkHistory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid clerk user ID.",
+      });
+    }
+
+    const clerk = await User.findOne({
+      _id: id,
+      role: "CLERK",
+    })
+      .select("name email role status")
+      .lean();
+
+    if (!clerk) {
+      return res.status(404).json({
+        success: false,
+        message: "Clerk account not found.",
+      });
+    }
+
+    const [
+      rentalApprovals,
+      equipmentReturns,
+      damageReports,
+      deductionReviews,
+      overduePenaltyReviews,
+      depositSettlements,
+      refundConfirmations,
+    ] = await Promise.all([
+      Rental.find({ approvedBy: id })
+        .select(
+          "customer equipment startDate endDate totalPrice status approvedAt"
+        )
+        .populate("customer", "name email")
+        .populate("equipment", "name")
+        .sort({ approvedAt: -1 })
+        .lean(),
+
+      Return.find({ receivedBy: id })
+        .select(
+          "rental equipment customer returnedAt condition damageDescription notes"
+        )
+        .populate("equipment", "name")
+        .populate("customer", "name email")
+        .sort({ returnedAt: -1 })
+        .lean(),
+
+      DamageRecord.find({ reportedBy: id })
+        .select(
+          "rental equipment customer description status repairCost createdAt"
+        )
+        .populate("equipment", "name")
+        .populate("customer", "name email")
+        .sort({ createdAt: -1 })
+        .lean(),
+
+      DamageRecord.find({ deductionReviewedBy: id })
+        .select(
+          "rental equipment customer description deductionApprovalStatus approvedDeductionAmount deductionReviewedAt"
+        )
+        .populate("equipment", "name")
+        .populate("customer", "name email")
+        .sort({ deductionReviewedAt: -1 })
+        .lean(),
+
+      Rental.find({ overduePenaltyReviewedBy: id })
+        .select(
+          "customer equipment overdueDays overduePenaltyAmount overduePenaltyStatus overduePenaltyReviewedAt"
+        )
+        .populate("equipment", "name")
+        .populate("customer", "name email")
+        .sort({ overduePenaltyReviewedAt: -1 })
+        .lean(),
+
+      Deposit.find({ settledBy: id })
+        .select(
+          "invoice customer amount deductedAmount refundedAmount status settlementNotes settledAt"
+        )
+        .populate("customer", "name email")
+        .sort({ settledAt: -1 })
+        .lean(),
+
+      Refund.find({ confirmedBy: id })
+        .select(
+          "invoice customer amount refundMethod status confirmedAt payoutReference"
+        )
+        .populate("customer", "name email")
+        .sort({ confirmedAt: -1 })
+        .lean(),
+    ]);
+
+    const summary = {
+      totalRentalApprovals: rentalApprovals.length,
+      totalEquipmentReturns: equipmentReturns.length,
+      totalDamageReports: damageReports.length,
+      totalDeductionReviews: deductionReviews.length,
+      totalOverduePenaltyReviews: overduePenaltyReviews.length,
+      totalDepositSettlements: depositSettlements.length,
+      totalRefundConfirmations: refundConfirmations.length,
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "Clerk work history retrieved successfully.",
+      data: {
+        clerk,
+        summary,
+        rentalApprovals,
+        equipmentReturns,
+        damageReports,
+        deductionReviews,
+        overduePenaltyReviews,
+        depositSettlements,
+        refundConfirmations,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createPhotographer,
@@ -1958,4 +2319,8 @@ module.exports = {
   reviewPhotographerApplication,
   updateStaffAccountStatus,
   getStaffAccounts,
+  getPhotographerById,
+  getPhotographerBookingHistory,
+  getClerkById,
+  getClerkWorkHistory,
 };
