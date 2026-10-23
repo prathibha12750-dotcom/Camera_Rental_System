@@ -1,7 +1,11 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+
+// ==========================================
+// MODIFICATION: React Slider References
+// MODIFIED BY: Thasindu
+// PURPOSE: Enable horizontal carousel references.
+// ==========================================
+
+import { useEffect, useState, useRef } from "react";
 
 import {
   Link,
@@ -10,6 +14,13 @@ import {
 import { useAuth } from "../context/useAuth";
 
 import api from "../services/api";
+
+import { getAllCategories } from "../services/categoryService";
+
+ // MODIFIED BY: Thasindu
+ // PURPOSE: Fetch rental equipment from MongoDB for the homepage.
+import { getAllEquipment } from "../services/equipmentService";
+
 
 import heroImage from "../assets/hero.jpg";
 import cameraImage from "../assets/camera.jpg";
@@ -46,9 +57,9 @@ const heroSlides = [
       "Explore cameras, lenses and supporting equipment available through Southern Camera Rental.",
     image: heroImage,
     primaryText: "Discover Equipment",
-    primaryLink: "#equipment",
-    secondaryText: "Login to Rent",
-    secondaryLink: "/login",
+    primaryLink: "/customer/equipment",
+    secondaryText: "How Renting Works",
+    secondaryLink: "#how-it-works",
   },
 
   {
@@ -136,6 +147,197 @@ const categories = [
 // ==========================================
 
 const Home = () => {
+
+
+    
+    // ==========================================
+    // MODIFICATION: Homepage Slider Controls
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Control category and equipment
+    // sliders independently.
+    // ==========================================
+
+    const homeCategorySliderRef = useRef(null);
+    const homeEquipmentSliderRef = useRef(null);
+
+    const scrollHomeSlider = (sliderRef, direction) => {
+      const slider = sliderRef.current;
+      if (!slider) return;
+
+      const firstCard = slider.firstElementChild;
+      const cardWidth = firstCard?.getBoundingClientRect().width || 280;
+      const gap = parseFloat(window.getComputedStyle(slider).gap) || 0;
+
+      slider.scrollBy({
+        left: direction * (cardWidth + gap),
+        behavior: "smooth",
+      });
+    };
+
+    // END MODIFICATION: Homepage Slider Controls by Thasindu
+
+    
+    // ==========================================
+    // MODIFICATION: Hover-Controlled Carousel
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Automatically slide category/equipment
+    // cards while the mouse hovers over an arrow.
+    // Stop sliding when the mouse leaves.
+    // ==========================================
+
+    const hoverSliderIntervalRef = useRef(null);
+
+    const stopHoverSlide = () => {
+      if (hoverSliderIntervalRef.current !== null) {
+        clearInterval(hoverSliderIntervalRef.current);
+        hoverSliderIntervalRef.current = null;
+      }
+    };
+
+    const startHoverSlide = (sliderRef, direction) => {
+      stopHoverSlide();
+
+      // Slide once immediately when mouse enters
+      scrollHomeSlider(sliderRef, direction);
+
+      // Continue sliding while mouse stays on the arrow
+      hoverSliderIntervalRef.current = setInterval(() => {
+        const slider = sliderRef.current;
+
+        if (!slider) {
+          stopHoverSlide();
+          return;
+        }
+
+        // Stop when the slider reaches either end
+        const atEnd =
+          direction > 0
+            ? slider.scrollLeft + slider.clientWidth >=
+              slider.scrollWidth - 2
+            : slider.scrollLeft <= 2;
+
+        if (atEnd) {
+          stopHoverSlide();
+          return;
+        }
+
+        scrollHomeSlider(sliderRef, direction);
+      }, 850);
+    };
+
+    useEffect(() => {
+      return () => {
+        if (hoverSliderIntervalRef.current !== null) {
+          clearInterval(hoverSliderIntervalRef.current);
+        }
+      };
+    }, []);
+
+    // END MODIFICATION: Hover-Controlled Carousel by Thasindu
+
+
+
+
+
+    
+    // ==========================================
+    // MODIFICATION: Featured Rental Equipment
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Fetch equipment for homepage display.
+    // ==========================================
+
+    const [featuredEquipment, setFeaturedEquipment] = useState([]);
+    const [equipmentLoading, setEquipmentLoading] = useState(true);
+
+
+    
+    // ==========================================
+    // MODIFICATION: Rental Equipment Collection Tabs
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Allow customers to switch between
+    // New Arrivals, Most Rented, and Featured Gear.
+    // ==========================================
+
+    const [activeEquipmentTab, setActiveEquipmentTab] = useState("new");
+
+    // END MODIFICATION: Rental Equipment Collection Tabs by Thasindu
+
+
+
+
+    useEffect(() => {
+      let ignore = false;
+
+      const loadFeaturedEquipment = async () => {
+        try {
+          const result = await getAllEquipment();
+
+          if (!ignore) {
+            const items = result?.data?.equipment || [];
+            setFeaturedEquipment(items.slice(0, 6));
+          }
+        } catch (error) {
+          console.error("Failed to load featured equipment:", error);
+
+          if (!ignore) {
+            setFeaturedEquipment([]);
+          }
+        } finally {
+          if (!ignore) {
+            setEquipmentLoading(false);
+          }
+        }
+      };
+
+      loadFeaturedEquipment();
+
+      return () => {
+        ignore = true;
+      };
+    }, []);
+
+    // END MODIFICATION: Featured Rental Equipment by Thasindu
+
+
+
+    
+    // ==========================================
+    // DYNAMIC EQUIPMENT CATEGORIES
+    // Load admin-managed categories from MongoDB
+    // ==========================================
+
+    const [equipmentCategories, setEquipmentCategories] = useState([]);
+
+    useEffect(() => {
+      let ignore = false;
+
+      const loadEquipmentCategories = async () => {
+        try {
+          const result = await getAllCategories();
+
+          if (!ignore) {
+            setEquipmentCategories(
+              (result?.data?.categories || []).filter(
+                (category) => category.status === "ACTIVE"
+              )
+            );
+          }
+        } catch (error) {
+          console.error("Failed to load equipment categories:", error);
+        }
+      };
+
+      loadEquipmentCategories();
+
+      return () => {
+        ignore = true;
+      };
+    }, []);
+
+    // END DYNAMIC EQUIPMENT CATEGORIES
+
+
+
   const {
     user,
     isAuthenticated,
@@ -446,36 +648,37 @@ const Home = () => {
               )}
 
 
-              {!loading &&
-              isAuthenticated ? (
+              
+              {/* ==========================================
+                  HERO SECONDARY BUTTON
+                  Updated by Thasindu
+                  Supports section scrolling and page navigation
+              ========================================== */}
 
-                dashboardPath && (
-
-                  <Link
-                    to={
-                      dashboardPath
-                    }
-                    className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
-                  >
-                    Go to Dashboard
-                  </Link>
-
-                )
-
-              ) : (
-
+              {!loading && isAuthenticated && dashboardPath ? (
                 <Link
-                  to={
-                    slide.secondaryLink
-                  }
+                  to={dashboardPath}
                   className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
                 >
-                  {
-                    slide.secondaryText
-                  }
+                  Go to Dashboard
                 </Link>
-
+              ) : slide.secondaryLink.startsWith("#") ? (
+                <a
+                  href={slide.secondaryLink}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
+                >
+                  {slide.secondaryText}
+                </a>
+              ) : (
+                <Link
+                  to={slide.secondaryLink}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
+                >
+                  {slide.secondaryText}
+                </Link>
               )}
+
+              {/* END HERO SECONDARY BUTTON */}
 
             </div>
 
@@ -729,75 +932,68 @@ const Home = () => {
           </div>
 
 
-          {/* Category Cards */}
+          
+            {/* ==========================================
+                MODIFICATION: Restore Discover Services Cards
+                MODIFIED BY: Thasindu
+                PURPOSE: Show the website's two main services
+                without mixing equipment categories into them.
+            ========================================== */}
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid gap-6 md:grid-cols-2">
 
-            {categories.map(
-              (
-                category
-              ) => (
+              <Link
+                to="/customer/equipment"
+                className="group relative h-80 overflow-hidden rounded-2xl bg-gray-900"
+              >
+                <img
+                  src={equipmentImage}
+                  alt="Equipment Rental"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+                <div className="absolute bottom-0 p-6 text-white">
+                  <h3 className="text-2xl font-bold">
+                    Equipment Rental
+                  </h3>
+                  <p className="mt-2 text-gray-200">
+                    Rent cameras, lenses, lighting and production gear.
+                  </p>
+                  <span className="mt-4 inline-block font-semibold text-orange-300">
+                    Browse Equipment →
+                  </span>
+                </div>
+              </Link>
 
-                <article
-                  key={
-                    category.title
-                  }
-                  className="group relative min-h-80 overflow-hidden rounded-2xl bg-gray-900 shadow-sm"
-                >
+              <Link
+                to="/photographers"
+                className="group relative h-80 overflow-hidden rounded-2xl bg-gray-900"
+              >
+                <img
+                  src={photographerImage}
+                  alt="Photographer Services"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+                <div className="absolute bottom-0 p-6 text-white">
+                  <h3 className="text-2xl font-bold">
+                    Photographer Services
+                  </h3>
+                  <p className="mt-2 text-gray-200">
+                    Discover photographers for events and creative projects.
+                  </p>
+                  <span className="mt-4 inline-block font-semibold text-orange-300">
+                    Explore Photographers →
+                  </span>
+                </div>
+              </Link>
 
-                  <img
-                    src={
-                      category.image
-                    }
-                    alt={
-                      category.title
-                    }
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
-                  />
+            </div>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent" />
+            {/* END MODIFICATION: Restore Discover Services Cards by Thasindu */}
 
+          
 
-                  <div className="absolute inset-x-0 bottom-0 p-6 text-white">
-
-                    <h3 className="text-xl font-bold">
-                      {
-                        category.title
-                      }
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-gray-200">
-                      {
-                        category.text
-                      }
-                    </p>
-
-                    {category.link && (
-
-                      <Link
-                        to={
-                          category.link
-                        }
-                        className="mt-4 inline-flex items-center text-sm font-semibold text-white transition hover:text-orange-300"
-                      >
-                        Explore Photographers
-
-                        <span className="ml-2">
-                          →
-                        </span>
-                      </Link>
-
-                    )}
-
-                  </div>
-
-                </article>
-
-              )
-            )}
-
-          </div>
 
         </div>
 
@@ -989,7 +1185,405 @@ const Home = () => {
 
         </div>
 
+
+              
+        {/* ==========================================
+            MODIFICATION: Equipment Category Placement
+            MODIFIED BY: Thasindu
+            PURPOSE: Show dynamic equipment categories
+            under the Camera Equipment section.
+        ========================================== */}
+
+        <div className="mx-auto mt-16 max-w-7xl px-6 lg:px-8">
+
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-950">
+              Browse Equipment by Category
+            </h3>
+
+            <p className="mt-2 text-gray-600">
+              Select a category to explore our rental collection.
+            </p>
+          </div>
+
+          
+          {/* ==========================================
+              MODIFICATION: Dynamic Equipment Category Grid
+              MODIFIED BY: Thasindu
+              PURPOSE: Display admin-managed equipment
+              categories under the Camera Equipment section.
+              Clicking a category opens filtered equipment.
+          ========================================== */}
+
+          
+
+
+            
+
+
+
+          {/* ==========================================
+              MODIFICATION: Category Slider Layout Fix
+              MODIFIED BY: Thasindu
+              PURPOSE: Prevent category cards from becoming
+              narrow strips or wrapping into multiple rows.
+          ========================================== */}
+
+
+            
+        {/* ==========================================
+            MODIFICATION: Category Carousel Side Arrows
+            MODIFIED BY: Thasindu
+            PURPOSE: Position navigation arrows on both
+            sides of the category cards.
+        ========================================== */}
+
+        <div className="relative">
+
+          <button
+            type="button"
+            onClick={() => scrollHomeSlider(homeCategorySliderRef, -1)}
+            onMouseEnter={() => startHoverSlide(homeCategorySliderRef, -1)}
+            onMouseLeave={stopHoverSlide}
+            aria-label="Previous categories"
+            className="absolute left-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl shadow-lg transition hover:bg-orange-600 hover:text-white"
+          >
+            ‹
+          </button>
+
+
+            
+
+
+          <div
+            ref={homeCategorySliderRef}
+            className="flex w-full flex-nowrap gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+
+            {equipmentCategories.map((category) => (
+              <Link
+                key={category._id}
+                to={`/customer/equipment?category=${category._id}`}
+                className="group relative block h-80 min-w-0 w-[85%] shrink-0 snap-start overflow-hidden rounded-2xl bg-gray-900 shadow-sm transition hover:-translate-y-1 hover:shadow-xl sm:w-[calc((100%_-_1.25rem)/2)] lg:w-[calc((100%_-_3.75rem)/4)]"
+
+
+              >
+                {/* Category fallback background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-950" />
+
+                {/* Category image from MongoDB */}
+                {category.imageUrl && (
+                  <img
+                    src={category.imageUrl}
+                    alt={category.name}
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+
+                {/* Dark overlay for text visibility */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+                {/* Category information */}
+                <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+                  <h3 className="text-xl font-bold">
+                    {category.name}
+                  </h3>
+
+                  {category.description && (
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-200">
+                      {category.description}
+                    </p>
+                  )}
+
+                  <span className="mt-4 inline-flex items-center text-sm font-semibold text-orange-300">
+                    Explore Equipment →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+
+          
+          <button
+            type="button"
+            onClick={() => scrollHomeSlider(homeCategorySliderRef, 1)}
+            onMouseEnter={() => startHoverSlide(homeCategorySliderRef, 1)}
+            onMouseLeave={stopHoverSlide}
+            aria-label="Next categories"
+            className="absolute right-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl shadow-lg transition hover:bg-orange-600 hover:text-white"
+          >
+            ›
+          </button>
+
+        </div>
+
+      
+
+        {/* END MODIFICATION: Dynamic Equipment Category Grid by Thasindu */}
+
+
+        </div>
+
+        {/* END MODIFICATION: Equipment Category Placement by Thasindu */}
+
+
+
+
       </section>
+
+
+
+
+
+            
+      {/* ==========================================
+          MODIFICATION: Equipment Collection Tab Navigation
+          MODIFIED BY: Thasindu
+          PURPOSE: Introduce rental collection tabs.
+          Most Rented and Featured Gear remain inactive
+          until real ranking and admin data are connected.
+      ========================================== */}
+
+      
+        {/* MODIFIED BY: Thasindu
+            PURPOSE: Improve tab alignment, horizontal spacing,
+            and responsive layout for the equipment collection. */}
+
+
+      {/* END MODIFICATION: Equipment Collection Tab Navigation by Thasindu */}
+
+
+
+      
+      {/* ==========================================
+          MODIFICATION: Featured Rental Equipment Section
+          MODIFIED BY: Thasindu
+          PURPOSE: Showcase rental equipment on the
+          homepage using live MongoDB equipment data.
+      ========================================== */}
+
+      <section className="bg-gray-50 py-20 sm:py-24">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+
+          {/* Section Heading */}
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-orange-600">
+                Equipment Rental
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black text-gray-950 sm:text-4xl">
+                Explore Our Rental Equipment
+              </h2>
+
+              <p className="mt-3 text-gray-600">
+                Find professional equipment for your next creative project.
+              </p>
+            </div>
+
+            <Link
+              to="/customer/equipment"
+              className="font-semibold text-orange-600 hover:text-orange-700"
+            >
+              View All Equipment →
+            </Link>
+          </div>
+
+          {/* Loading State */}
+          {equipmentLoading && (
+            <p className="py-10 text-center text-gray-500">
+              Loading rental equipment...
+            </p>
+          )}
+
+
+
+          
+        {/* ==========================================
+            MODIFICATION: Minimal Equipment Collection Tabs
+            MODIFIED BY: Thasindu
+            PURPOSE: Replace large button-style tabs with
+            modern underline navigation aligned with the
+            rental equipment section.
+        ========================================== */}
+
+        <div className="mb-10 border-b border-gray-200">
+          <div className="flex flex-wrap items-center gap-6 sm:gap-10">
+
+            {[
+              { id: "new", label: "New Arrivals", enabled: true },
+              { id: "popular", label: "Most Rented", enabled: false },
+              { id: "featured", label: "Featured Gear", enabled: false },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                disabled={!tab.enabled}
+                onClick={() => setActiveEquipmentTab(tab.id)}
+                title={tab.enabled ? tab.label : "Coming soon"}
+                className={`relative border-b-[3px] pb-4 pt-2 text-sm font-semibold transition-colors sm:text-base ${
+                  activeEquipmentTab === tab.id
+                    ? "border-orange-600 text-orange-600"
+                    : tab.enabled
+                      ? "border-transparent text-gray-600 hover:text-orange-600"
+                      : "cursor-not-allowed border-transparent text-gray-400"
+                }`}
+              >
+                {tab.label}
+
+                {!tab.enabled && (
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    Soon
+                  </span>
+                )}
+              </button>
+            ))}
+
+          </div>
+        </div>
+
+        {/* END MODIFICATION: Minimal Equipment Collection Tabs by Thasindu */}
+
+
+          
+        {/* ==========================================
+            MODIFICATION: Equipment Carousel Side Arrows
+            MODIFIED BY: Thasindu
+            PURPOSE: Position navigation arrows on both
+            sides of the rental equipment cards.
+        ========================================== */}
+
+        <div className="relative">
+
+          <button
+            type="button"
+            onClick={() => scrollHomeSlider(homeEquipmentSliderRef, -1)}
+            onMouseEnter={() => startHoverSlide(homeEquipmentSliderRef, -1)}
+            onMouseLeave={stopHoverSlide}
+            aria-label="Previous equipment"
+            className="absolute left-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl shadow-lg transition hover:bg-orange-600 hover:text-white"
+          >
+            ‹
+          </button>
+
+
+
+
+          {/* Equipment Cards */}
+          {!equipmentLoading && featuredEquipment.length > 0 && (
+            <div
+              ref={homeEquipmentSliderRef}
+              className="flex w-full flex-nowrap gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {featuredEquipment.map((item) => (
+                <article
+                  key={item._id}
+                  className="group w-[85%] shrink-0 snap-start overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_4.5rem)/4)]"
+                >
+
+                  {/* Equipment Image */}
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-5xl text-gray-300">
+                        ◇
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Equipment Details */}
+                  <div className="p-6">
+                    <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                      {item.category?.name || "Equipment"}
+                    </p>
+
+                    <h3 className="mt-2 text-xl font-bold text-gray-950">
+                      {item.name}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      {[item.brand, item.model].filter(Boolean).join(" ")}
+                    </p>
+
+                    <div className="mt-5 border-t border-gray-100 pt-4">
+                      <p className="text-sm text-gray-500">
+                        Rental Price
+                      </p>
+
+                      <p className="mt-1 text-2xl font-black text-gray-950">
+                        LKR {Number(item.rentalPricePerDay || 0).toLocaleString()}
+                        <span className="ml-1 text-sm font-normal text-gray-500">
+                          /day
+                        </span>
+                      </p>
+                    </div>
+
+                    <Link
+                      to={`/customer/equipment/${item._id}`}
+                      className="mt-5 flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 font-semibold text-white transition hover:bg-orange-600"
+                    >
+                      View & Rent →
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          
+          <button
+            type="button"
+            onClick={() => scrollHomeSlider(homeEquipmentSliderRef, 1)}
+            onMouseEnter={() => startHoverSlide(homeEquipmentSliderRef, 1)}
+            onMouseLeave={stopHoverSlide}
+            aria-label="Next equipment"
+            className="absolute right-2 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl shadow-lg transition hover:bg-orange-600 hover:text-white"
+          >
+            ›
+          </button>
+
+        </div>
+
+        {/* END MODIFICATION: Equipment Carousel Side Arrows by Thasindu */}
+
+
+
+
+
+          {/* Empty State */}
+          {!equipmentLoading && featuredEquipment.length === 0 && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center">
+              <p className="text-gray-500">
+                No rental equipment is currently listed.
+              </p>
+
+              <Link
+                to="/customer/equipment"
+                className="mt-4 inline-block font-semibold text-orange-600"
+              >
+                Browse Equipment →
+              </Link>
+            </div>
+          )}
+
+        </div>
+      </section>
+
+      {/* END MODIFICATION: Featured Rental Equipment Section by Thasindu */}
+
+
+
 
 
       {/* ==========================================
