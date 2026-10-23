@@ -28,8 +28,9 @@ const RentalManagement = () => {
   // ==========================================
   // STATE
   // ==========================================
-
   const [rentals, setRentals] = useState([]);
+  const [allRentals, setAllRentals] = useState([]);
+  const [overdueCount, setOverdueCount] = useState(0);
     
   const [detailsRental, setDetailsRental] = useState(null);
   const [detailsDamageRecords, setDetailsDamageRecords] = useState([]);
@@ -82,6 +83,8 @@ const RentalManagement = () => {
   // Reference used to scroll to the Deposit Management panel
   const depositSettlementRef = useRef(null);
 
+  const rentalRecordsRef = useRef(null);
+
   // Smoothly scroll to Deposit Management when a rental is selected.
   useEffect(() => {
     if (!selectedDepositRental) return;
@@ -101,6 +104,7 @@ const RentalManagement = () => {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // ==========================================
   // INITIAL LOAD
@@ -118,7 +122,21 @@ useEffect(() => {
       const loadedRentals = result?.data?.rentals || [];
 
       setRentals(loadedRentals);
+      setAllRentals(loadedRentals);
+      try {
+        const overdueResult = await getOverdueRentals();
 
+        if (!cancelled) {
+          setOverdueCount(
+            overdueResult?.data?.rentals?.length ?? 0
+          );
+        }
+      } catch (overdueError) {
+        console.error(
+          "Failed to load overdue rental count:",
+          overdueError
+        );
+      }
       // Open the requested rental's deposit settlement
       // when navigating from Refund Management.
       if (settlementRentalId) {
@@ -213,6 +231,22 @@ useEffect(() => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
+  const refreshOverdueCount = async () => {
+    try {
+      const result = await getOverdueRentals();
+
+      const overdueRentals = result?.data?.rentals;
+
+      if (Array.isArray(overdueRentals)) {
+        setOverdueCount(overdueRentals.length);
+      } else {
+        setOverdueCount(0);
+      }
+    } catch (err) {
+      console.error("Failed to load overdue rental count:", err);
+    }
+  };
+
   // ==========================================
   // LOAD / REFRESH RENTALS
   // ==========================================
@@ -226,7 +260,15 @@ useEffect(() => {
         ? await getOverdueRentals()
         : await getAllRentals();
 
-      setRentals(result?.data?.rentals || []);
+      const loadedRentals = result?.data?.rentals || [];
+
+      setRentals(loadedRentals);
+
+      // Keep overview statistics based on all rentals,
+      // not just the currently displayed overdue records.
+      if (!overdueOnly) {
+        setAllRentals(loadedRentals);
+      }
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -238,7 +280,10 @@ useEffect(() => {
   };
 
   const refreshRentals = async () => {
-    await fetchRentals(showOverdueOnly);
+    await Promise.all([
+      fetchRentals(showOverdueOnly),
+      refreshOverdueCount(),
+    ]);
   };
 
   // ==========================================
@@ -261,6 +306,30 @@ useEffect(() => {
   const updateFilter = (setter, value) => {
     setter(value);
     setCurrentPage(1);
+  };
+
+  const navigateToRentalStatus = async (status) => {
+    setCurrentPage(1);
+    setSearchTerm("");
+    setDateFrom("");
+    setDateTo("");
+
+    if (status === "OVERDUE") {
+      setStatusFilter("ALL");
+      setShowOverdueOnly(true);
+      await fetchRentals(true);
+    } else {
+      setStatusFilter(status);
+      setShowOverdueOnly(false);
+      await fetchRentals(false);
+    }
+
+    window.requestAnimationFrame(() => {
+      rentalRecordsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
 
   const clearFilters = async () => {
@@ -780,23 +849,33 @@ const detailsField = (label, value) => (
   // ==========================================
 
   const getRentalStatusClass = (status) => {
+    const base =
+      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold tracking-wide";
+
     switch (status) {
       case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
+        return `${base} border-amber-200 bg-amber-50 text-amber-700`;
+
       case "CONFIRMED":
-        return "bg-blue-100 text-blue-800";
+        return `${base} border-blue-200 bg-blue-50 text-blue-700`;
+
       case "ACTIVE":
-        return "bg-green-100 text-green-800";
+        return `${base} border-green-200 bg-green-50 text-green-700`;
+
       case "RETURNED":
-        return "bg-purple-100 text-purple-800";
+        return `${base} border-purple-200 bg-purple-50 text-purple-700`;
+
       case "COMPLETED":
-        return "bg-emerald-100 text-emerald-800";
+        return `${base} border-emerald-200 bg-emerald-50 text-emerald-700`;
+
       case "REJECTED":
-        return "bg-red-100 text-red-800";
+        return `${base} border-red-200 bg-red-50 text-red-700`;
+
       case "CANCELLED":
-        return "bg-gray-100 text-gray-700";
+        return `${base} border-gray-200 bg-gray-100 text-gray-600`;
+
       default:
-        return "bg-gray-100 text-gray-700";
+        return `${base} border-gray-200 bg-gray-50 text-gray-600`;
     }
   };
 
@@ -1545,6 +1624,85 @@ const detailsField = (label, value) => (
           </button>
         </div>
 
+        {/* ==========================================
+            RENTAL OPERATIONS OVERVIEW
+        ========================================== */}
+
+        <section className="mt-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Rental Operations Overview
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Quick summary of equipment rental activities.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                title: "Pending Requests",
+                filter: "PENDING",
+                count: allRentals.filter(
+                  (rental) => rental.status === "PENDING"
+                ).length,
+                description: "Requests awaiting approval",
+                color: "bg-amber-50 text-amber-700",
+              },
+              {
+                title: "Ready to Issue",
+                filter: "CONFIRMED",
+                count: allRentals.filter(
+                  (rental) =>
+                    rental.status === "CONFIRMED" &&
+                    rental.invoice?.paymentStatus === "PAID"
+                ).length,
+                description: "Fully paid rentals awaiting issue",
+                color: "bg-blue-50 text-blue-700",
+              },
+              {
+                title: "Active Rentals",
+                filter: "ACTIVE",
+                count: allRentals.filter(
+                  (rental) => rental.status === "ACTIVE"
+                ).length,
+                description: "Equipment currently rented out",
+                color: "bg-green-50 text-green-700",
+              },
+              {
+                title: "Overdue Rentals",
+                filter: "OVERDUE",
+                count: overdueCount,
+                description: "Rentals past their return deadline",
+                color: "bg-red-50 text-red-700",
+              },
+            ].map((item) => (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => navigateToRentalStatus(item.filter)}
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 disabled:cursor-wait disabled:opacity-60"
+                >
+                <div
+                  className={`mb-4 inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold ${item.color}`}
+                >
+                  {item.title}
+                </div>
+
+                <p className="text-3xl font-bold text-gray-950">
+                  {loading ? "..." : item.count}
+                </p>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  {item.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* FILTER SECTION */}
 
         <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -1569,94 +1727,168 @@ const detailsField = (label, value) => (
             </button>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {/* ==========================================
+              RENTAL STATUS QUICK FILTER TABS
+          ========================================== */}
 
-            {/* SEARCH */}
+          <div className="mt-6 border-b border-gray-200">
+            <div className="flex flex-wrap gap-2 pb-4">
+              {[
+                { label: "All Rentals", value: "ALL" },
+                { label: "Pending", value: "PENDING" },
+                { label: "Confirmed", value: "CONFIRMED" },
+                { label: "Active", value: "ACTIVE" },
+                { label: "Returned", value: "RETURNED" },
+                { label: "Completed", value: "COMPLETED" },
+                { label: "Rejected", value: "REJECTED" },
+                { label: "Cancelled", value: "CANCELLED" },
+              ].map((tab) => {
+                const isActive = statusFilter === tab.value;
 
-            <label className="block text-sm font-medium text-gray-700">
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() =>
+                      updateFilter(setStatusFilter, tab.value)
+                    }
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? "bg-orange-600 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-5">
+
+          {/* ==========================================
+              SEARCH AND ADVANCED FILTERS
+          ========================================== */}
+
+          <div className="mt-5 space-y-4">
+            {/* SEARCH - ALWAYS VISIBLE */}
+
+            <label className="block max-w-2xl text-sm font-medium text-gray-700">
               Search Rentals
 
               <input
                 type="search"
                 value={searchTerm}
                 onChange={(event) =>
-                  updateFilter(
-                    setSearchTerm,
-                    event.target.value
-                  )
+                  updateFilter(setSearchTerm, event.target.value)
                 }
-                placeholder="Customer, equipment, rental ID..."
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                placeholder="Search customer, equipment, rental ID..."
+                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               />
             </label>
 
-            {/* STATUS */}
+            {/* ADVANCED FILTER TOGGLE */}
 
-            <label className="block text-sm font-medium text-gray-700">
-              Rental Status
-
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  updateFilter(
-                    setStatusFilter,
-                    event.target.value
-                  )
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setShowAdvancedFilters((previous) => !previous)
                 }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                aria-expanded={showAdvancedFilters}
+                aria-controls="rental-advanced-filters"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="PENDING">Pending</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="ACTIVE">Active</option>
-                <option value="RETURNED">Returned</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </label>
+                <span>Advanced Filters</span>
 
-            {/* DATE FROM */}
+                {(dateFrom || dateTo) && (
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">
+                    Active
+                  </span>
+                )}
 
-            <label className="block text-sm font-medium text-gray-700">
-              Rental Period From
+                <span
+                  aria-hidden="true"
+                  className={`inline-block transition-transform ${
+                    showAdvancedFilters ? "rotate-180" : ""
+                  }`}
+                >
+                  ▼
+                </span>
+              </button>
 
-              <input
-                type="date"
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(event) =>
-                  updateFilter(
-                    setDateFrom,
-                    event.target.value
-                  )
-                }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
-              />
-            </label>
+              {(dateFrom || dateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateFilter(setDateFrom, "");
+                    setDateTo("");
+                  }}
+                  className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                >
+                  Clear Date Filters
+                </button>
+              )}
+            </div>
 
-            {/* DATE TO */}
+            {/* COLLAPSIBLE DATE FILTERS */}
 
-            <label className="block text-sm font-medium text-gray-700">
-              Rental Period To
+            {showAdvancedFilters && (
+              <div
+                id="rental-advanced-filters"
+                className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5"
+              >
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Rental Period
+                  </h3>
 
-              <input
-                type="date"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(event) =>
-                  updateFilter(
-                    setDateTo,
-                    event.target.value
-                  )
-                }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
-              />
-            </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Show rentals whose booking periods overlap the selected dates.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* DATE FROM */}
+
+                  <label className="block text-sm font-medium text-gray-700">
+                    Rental Period From
+
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(event) =>
+                        updateFilter(setDateFrom, event.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    />
+                  </label>
+
+                  {/* DATE TO */}
+
+                  <label className="block text-sm font-medium text-gray-700">
+                    Rental Period To
+
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(event) =>
+                        updateFilter(setDateTo, event.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
 
-          {!loading && !error && (
-            <p className="mt-4 text-sm text-gray-500">
+        {!loading && !error && (
+          <p className="mt-4 text-sm text-gray-500">
               {filteredRentals.length} matching rental(s)
               {hasActiveFilters
                 ? ` from ${rentals.length} loaded records`
@@ -1806,297 +2038,360 @@ const detailsField = (label, value) => (
           </div>
         )}
 
-        {/* RENTALS TABLE */}
+        {/* ==========================================
+            RENTAL RECORDS - CARD VIEW
+        ========================================== */}
 
         {!loading && !error && filteredRentals.length > 0 && (
-          <section className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      "Customer",
-                      "Equipment",
-                      "Rental Period",
-                      "Total",
-                      "Status",
-                      "Actions",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="px-6 py-4 text-left text-sm font-semibold text-gray-700"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+          <section ref={rentalRecordsRef} className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            {/* SECTION HEADER */}
+            <div className="border-b border-gray-200 px-5 py-5 sm:px-6">
+              <h2 className="text-xl font-bold text-gray-950">
+                Rental Records
+              </h2>
 
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedRentals.map((rental) => (
-                    <tr key={rental._id}>
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-gray-950">
-                          {rental.customer?.name ||
-                            "Unknown Customer"}
-                        </p>
-
-                        <p className="text-sm text-gray-500">
-                          {rental.customer?.email || "—"}
-                        </p>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-gray-950">
-                          {rental.equipment?.name ||
-                            "Unknown Equipment"}
-                        </p>
-
-                        <p className="text-sm text-gray-500">
-                          {rental.equipment?.brand}{" "}
-                          {rental.equipment?.model}
-                        </p>
-                      </td>
-
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        <p>{formatDate(rental.startDate)}</p>
-
-                        <p className="text-gray-500">
-                          to {formatDate(rental.endDate)}
-                        </p>
-
-                        {/* ACTIVE RENTAL - ESTIMATED OVERDUE PENALTY */}
-                        {rental.status === "ACTIVE" &&
-                          rental.overdueEstimate?.overdueDays > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs font-semibold text-red-600">
-                                {rental.overdueEstimate.overdueDays} overdue day(s)
-                              </p>
-
-                              <p className="text-xs font-medium text-red-700">
-                                Estimated Penalty:{" "}
-                                {formatMoney(
-                                  rental.overdueEstimate.overduePenaltyAmount
-                                )}
-                              </p>
-                            </div>
-                          )}
-
-                        {/* RETURNED / COMPLETED RENTAL - FINAL OVERDUE PENALTY */}
-                        {["RETURNED", "COMPLETED"].includes(rental.status) &&
-                          rental.overdueDays > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs font-semibold text-red-600">
-                                {rental.overdueDays} overdue day(s)
-                              </p>
-
-                              <p className="text-xs font-medium text-gray-700">
-                                Final Penalty:{" "}
-                                {formatMoney(rental.overduePenaltyAmount)}
-                              </p>
-
-                              <span className="inline-block rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
-                                {rental.overduePenaltyStatus || "NOT_APPLICABLE"}
-                              </span>
-                            </div>
-                          )}
-
-                      </td>
-
-                      <td className="px-6 py-4 font-medium text-gray-900">
-                        LKR{" "}
-                        {Number(
-                          rental.totalPrice || 0
-                        ).toLocaleString()}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getRentalStatusClass(
-                            rental.status
-                          )}`}
-                        >
-                          {rental.status || "—"}
-                        </span>
-                      </td>
-
-                        <td className="px-6 py-4 align-middle">
-                          <div className="flex w-44 flex-col items-stretch gap-2">                     
-                          
-                          <button
-                            type="button"
-                            onClick={() => openRentalDetails(rental)}
-                            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-                          >
-                            View Details
-                          </button>
-
-                          {rental.status === "PENDING" && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleApprove(rental)
-                                }
-                                disabled={actionLoading !== null}
-                                className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                              >
-                                {actionLoading === rental._id
-                                  ? "Processing..."
-                                  : "Approve"}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleReject(rental)
-                                }
-                                disabled={actionLoading !== null}
-                                className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-
-                          {rental.status === "CONFIRMED" && (
-                            <div className="flex flex-col gap-2">
-                              {rental.invoice?.paymentStatus === "PAID" ? (
-                                <>
-                                  <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                    Payment Verified
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleIssue(rental)
-                                    }
-                                    disabled={actionLoading !== null}
-                                    className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                                  >
-                                    {actionLoading === rental._id
-                                      ? "Issuing..."
-                                      : "Issue Equipment"}
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="w-fit rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
-                                    {rental.invoice?.paymentStatus ===
-                                    "PARTIALLY_PAID"
-                                      ? "Partially Paid"
-                                      : rental.invoice?.paymentStatus ===
-                                          "PENDING"
-                                        ? "Payment Pending"
-                                        : "Payment Unavailable"}
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    disabled
-                                    title="Equipment can only be issued after full payment verification."
-                                    className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-500"
-                                  >
-                                    Issue Equipment
-                                  </button>
-
-                                  <p className="max-w-48 text-xs text-gray-500">
-                                    Full payment verification is required before issuing.
-                                  </p>
-                                </>
-                              )}
-                            </div>
-                          )}
-
-                          {rental.status === "ACTIVE" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openReturnForm(rental)
-                              }
-                              disabled={actionLoading !== null}
-                              className="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
-                            >
-                              Return Equipment
-                            </button>
-                          )}
-
-                          {/* OVERDUE PENALTY REVIEW - ADMIN / CLERK */}
-                          {rental.status === "RETURNED" &&
-                            rental.overduePenaltyStatus === "PENDING_REVIEW" && (
-                              <button
-                                type="button"
-                                onClick={() => openPenaltyReviewModal(rental)}
-                                disabled={actionLoading !== null}
-                                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 transition-colors hover:border-amber-400 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <span aria-hidden="true">⚖</span>
-                                Review Penalty
-                              </button>
-                            )}
-
-                          {rental.status === "RETURNED" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openDepositSettlement(rental)
-                              }
-                              disabled={actionLoading !== null}
-                              className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100 disabled:opacity-50"
-                            >
-                              Manage Deposit
-                            </button>
-                          )}
-
-                          {rental.status === "RETURNED" && (
-                            <div className="flex flex-col gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleComplete(rental)}
-                                disabled={
-                                  actionLoading !== null ||
-                                  rental.depositSettled !== true
-                                }
-                                title={
-                                  rental.depositSettled === true
-                                    ? "Complete this rental."
-                                    : "The invoice must be paid and the security deposit fully settled before completion."
-                                }
-                                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                                  rental.depositSettled === true
-                                    ? "bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
-                                    : "cursor-not-allowed bg-gray-200 text-gray-500"
-                                }`}
-                              >
-                                {actionLoading === rental._id
-                                  ? "Completing..."
-                                  : "Complete Rental"}
-                              </button>
-
-                              {rental.depositSettled !== true && (
-                                <p className="max-w-48 text-xs text-amber-700">
-                                  {rental.depositStatus === "REFUND_PENDING"
-                                    ? "Refund payout is pending. Complete the deposit settlement first."
-                                    : rental.depositStatus === "HELD"
-                                      ? "Security deposit is still held. Complete deposit management first."
-                                      : rental.depositStatus
-                                        ? `Deposit status: ${rental.depositStatus}. Completion is unavailable.`
-                                        : "Deposit settlement is not available or has not been verified."}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <p className="mt-1 text-sm text-gray-500">
+                Showing {filteredRentals.length} matching rental records.
+              </p>
             </div>
 
-            {/* PAGINATION */}
+            {/* TWO-COLUMN CARD GRID */}
+            <div className="grid gap-4 p-4 md:grid-cols-2 sm:p-5">
+              {paginatedRentals.map((rental) => (
+                <article
+                  key={rental._id}
+                  className="flex h-full min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-orange-200 hover:shadow-md"
+                >
+                  {/* EQUIPMENT AND STATUS */}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-base font-bold text-gray-950">
+                        {rental.equipment?.name || "Unknown Equipment"}
+                      </h3>
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        {[rental.equipment?.brand, rental.equipment?.model]
+                          .filter(Boolean)
+                          .join(" ") || "Equipment details unavailable"}
+                      </p>
+                    </div>
+
+                    <span className={getRentalStatusClass(rental.status)}>
+                      {rental.status || "UNKNOWN"}
+                    </span>
+                  </div>
+
+                  {/* CUSTOMER INFORMATION */}
+                  <div className="mt-5 border-t border-gray-100 pt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Customer
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {rental.customer?.name || "Unknown Customer"}
+                    </p>
+
+                    <p className="mt-1 break-all text-xs text-gray-500">
+                      {rental.customer?.email || "Email unavailable"}
+                    </p>
+                  </div>
+
+                  {/* RENTAL PERIOD AND PRICE */}
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Rental Period
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-gray-900">
+                        {formatDate(rental.startDate)}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
+                        to {formatDate(rental.endDate)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Rental Total
+                      </p>
+
+                      <p className="mt-1 text-base font-bold text-gray-950">
+                        {formatMoney(rental.totalPrice ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ==========================================
+                      RENTAL STATUS INFORMATION
+                  ========================================== */}
+
+                  <div className="mt-4 space-y-3">
+                    {/* ACTIVE RENTAL - OVERDUE INFORMATION */}
+                    {rental.status === "ACTIVE" &&
+                      Number(rental.overdueEstimate?.overdueDays || 0) > 0 && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                              Overdue Rental
+                            </p>
+
+                            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+                              {rental.overdueEstimate.overdueDays} day(s)
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-xs text-red-700">
+                            Estimated Overdue Penalty
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-red-800">
+                            {formatMoney(
+                              rental.overdueEstimate?.overduePenaltyAmount ?? 0
+                            )}
+                          </p>
+                        </div>
+                      )}
+
+                    {/* RETURNED OR COMPLETED - FINAL PENALTY */}
+                    {["RETURNED", "COMPLETED"].includes(rental.status) &&
+                      Number(rental.overdueDays || 0) > 0 && (
+                        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-orange-700">
+                              Final Overdue Penalty
+                            </p>
+
+                            <span className="text-xs font-semibold text-orange-700">
+                              {rental.overdueDays} overdue day(s)
+                            </span>
+                          </div>
+
+                          <p className="mt-2 text-base font-bold text-gray-900">
+                            {formatMoney(rental.overduePenaltyAmount ?? 0)}
+                          </p>
+
+                          <p className="mt-2 text-xs text-gray-600">
+                            Review Status:{" "}
+                            <span className="font-semibold">
+                              {rental.overduePenaltyStatus || "Not Available"}
+                            </span>
+                          </p>
+                        </div>
+                      )}
+
+                    {/* RETURNED - DEPOSIT STATUS */}
+                    {rental.status === "RETURNED" && (
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                            Security Deposit
+                          </p>
+
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${
+                              rental.depositSettled === true
+                                ? "bg-green-100 text-green-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {rental.depositSettled === true
+                              ? "Settled"
+                              : "Settlement Pending"}
+                          </span>
+                        </div>
+
+                        <p className="mt-2 text-sm font-semibold text-gray-900">
+                          {rental.depositStatus
+                            ? rental.depositStatus.replaceAll("_", " ")
+                            : "Status not available"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ==========================================
+                      RENTAL CARD ACTIONS
+                  ========================================== */}
+
+                  <div className="mt-auto space-y-3 border-t border-gray-100 pt-5">
+                    {/* VIEW DETAILS - ALL RENTALS */}
+                    <button
+                      type="button"
+                      onClick={() => openRentalDetails(rental)}
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700"
+                    >
+                      View Details
+                    </button>
+
+                    {/* PENDING - APPROVE OR REJECT */}
+                    {rental.status === "PENDING" && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(rental)}
+                          disabled={actionLoading !== null}
+                          className="rounded-xl bg-orange-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {actionLoading === rental._id
+                            ? "Processing..."
+                            : "Approve"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleReject(rental)}
+                          disabled={actionLoading !== null}
+                          className="rounded-xl border border-red-300 bg-white px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {/* CONFIRMED - PAYMENT VERIFICATION AND ISSUE */}
+                    {rental.status === "CONFIRMED" && (
+                      <div className="space-y-2">
+                        {rental.invoice?.paymentStatus === "PAID" ? (
+                          <>
+                            <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                              Payment Verified
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleIssue(rental)}
+                              disabled={actionLoading !== null}
+                              className="w-full rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {actionLoading === rental._id
+                                ? "Issuing..."
+                                : "Issue Equipment"}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                              {rental.invoice?.paymentStatus === "PARTIALLY_PAID"
+                                ? "Partially Paid"
+                                : rental.invoice?.paymentStatus === "PENDING"
+                                  ? "Payment Pending"
+                                  : "Payment Unavailable"}
+                            </span>
+
+                            <button
+                              type="button"
+                              disabled
+                              title="Full payment verification is required before issuing."
+                              className="w-full cursor-not-allowed rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-400"
+                            >
+                              Issue Equipment
+                            </button>
+
+                            <p className="text-xs leading-relaxed text-gray-500">
+                              Full payment verification is required before issuing.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ACTIVE - RETURN EQUIPMENT */}
+                    {rental.status === "ACTIVE" && (
+                      <button
+                        type="button"
+                        onClick={() => openReturnForm(rental)}
+                        disabled={actionLoading !== null}
+                        className="w-full rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Return Equipment
+                      </button>
+                    )}
+
+                    {/* RETURNED - PENALTY REVIEW */}
+                    {rental.status === "RETURNED" &&
+                      rental.overduePenaltyStatus === "PENDING_REVIEW" && (
+                        <button
+                          type="button"
+                          onClick={() => openPenaltyReviewModal(rental)}
+                          disabled={actionLoading !== null}
+                          className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Review Overdue Penalty
+                        </button>
+                      )}
+
+                    {/* RETURNED - DEPOSIT SETTLEMENT AND COMPLETION */}
+                    {rental.status === "RETURNED" && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => openDepositSettlement(rental)}
+                            disabled={actionLoading !== null}
+                            className="rounded-xl border border-orange-300 bg-orange-50 px-3 py-2.5 text-sm font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Manage Deposit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleComplete(rental)}
+                            disabled={
+                              actionLoading !== null ||
+                              rental.depositSettled !== true
+                            }
+                            title={
+                              rental.depositSettled === true
+                                ? "Complete this rental."
+                                : "The security deposit must be fully settled before completion."
+                            }
+                            className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                              rental.depositSettled === true
+                                ? "bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+                                : "cursor-not-allowed bg-gray-100 text-gray-400"
+                            }`}
+                          >
+                            {actionLoading === rental._id
+                              ? "Completing..."
+                              : "Complete Rental"}
+                          </button>
+                        </div>
+
+                        {rental.depositSettled !== true && (
+                          <p className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                            {rental.depositStatus === "REFUND_PENDING"
+                              ? "Refund payout is pending. Complete the deposit settlement first."
+                              : rental.depositStatus === "HELD"
+                                ? "Security deposit is still held. Complete deposit management first."
+                                : rental.depositStatus
+                                  ? `Deposit status: ${rental.depositStatus}. Completion is unavailable.`
+                                  : "Deposit settlement has not been verified."}
+                          </p>
+                        )}
+
+                        {rental.depositSettled === true && (
+                          <p className="text-xs font-medium text-green-700">
+                            Security deposit settled
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ==========================================
+            RENTAL CARD PAGINATION
+        ========================================== */}
+
+        {!loading && !error && filteredRentals.length > 0 && (
+          <section className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
 
             <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-500">

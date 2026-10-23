@@ -1,14 +1,11 @@
-// ==========================================
-// REACT ROUTER
-// ==========================================
 
 import {
   BrowserRouter,
   Link,
+  Navigate,
   Route,
   Routes,
 } from "react-router-dom";
-
 
 // ==========================================
 // LAYOUTS
@@ -18,7 +15,6 @@ import AppLayout from "../components/AppLayout";
 import Navbar from "../components/Navbar";
 import AdminLayout from "../components/admin/AdminLayout";
 
-
 // ==========================================
 // PUBLIC PAGES
 // ==========================================
@@ -27,7 +23,6 @@ import Home from "../pages/Home";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Unauthorized from "../pages/Unauthorized";
-
 
 // ==========================================
 // CUSTOMER PAGES
@@ -42,7 +37,6 @@ import CustomerBookings from "../pages/customer/CustomerBookings";
 import PhotographerApplication from "../pages/customer/PhotographerApplication";
 import CustomerBilling from "../pages/customer/CustomerBilling";
 
-
 // ==========================================
 // CUSTOMER EQUIPMENT / RENTAL PAGES
 // Added by Thasindu
@@ -52,7 +46,6 @@ import EquipmentBrowse from "../pages/customer/EquipmentBrowse";
 import EquipmentDetails from "../pages/customer/EquipmentDetails";
 import MyRentals from "../pages/customer/MyRentals";
 import CustomerRentalDetails from "../pages/customer/CustomerRentalDetails";
-
 
 // ==========================================
 // PHOTOGRAPHER PAGES
@@ -66,7 +59,6 @@ import PhotographerBookings from "../pages/photographer/PhotographerBookings";
 import PhotographerChangePassword from "../pages/photographer/PhotographerChangePassword";
 import PhotographerSubscription from "../pages/photographer/PhotographerSubscription";
 
-
 // ==========================================
 // CLERK PAGES
 // ==========================================
@@ -76,9 +68,12 @@ import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
 import ClerkPaymentVerification from "../pages/clerk/ClerkPaymentVerification";
 import ClerkEquipment from "../pages/clerk/ClerkEquipment";
 import DamageMaintenance from "../pages/clerk/DamageMaintenance";
-import SubscriptionPayments from "../pages/clerk/SubscriptionPayments";
-import PhotographerSubscriptions from "../pages/clerk/PhotographerSubscriptions";
 
+// ==========================================
+// COMBINED PHOTOGRAPHER SUBSCRIPTION MANAGEMENT
+// ==========================================
+
+import PhotographerSubscriptionManagement from "../pages/admin/PhotographerSubscriptionManagement";
 
 // ==========================================
 // ADMIN PAGES
@@ -86,7 +81,6 @@ import PhotographerSubscriptions from "../pages/clerk/PhotographerSubscriptions"
 
 import AdminHome from "../pages/admin/AdminHome";
 import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
-
 import Users from "../pages/admin/Users";
 import CustomerDetails from "../pages/admin/CustomerDetails";
 import AdminPhotographerDetails from "../pages/admin/PhotographerDetails";
@@ -98,7 +92,6 @@ import Refunds from "../pages/admin/Refunds";
 import Reports from "../pages/admin/Reports";
 import Notifications from "../pages/admin/Notifications";
 
-
 // ==========================================
 // ADMIN EQUIPMENT / RENTAL PAGES
 // Added by Thasindu
@@ -106,7 +99,6 @@ import Notifications from "../pages/admin/Notifications";
 
 import EquipmentManagement from "../pages/admin/EquipmentManagement";
 import RentalManagement from "../pages/admin/RentalManagement";
-
 
 // ==========================================
 // ROUTE GUARDS
@@ -117,120 +109,48 @@ import RoleRoute from "./RoleRoute";
 import PasswordChangeRoute from "./PasswordChangeRoute";
 import PhotographerSubscriptionRoute from "./PhotographerSubscriptionRoute";
 
-
 // ==========================================
 // 404 PAGE
 // ==========================================
 
 const NotFound = () => {
-
   return (
-
-    <main
-      className="
-        flex
-        min-h-[calc(100vh-4rem)]
-        items-center
-        justify-center
-        bg-gray-50
-        px-6
-        py-16
-      "
-    >
-
-      <div
-        className="
-          w-full
-          max-w-lg
-          rounded-3xl
-          border
-          border-gray-200
-          bg-white
-          p-10
-          text-center
-          shadow-lg
-        "
-      >
-
-        <p
-          className="
-            text-sm
-            font-semibold
-            uppercase
-            tracking-wider
-            text-orange-600
-          "
-        >
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 px-6 py-16">
+      <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-lg">
+        <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
           404 error
         </p>
 
-
-        <h1
-          className="
-            mt-2
-            text-3xl
-            font-bold
-            text-gray-950
-          "
-        >
+        <h1 className="mt-2 text-3xl font-bold text-gray-950">
           Page not found
         </h1>
 
-
-        <p
-          className="
-            mt-4
-            leading-7
-            text-gray-600
-          "
-        >
-          The page you are looking for does not
-          exist or may have been moved.
+        <p className="mt-4 leading-7 text-gray-600">
+          The page you are looking for does not exist or may
+          have been moved.
         </p>
-
 
         <Link
           to="/"
-          className="
-            mt-8
-            inline-flex
-            rounded-xl
-            bg-orange-600
-            px-6
-            py-3
-            font-semibold
-            text-white
-            transition
-            hover:bg-orange-700
-          "
+          className="mt-8 inline-flex rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white transition hover:bg-orange-700"
         >
           Go to Home
         </Link>
-
       </div>
-
     </main>
-
   );
-
 };
-
 
 // ==========================================
 // APPLICATION ROUTES
 // ==========================================
 
 const AppRoutes = () => {
-
   return (
-
     <BrowserRouter>
-
       <Navbar />
 
-
       <Routes>
-
         {/* ==================================
             PUBLIC ROUTES
         ================================== */}
@@ -240,24 +160,20 @@ const AppRoutes = () => {
           element={<Home />}
         />
 
-
         <Route
           path="/login"
           element={<Login />}
         />
-
 
         <Route
           path="/register"
           element={<Register />}
         />
 
-
         <Route
           path="/unauthorized"
           element={<Unauthorized />}
         />
-
 
         {/* ==================================
             PUBLIC PHOTOGRAPHER DISCOVERY
@@ -268,27 +184,21 @@ const AppRoutes = () => {
           element={<PhotographerListing />}
         />
 
-
         <Route
           path="/photographers/:id"
           element={<PhotographerDetails />}
         />
-
 
         {/* ==================================
             PROTECTED ROUTES
         ================================== */}
 
         <Route element={<ProtectedRoute />}>
-
-
           {/* =================================
               AUTHENTICATED APPLICATION SHELL
           ================================= */}
 
           <Route element={<AppLayout />}>
-
-
             {/* ===============================
                 CUSTOMER ROUTES
             =============================== */}
@@ -296,20 +206,16 @@ const AppRoutes = () => {
             <Route
               element={
                 <RoleRoute
-                  allowedRoles={[
-                    "CUSTOMER",
-                  ]}
+                  allowedRoles={["CUSTOMER"]}
                 />
               }
             >
-
               {/* Customer Dashboard */}
 
               <Route
                 path="/customer"
                 element={<CustomerHome />}
               />
-
 
               {/* Customer Profile */}
 
@@ -318,73 +224,51 @@ const AppRoutes = () => {
                 element={<CustomerProfile />}
               />
 
-
               {/* Photographer Discovery */}
 
               <Route
                 path="/customer/photographers"
-                element={
-                  <PhotographerListing />
-                }
+                element={<PhotographerListing />}
               />
-
 
               <Route
                 path="/customer/photographers/:id"
-                element={
-                  <PhotographerDetails />
-                }
+                element={<PhotographerDetails />}
               />
-
 
               <Route
                 path="/customer/photographers/:id/book"
-                element={
-                  <PhotographerBooking />
-                }
+                element={<PhotographerBooking />}
               />
-
 
               {/* Customer Photographer Bookings */}
 
               <Route
                 path="/customer/bookings"
-                element={
-                  <CustomerBookings />
-                }
+                element={<CustomerBookings />}
               />
-
 
               {/* Photographer Application */}
 
               <Route
                 path="/customer/photographer-application"
-                element={
-                  <PhotographerApplication />
-                }
+                element={<PhotographerApplication />}
               />
 
-
               {/* =============================
-                  EQUIPMENT ROUTES
+                  CUSTOMER EQUIPMENT ROUTES
                   Added by Thasindu
               ============================= */}
 
               <Route
                 path="/customer/equipment"
-                element={
-                  <EquipmentBrowse />
-                }
+                element={<EquipmentBrowse />}
               />
-
 
               <Route
                 path="/customer/equipment/:id"
-                element={
-                  <EquipmentDetails />
-                }
+                element={<EquipmentDetails />}
               />
-
 
               {/* =============================
                   CUSTOMER RENTAL ROUTES
@@ -393,12 +277,9 @@ const AppRoutes = () => {
 
               <Route
                 path="/customer/rentals"
-                element={
-                  <MyRentals />
-                }
+                element={<MyRentals />}
               />
 
-              {/* Customer Rental Details */}
               <Route
                 path="/customer/rentals/:rentalId"
                 element={<CustomerRentalDetails />}
@@ -408,13 +289,9 @@ const AppRoutes = () => {
 
               <Route
                 path="/customer/billing"
-                element={
-                  <CustomerBilling />
-                }
+                element={<CustomerBilling />}
               />
-
             </Route>
-
 
             {/* ===============================
                 PHOTOGRAPHER ROUTES
@@ -423,93 +300,60 @@ const AppRoutes = () => {
             <Route
               element={
                 <RoleRoute
-                  allowedRoles={[
-                    "PHOTOGRAPHER",
-                  ]}
+                  allowedRoles={["PHOTOGRAPHER"]}
                 />
               }
             >
-
-              {/* Photographer can access this
-                  before changing temporary password */}
+              {/* Photographer Password Change */}
 
               <Route
                 path="/photographer/change-password"
-                element={
-                  <PhotographerChangePassword />
-                }
+                element={<PhotographerChangePassword />}
               />
 
-
-              {/* Photographer Subscription
-                  Accessible for active and renewal-required
-                  photographer sessions */}
+              {/* Photographer Subscription Page */}
 
               <Route
                 path="/photographer/subscription"
-                element={
-                  <PhotographerSubscription />
-                }
+                element={<PhotographerSubscription />}
               />
 
-
-              {/* All normal photographer routes
-                  require password change completion */}
+              {/* Subscription access protection */}
 
               <Route
-                element={
-                  <PhotographerSubscriptionRoute />
-                }
+                element={<PhotographerSubscriptionRoute />}
               >
+                {/* Password change protection */}
+
                 <Route
-                  element={
-                    <PasswordChangeRoute />
-                  }
+                  element={<PasswordChangeRoute />}
                 >
+                  <Route
+                    path="/photographer"
+                    element={<PhotographerHome />}
+                  />
 
-                <Route
-                  path="/photographer"
-                  element={
-                    <PhotographerHome />
-                  }
-                />
+                  <Route
+                    path="/photographer/profile"
+                    element={<PhotographerProfile />}
+                  />
 
+                  <Route
+                    path="/photographer/portfolio"
+                    element={<PhotographerPortfolio />}
+                  />
 
-                <Route
-                  path="/photographer/profile"
-                  element={
-                    <PhotographerProfile />
-                  }
-                />
+                  <Route
+                    path="/photographer/availability"
+                    element={<PhotographerAvailability />}
+                  />
 
-
-                <Route
-                  path="/photographer/portfolio"
-                  element={
-                    <PhotographerPortfolio />
-                  }
-                />
-
-
-                <Route
-                  path="/photographer/availability"
-                  element={
-                    <PhotographerAvailability />
-                  }
-                />
-
-
-                <Route
-                  path="/photographer/bookings"
-                  element={
-                    <PhotographerBookings />
-                  }
-                />
-
+                  <Route
+                    path="/photographer/bookings"
+                    element={<PhotographerBookings />}
+                  />
+                </Route>
               </Route>
-
-            </Route>
-            
             </Route>
 
             {/* ===============================
@@ -519,111 +363,141 @@ const AppRoutes = () => {
             <Route
               element={
                 <RoleRoute
-                  allowedRoles={[
-                    "CLERK",
-                  ]}
+                  allowedRoles={["CLERK"]}
                 />
               }
             >
+              {/* Clerk User Management */}
 
-            <Route
-              path="/clerk/users"
-              element={<Users />}
-            />
+              <Route
+                path="/clerk/users"
+                element={<Users />}
+              />
 
-            <Route
-              path="/clerk/customers/:customerId"
-              element={<CustomerDetails />}
-            />
+              <Route
+                path="/clerk/customers/:customerId"
+                element={<CustomerDetails />}
+              />
 
-            <Route
-              path="/clerk/photographers/:photographerId"
-              element={<AdminPhotographerDetails />}
-            />
+              <Route
+                path="/clerk/photographers/:photographerId"
+                element={<AdminPhotographerDetails />}
+              />
 
-              {/* Clerk can access this before
-                  changing temporary password */}
+              {/* Clerk Password Change */}
 
               <Route
                 path="/clerk/change-password"
-                element={
-                  <ClerkChangePassword />
-                }
+                element={<ClerkChangePassword />}
               />
 
-              {/* All normal Clerk routes require
-                  password change completion */}
+              {/* Protected Clerk Pages */}
 
               <Route
-                element={
-                  <PasswordChangeRoute />
-                }
+                element={<PasswordChangeRoute />}
               >
+                {/* Clerk Dashboard */}
 
-               <Route
-                 path="/clerk"
-                 element={
-                  <ClerkHome />
-                 }
-               />
+                <Route
+                  path="/clerk"
+                  element={<ClerkHome />}
+                />
+
+                {/* Clerk Rental Management */}
 
                 <Route
                   path="/clerk/rentals"
-                  element={
-                    <RentalManagement />
-                  }
+                  element={<RentalManagement />}
                 />
-              
-                {/* Clerk Rental Payment Verification */}
+
+                {/* Clerk Payment Verification */}
+
                 <Route
                   path="/clerk/payment-verification"
                   element={<ClerkPaymentVerification />}
                 />
 
+                {/* Clerk Equipment Management */}
+
                 <Route
                   path="/clerk/equipment"
-                  element={
-                    <ClerkEquipment />
-                  }
+                  element={<ClerkEquipment />}
                 />
 
-                {/* Clerk Photographer Application Management */}
+                {/* Clerk Photographer Applications */}
+
                 <Route
                   path="/clerk/photographer-applications"
                   element={<AdminPhotographerApplications />}
                 />
 
+                {/* Clerk Deposits */}
+
                 <Route
                   path="/clerk/deposits"
-                  element={
-                    <Deposits />
-                  }
+                  element={<Deposits />}
                 />
+
+                {/* Clerk Refunds */}
 
                 <Route
                   path="/clerk/refunds"
                   element={<Refunds />}
                 />
 
+                {/* Clerk Damage & Maintenance */}
+
                 <Route
                   path="/clerk/damage-maintenance"
                   element={<DamageMaintenance />}
-                />  
+                />
+
+                {/* ==================================
+                    COMBINED SUBSCRIPTION MANAGEMENT
+                ================================== */}
 
                 <Route
-                  path="subscription-payments"
-                  element={<SubscriptionPayments />}
+                  path="/photographer-subscriptions"
+                  element={
+                    <PhotographerSubscriptionManagement />
+                  }
+                />
+
+                {/* Old Payment Page URL:
+                    Open Payment Verification tab */}
+
+                <Route
+                  path="/subscription-payments"
+                  element={
+                    <PhotographerSubscriptionManagement
+                      initialTab="verification"
+                    />
+                  }
+                />
+
+                {/* Optional Clerk-prefixed aliases */}
+
+                <Route
+                  path="/clerk/photographer-subscriptions"
+                  element={
+                    <Navigate
+                      to="/photographer-subscriptions"
+                      replace
+                    />
+                  }
                 />
 
                 <Route
-                  path="photographer-subscriptions"
-                  element={<PhotographerSubscriptions />}
+                  path="/clerk/subscription-payments"
+                  element={
+                    <Navigate
+                      to="/subscription-payments"
+                      replace
+                    />
+                  }
                 />
-
               </Route>
-
             </Route>
-
 
             {/* ===============================
                 STAFF ADMIN ROUTES
@@ -632,36 +506,23 @@ const AppRoutes = () => {
             <Route
               element={
                 <RoleRoute
-                  allowedRoles={[
-                    "STAFF_ADMIN",
-                  ]}
+                  allowedRoles={["STAFF_ADMIN"]}
                 />
               }
             >
-
-              <Route
-                element={
-                  <AdminLayout />
-                }
-              >
-
+              <Route element={<AdminLayout />}>
                 {/* Admin Dashboard */}
 
                 <Route
                   path="/admin"
-                  element={
-                    <AdminHome />
-                  }
+                  element={<AdminHome />}
                 />
-
 
                 {/* User Management */}
 
                 <Route
                   path="/admin/users"
-                  element={
-                    <Users />
-                  }
+                  element={<Users />}
                 />
 
                 <Route
@@ -683,22 +544,18 @@ const AppRoutes = () => {
 
                 <Route
                   path="/admin/invoices"
-                  element={
-                    <Invoices />
-                  }
+                  element={<Invoices />}
                 />
-
 
                 {/* Payment Management */}
 
                 <Route
                   path="/admin/payments"
-                  element={
-                    <Payments />
-                  }
+                  element={<Payments />}
                 />
 
                 {/* Admin Rental Payment Verification */}
+
                 <Route
                   path="/admin/payment-verification"
                   element={<ClerkPaymentVerification />}
@@ -708,106 +565,66 @@ const AppRoutes = () => {
 
                 <Route
                   path="/admin/deposits"
-                  element={
-                    <Deposits />
-                  }
+                  element={<Deposits />}
                 />
-
 
                 {/* Refund Management */}
 
                 <Route
                   path="/admin/refunds"
-                  element={
-                    <Refunds />
-                  }
+                  element={<Refunds />}
                 />
-
 
                 {/* Reports */}
 
                 <Route
                   path="/admin/reports"
-                  element={
-                    <Reports />
-                  }
+                  element={<Reports />}
                 />
-
 
                 {/* Notifications */}
 
                 <Route
                   path="/admin/notifications"
-                  element={
-                    <Notifications />
-                  }
+                  element={<Notifications />}
                 />
-
 
                 {/* Photographer Applications */}
 
                 <Route
                   path="/admin/photographer-applications"
-                  element={
-                    <AdminPhotographerApplications />
-                  }
+                  element={<AdminPhotographerApplications />}
                 />
 
-
-                {/* =============================
-                    EQUIPMENT MANAGEMENT
-                    Added by Thasindu
-                ============================= */}
+                {/* Equipment Management */}
 
                 <Route
                   path="/admin/equipment"
-                  element={
-                    <EquipmentManagement />
-                  }
+                  element={<EquipmentManagement />}
                 />
 
-
-                {/* =============================
-                    RENTAL MANAGEMENT
-                    Added by Thasindu
-                ============================= */}
+                {/* Rental Management */}
 
                 <Route
                   path="/admin/rentals"
-                  element={
-                    <RentalManagement />
-                  }
+                  element={<RentalManagement />}
                 />
-
               </Route>
-
             </Route>
-
-
           </Route>
-
-
         </Route>
 
-
         {/* ==================================
-            404
+            404 PAGE
         ================================== */}
 
         <Route
           path="*"
           element={<NotFound />}
         />
-
-
       </Routes>
-
-
     </BrowserRouter>
-
   );
-
 };
-
 
 export default AppRoutes;

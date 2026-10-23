@@ -1,3 +1,4 @@
+
 import {
   NavLink,
   useNavigate,
@@ -6,13 +7,11 @@ import {
 import { useAuth } from "../context/useAuth";
 import UserAvatar from "./UserAvatar";
 
-
 // ==========================================
 // ROLE-BASED SIDEBAR NAVIGATION
 // ==========================================
 
 const navigationByRole = {
-
   CUSTOMER: [
     {
       label: "Dashboard",
@@ -31,7 +30,6 @@ const navigationByRole = {
       icon: "bookings",
     },
   ],
-
 
   PHOTOGRAPHER: [
     {
@@ -61,7 +59,6 @@ const navigationByRole = {
       icon: "subscription",
     },
   ],
-
 
   CLERK: [
     {
@@ -105,18 +102,14 @@ const navigationByRole = {
       to: "/clerk/refunds",
       icon: "refund",
     },
+
+    // COMBINED SUBSCRIPTION MANAGEMENT
     {
-      label: "Photographer Subscriptions",
+      label: "Subscription Management",
       to: "/photographer-subscriptions",
       icon: "photographer-subscriptions",
     },
-    {
-      label: "Subscription Payments",
-      to: "subscription-payments",
-      icon: "subscription",
-    },
   ],
-
 
   STAFF_ADMIN: [
     {
@@ -171,9 +164,7 @@ const navigationByRole = {
       icon: "notifications",
     },
   ],
-
 };
-
 
 // ==========================================
 // PROFILE ROUTES
@@ -183,7 +174,6 @@ const profileRoutes = {
   CUSTOMER: "/customer/profile",
   PHOTOGRAPHER: "/photographer/profile",
 };
-
 
 // ==========================================
 // FRIENDLY ROLE LABELS
@@ -196,13 +186,11 @@ const roleLabels = {
   STAFF_ADMIN: "Staff Admin",
 };
 
-
 // ==========================================
 // SMALL INLINE ICON COMPONENT
 // ==========================================
 
 const Icon = ({ name }) => {
-
   const commonProps = {
     className: "h-5 w-5",
     fill: "none",
@@ -212,29 +200,21 @@ const Icon = ({ name }) => {
     "aria-hidden": true,
   };
 
-
   // SEARCH
   if (name === "search") {
     return (
       <svg {...commonProps}>
-        <circle
-          cx="11"
-          cy="11"
-          r="7"
-        />
-
+        <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </svg>
     );
   }
-
 
   // BOOKINGS
   if (name === "bookings") {
     return (
       <svg {...commonProps}>
         <path d="M7 3v3M17 3v3" />
-
         <rect
           x="3"
           y="5"
@@ -242,19 +222,16 @@ const Icon = ({ name }) => {
           height="16"
           rx="2"
         />
-
         <path d="M3 10h18M8 14h3M13 14h3M8 17h3" />
       </svg>
     );
   }
-
 
   // CALENDAR
   if (name === "calendar") {
     return (
       <svg {...commonProps}>
         <path d="M7 3v3M17 3v3" />
-
         <rect
           x="3"
           y="5"
@@ -262,12 +239,10 @@ const Icon = ({ name }) => {
           height="16"
           rx="2"
         />
-
         <path d="M3 10h18" />
       </svg>
     );
   }
-
 
   // PORTFOLIO
   if (name === "portfolio") {
@@ -280,7 +255,6 @@ const Icon = ({ name }) => {
           height="16"
           rx="2"
         />
-
         <path d="M8 5V3h8v2M3 11h18M9 11v2h6v-2" />
       </svg>
     );
@@ -317,20 +291,13 @@ const Icon = ({ name }) => {
           height="14"
           rx="2"
         />
-
         <path d="M3 9h18" />
-
         <path d="M7 14h4" />
-
-        <circle
-          cx="17"
-          cy="14"
-          r="1.5"
-        />
+        <circle cx="17" cy="14" r="1.5" />
       </svg>
     );
   }
-  
+
   // PHOTOGRAPHER APPLICATIONS
   if (name === "photographer-applications") {
     return (
@@ -402,6 +369,7 @@ const Icon = ({ name }) => {
     );
   }
 
+  // USERS
   if (name === "users") {
     return (
       <svg {...commonProps}>
@@ -413,6 +381,7 @@ const Icon = ({ name }) => {
     );
   }
 
+  // INVOICE
   if (name === "invoice") {
     return (
       <svg {...commonProps}>
@@ -422,16 +391,24 @@ const Icon = ({ name }) => {
     );
   }
 
+  // DEPOSITS
   if (name === "deposits") {
     return (
       <svg {...commonProps}>
-        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <rect
+          x="3"
+          y="5"
+          width="18"
+          height="14"
+          rx="2"
+        />
         <path d="M3 9h18" />
         <path d="M7 14h4" />
       </svg>
     );
   }
 
+  // REPORTS
   if (name === "reports") {
     return (
       <svg {...commonProps}>
@@ -440,6 +417,7 @@ const Icon = ({ name }) => {
     );
   }
 
+  // NOTIFICATIONS
   if (name === "notifications") {
     return (
       <svg {...commonProps}>
@@ -453,25 +431,21 @@ const Icon = ({ name }) => {
   return (
     <svg {...commonProps}>
       <path d="m3 10 9-7 9 7" />
-
       <path d="M5 9v11h14V9M9 20v-6h6v6" />
     </svg>
   );
-
 };
-
 
 // ==========================================
 // SIDEBAR
 // ==========================================
 
-  const AppSidebar = ({
-    photographerIdentity = null,
-    onNavigate,
-    collapsed = false,
-    onToggleCollapse,
-  }) => {
-
+const AppSidebar = ({
+  photographerIdentity = null,
+  onNavigate,
+  collapsed = false,
+  onToggleCollapse,
+}) => {
   const navigate = useNavigate();
 
   const {
@@ -479,38 +453,29 @@ const Icon = ({ name }) => {
     logout,
   } = useAuth();
 
-
   const navigation =
     navigationByRole[user?.role] || [];
 
   const profilePath =
     profileRoutes[user?.role];
 
-
   // ==========================================
   // LOGOUT
   // ==========================================
 
   const handleLogout = async () => {
-
     await logout();
 
-    navigate(
-      "/login",
-      {
-        replace: true,
-      }
-    );
-
+    navigate("/login", {
+      replace: true,
+    });
   };
-
 
   // ==========================================
   // PROFILE NAVIGATION
   // ==========================================
 
   const handleProfileClick = () => {
-
     if (!profilePath) {
       return;
     }
@@ -520,30 +485,35 @@ const Icon = ({ name }) => {
     }
 
     navigate(profilePath);
-
   };
-
 
   return (
     <aside className="flex h-full flex-col bg-white">
-
       {/* BRAND AND SIDEBAR TOGGLE */}
       <div
         className={`flex h-20 shrink-0 items-center border-b border-gray-100 ${
-          collapsed ? "justify-center px-2" : "justify-between px-4"
+          collapsed
+            ? "justify-center px-2"
+            : "justify-between px-4"
         }`}
       >
         <NavLink
           to={navigation[0]?.to || "/"}
           onClick={onNavigate}
-          title={collapsed ? "Southern Camera Rent" : undefined}
+          title={
+            collapsed
+              ? "Southern Camera Rent"
+              : undefined
+          }
           className="flex min-w-0 items-center gap-2 rounded-xl focus-visible:outline-2 focus-visible:outline-orange-500"
         >
           <img
             src="/scr-logo.jpg"
             alt="Southern Camera Rent"
             className={`shrink-0 rounded-xl object-contain ${
-              collapsed ? "h-10 w-10" : "h-11 w-11"
+              collapsed
+                ? "h-10 w-10"
+                : "h-11 w-11"
             }`}
           />
 
@@ -552,6 +522,7 @@ const Icon = ({ name }) => {
               <p className="truncate text-sm font-bold text-gray-950">
                 Southern Camera Rent
               </p>
+
               <p className="truncate text-[10px] text-gray-500">
                 Equipment & Photographer Services
               </p>
@@ -614,61 +585,71 @@ const Icon = ({ name }) => {
         }`}
         aria-label="Main navigation"
       >
-        
         {navigation.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            onClick={onNavigate}
+            title={
+              collapsed ? item.label : undefined
+            }
+            aria-label={
+              collapsed ? item.label : undefined
+            }
+            className={({ isActive }) =>
+              [
+                "group flex items-center rounded-xl py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                collapsed
+                  ? "justify-center px-2"
+                  : "gap-3 px-3",
+                isActive
+                  ? "bg-orange-50 text-orange-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-950",
+              ].join(" ")
+            }
+          >
+            <span className="shrink-0">
+              <Icon name={item.icon} />
+            </span>
 
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          onClick={onNavigate}
-          title={collapsed ? item.label : undefined}
-          aria-label={collapsed ? item.label : undefined}
-          className={({ isActive }) =>
-            [
-              "group flex items-center rounded-xl py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-              collapsed
-                ? "justify-center px-2"
-                : "gap-3 px-3",
-              isActive
-                ? "bg-orange-50 text-orange-700"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-950",
-            ].join(" ")
-          }
-        >
-          <span className="shrink-0">
-            <Icon name={item.icon} />
-          </span>
-
-          {!collapsed && (
-            <span className="min-w-0">{item.label}</span>
-          )}
-        </NavLink>
-
+            {!collapsed && (
+              <span className="min-w-0">
+                {item.label}
+              </span>
+            )}
+          </NavLink>
         ))}
-
       </nav>
-
 
       {/* ======================================
           USER / PROFILE AREA
       ====================================== */}
-
       <div className="border-t border-gray-200 p-3">
         {profilePath ? (
           <button
             type="button"
             onClick={handleProfileClick}
-            title={collapsed ? `${user?.name || "User"} — Profile` : undefined}
-            aria-label={collapsed ? "Open profile" : undefined}
+            title={
+              collapsed
+                ? `${user?.name || "User"} — Profile`
+                : undefined
+            }
+            aria-label={
+              collapsed ? "Open profile" : undefined
+            }
             className={`flex w-full items-center rounded-xl p-2 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-orange-500 ${
-              collapsed ? "justify-center" : "gap-3 text-left"
+              collapsed
+                ? "justify-center"
+                : "gap-3 text-left"
             }`}
           >
             <div className="shrink-0">
               <UserAvatar
                 name={user?.name}
-                imageUrl={photographerIdentity?.profileImage || ""}
+                imageUrl={
+                  photographerIdentity?.profileImage || ""
+                }
               />
             </div>
 
@@ -677,6 +658,7 @@ const Icon = ({ name }) => {
                 <p className="truncate text-sm font-semibold text-gray-950">
                   {user?.name || "User"}
                 </p>
+
                 <p className="truncate text-xs text-gray-500">
                   {user?.role === "PHOTOGRAPHER"
                     ? photographerIdentity?.specialization ||
@@ -688,9 +670,15 @@ const Icon = ({ name }) => {
           </button>
         ) : (
           <div
-            title={collapsed ? user?.name || "User" : undefined}
+            title={
+              collapsed
+                ? user?.name || "User"
+                : undefined
+            }
             className={`flex items-center rounded-xl p-2 ${
-              collapsed ? "justify-center" : "gap-3"
+              collapsed
+                ? "justify-center"
+                : "gap-3"
             }`}
           >
             <div className="shrink-0">
@@ -702,6 +690,7 @@ const Icon = ({ name }) => {
                 <p className="truncate text-sm font-semibold text-gray-950">
                   {user?.name || "User"}
                 </p>
+
                 <p className="truncate text-xs text-gray-500">
                   {roleLabels[user?.role] || user?.role}
                 </p>
@@ -714,9 +703,13 @@ const Icon = ({ name }) => {
           type="button"
           onClick={handleLogout}
           title={collapsed ? "Logout" : undefined}
-          aria-label={collapsed ? "Logout" : undefined}
+          aria-label={
+            collapsed ? "Logout" : undefined
+          }
           className={`mt-2 flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-500 ${
-            collapsed ? "justify-center px-2" : "gap-3 px-3"
+            collapsed
+              ? "justify-center px-2"
+              : "gap-3 px-3"
           }`}
         >
           <svg
@@ -734,10 +727,8 @@ const Icon = ({ name }) => {
           {!collapsed && <span>Logout</span>}
         </button>
       </div>
-
     </aside>
   );
 };
-
 
 export default AppSidebar;

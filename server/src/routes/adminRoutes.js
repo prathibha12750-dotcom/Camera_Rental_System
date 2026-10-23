@@ -111,6 +111,16 @@ router.post(
   createPhotographer
 );
 
+router.get(
+  "/photographers/subscriptions",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  getPhotographersSubscriptionOverview
+);
+
 // ==========================================
 // GET PHOTOGRAPHER DETAILS
 // CLERK AND STAFF_ADMIN
@@ -558,16 +568,6 @@ router.get(
     "STAFF_ADMIN"
   ),
   viewSubscriptionPaymentReceipt
-);
-
-router.get(
-  "/photographers/subscriptions",
-  authenticate,
-  authorizeRoles(
-    "CLERK",
-    "STAFF_ADMIN"
-  ),
-  getPhotographersSubscriptionOverview
 );
 
 router.get(

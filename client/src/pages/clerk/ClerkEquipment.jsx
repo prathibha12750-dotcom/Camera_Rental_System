@@ -24,8 +24,13 @@ const emptyForm = {
 };
 
 const ClerkEquipment = () => {
+  // ==========================================
+  // STATE
+  // ==========================================
+
   const [equipment, setEquipment] = useState([]);
   const [categories, setCategories] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -43,6 +48,9 @@ const ClerkEquipment = () => {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // NEW: Equipment details modal
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+
   // ==========================================
   // LOAD EQUIPMENT AND CATEGORIES
   // ==========================================
@@ -52,21 +60,15 @@ const ClerkEquipment = () => {
 
     const loadInitialData = async () => {
       try {
-        const [equipmentResult, categoryResult] =
-          await Promise.all([
-            getAllEquipment(),
-            getAllCategories(),
-          ]);
+        const [equipmentResult, categoryResult] = await Promise.all([
+          getAllEquipment(),
+          getAllCategories(),
+        ]);
 
         if (cancelled) return;
 
-        setEquipment(
-          equipmentResult?.data?.equipment || []
-        );
-
-        setCategories(
-          categoryResult?.data?.categories || []
-        );
+        setEquipment(equipmentResult?.data?.equipment || []);
+        setCategories(categoryResult?.data?.categories || []);
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -90,7 +92,20 @@ const ClerkEquipment = () => {
 
   const refreshEquipment = async () => {
     const result = await getAllEquipment();
-    setEquipment(result?.data?.equipment || []);
+    const updatedEquipment = result?.data?.equipment || [];
+
+    setEquipment(updatedEquipment);
+
+    // Keep the details modal synchronized after updates.
+    setSelectedEquipment((previous) => {
+      if (!previous) return null;
+
+      return (
+        updatedEquipment.find(
+          (item) => item._id === previous._id
+        ) || null
+      );
+    });
   };
 
   // ==========================================
@@ -116,6 +131,25 @@ const ClerkEquipment = () => {
     conditionFilter !== "ALL" ||
     statusFilter !== "ALL";
 
+  const getCategoryId = (item) =>
+    typeof item.category === "object"
+      ? item.category?._id
+      : item.category;
+
+  const getCategoryName = (item) => {
+    if (item.category?.name) {
+      return item.category.name;
+    }
+
+    const categoryId = getCategoryId(item);
+
+    return (
+      categories.find(
+        (category) => category._id === categoryId
+      )?.name || "Not available"
+    );
+  };
+
   const filteredEquipment = equipment.filter((item) => {
     const search = searchTerm.trim().toLowerCase();
 
@@ -132,14 +166,9 @@ const ClerkEquipment = () => {
     const matchesSearch =
       !search || searchableText.includes(search);
 
-    const itemCategory =
-      typeof item.category === "object"
-        ? item.category?._id
-        : item.category;
-
     const matchesCategory =
       categoryFilter === "ALL" ||
-      itemCategory === categoryFilter;
+      getCategoryId(item) === categoryFilter;
 
     const matchesCondition =
       conditionFilter === "ALL" ||
@@ -158,14 +187,12 @@ const ClerkEquipment = () => {
   });
 
   // ==========================================
-  // PAGINATION AFTER FILTERING
+  // PAGINATION
   // ==========================================
 
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      filteredEquipment.length / EQUIPMENT_PER_PAGE
-    )
+    Math.ceil(filteredEquipment.length / EQUIPMENT_PER_PAGE)
   );
 
   const safeCurrentPage = Math.min(
@@ -182,6 +209,35 @@ const ClerkEquipment = () => {
   );
 
   // ==========================================
+  // EQUIPMENT DETAILS MODAL
+  // ==========================================
+
+  const openEquipmentDetails = (item) => {
+    setSelectedEquipment(item);
+  };
+
+  const closeEquipmentDetails = () => {
+    setSelectedEquipment(null);
+  };
+
+  // Close modal with Escape key.
+  useEffect(() => {
+    if (!selectedEquipment) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedEquipment(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedEquipment]);
+
+  // ==========================================
   // FORM HELPERS
   // ==========================================
 
@@ -195,7 +251,11 @@ const ClerkEquipment = () => {
     resetForm();
     setSuccess("");
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const openEditForm = (item) => {
@@ -217,8 +277,15 @@ const ClerkEquipment = () => {
 
     setFormError("");
     setSuccess("");
+
+    // Close details modal before opening the form.
+    setSelectedEquipment(null);
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const closeForm = () => {
@@ -268,6 +335,7 @@ const ClerkEquipment = () => {
     const rentalPrice = Number(
       formData.rentalPricePerDay
     );
+
     const deposit = Number(formData.securityDeposit);
 
     if (
@@ -282,7 +350,10 @@ const ClerkEquipment = () => {
       return;
     }
 
-    if (!editingId && formData.condition === "DAMAGED") {
+    if (
+      !editingId &&
+      formData.condition === "DAMAGED"
+    ) {
       setFormError(
         "Record damage through the Damage & Maintenance workflow."
       );
@@ -295,7 +366,9 @@ const ClerkEquipment = () => {
       securityDeposit: deposit,
     };
 
-    // Never send operational status from this form.
+    // Do not send operational availability status.
+    // Rental, return, damage, and maintenance
+    // workflows control equipment status.
 
     try {
       setSaving(true);
@@ -327,8 +400,46 @@ const ClerkEquipment = () => {
   };
 
   // ==========================================
-  // BADGE STYLES
+  // DISPLAY HELPERS
   // ==========================================
+
+  const formatMoney = (amount) => {
+    if (
+      amount === null ||
+      amount === undefined ||
+      amount === ""
+    ) {
+      return "Not available";
+    }
+
+    const value = Number(amount);
+
+    if (!Number.isFinite(value)) {
+      return "Not available";
+    }
+
+    return `LKR ${value.toLocaleString("en-LK", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "Not available";
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "Not available";
+    }
+
+    return parsed.toLocaleDateString("en-GB", {
+      timeZone: "Asia/Colombo",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const getStatusClass = (status) => {
     switch (status) {
@@ -362,24 +473,289 @@ const ClerkEquipment = () => {
     }
   };
 
+  const detailField = (label, value) => (
+    <div className="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+
+      <p className="mt-2 break-words text-sm font-semibold text-gray-900">
+        {value === null ||
+        value === undefined ||
+        value === ""
+          ? "Not available"
+          : value}
+      </p>
+    </div>
+  );
+
   // ==========================================
   // RENDER
   // ==========================================
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+    <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-7xl space-y-6">
 
-        {/* HEADER */}
+        {/* ======================================
+            EQUIPMENT DETAILS MODAL
+        ====================================== */}
+
+        {selectedEquipment && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/60 p-3 backdrop-blur-sm sm:p-6"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeEquipmentDetails();
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="equipment-details-title"
+              className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            >
+              {/* MODAL HEADER */}
+
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-5 sm:px-7">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
+                    Equipment Information
+                  </p>
+
+                  <h2
+                    id="equipment-details-title"
+                    className="mt-2 break-words text-2xl font-bold text-gray-950"
+                  >
+                    {selectedEquipment.name ||
+                      "Unnamed Equipment"}
+                  </h2>
+
+                  <p className="mt-2 break-words text-sm text-gray-500">
+                    {[
+                      selectedEquipment.brand,
+                      selectedEquipment.model,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || "Equipment details"}
+                  </p>
+
+                  <p className="mt-1 break-all text-xs text-gray-400">
+                    Serial Number:{" "}
+                    {selectedEquipment.serialNumber || "—"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeEquipmentDetails}
+                  aria-label="Close equipment details"
+                  className="shrink-0 rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* SCROLLABLE MODAL CONTENT */}
+
+              <div className="space-y-6 overflow-y-auto px-5 py-6 sm:px-7">
+
+                {/* STATUS OVERVIEW */}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${
+                      getStatusClass(selectedEquipment.status)
+                    }`}
+                  >
+                    {selectedEquipment.status || "UNKNOWN"}
+                  </span>
+
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${
+                      getConditionClass(
+                        selectedEquipment.condition
+                      )
+                    }`}
+                  >
+                    Condition:{" "}
+                    {selectedEquipment.condition || "Unknown"}
+                  </span>
+                </div>
+
+                {/* BASIC DETAILS */}
+
+                <section>
+                  <h3 className="mb-3 text-base font-bold text-gray-950">
+                    General Information
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {detailField(
+                      "Equipment Name",
+                      selectedEquipment.name
+                    )}
+
+                    {detailField(
+                      "Category",
+                      getCategoryName(selectedEquipment)
+                    )}
+
+                    {detailField(
+                      "Brand",
+                      selectedEquipment.brand
+                    )}
+
+                    {detailField(
+                      "Model",
+                      selectedEquipment.model
+                    )}
+
+                    {detailField(
+                      "Serial Number",
+                      selectedEquipment.serialNumber
+                    )}
+
+                    {detailField(
+                      "Availability Status",
+                      selectedEquipment.status
+                    )}
+                  </div>
+                </section>
+
+                {/* RENTAL PRICING */}
+
+                <section>
+                  <h3 className="mb-3 text-base font-bold text-gray-950">
+                    Rental Pricing
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-orange-100 bg-orange-50 p-5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                        Rental Price Per Day
+                      </p>
+
+                      <p className="mt-2 text-xl font-extrabold text-gray-950">
+                        {formatMoney(
+                          selectedEquipment.rentalPricePerDay
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                        Security Deposit
+                      </p>
+
+                      <p className="mt-2 text-xl font-extrabold text-gray-950">
+                        {formatMoney(
+                          selectedEquipment.securityDeposit
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* EQUIPMENT DESCRIPTION */}
+
+                <section>
+                  <h3 className="mb-3 text-base font-bold text-gray-950">
+                    Equipment Description
+                  </h3>
+
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                    {selectedEquipment.description?.trim() ? (
+                      <p className="whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">
+                        {selectedEquipment.description}
+                      </p>
+                    ) : (
+                      <p className="text-sm italic text-gray-500">
+                        No description has been added for this equipment.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {/* RECORD INFORMATION */}
+
+                <section>
+                  <h3 className="mb-3 text-base font-bold text-gray-950">
+                    Record Information
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {detailField(
+                      "Created Date",
+                      formatDate(selectedEquipment.createdAt)
+                    )}
+
+                    {detailField(
+                      "Last Updated",
+                      formatDate(selectedEquipment.updatedAt)
+                    )}
+                  </div>
+                </section>
+
+                <p className="text-xs leading-relaxed text-gray-500">
+                  Equipment availability is managed through rental,
+                  return, damage, and maintenance workflows.
+                </p>
+              </div>
+
+              {/* MODAL FOOTER */}
+
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 sm:px-7">
+                <button
+                  type="button"
+                  onClick={closeEquipmentDetails}
+                  className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    openEditForm(selectedEquipment)
+                  }
+                  className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700"
+                >
+                  Edit Equipment
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ======================================
+            PAGE HEADER
+        ====================================== */}
 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
               Clerk
             </p>
+
             <h1 className="mt-2 text-3xl font-bold text-gray-950">
               Equipment Status
             </h1>
+
             <p className="mt-2 text-gray-600">
               Manage equipment details and monitor rental
               availability.
@@ -389,13 +765,13 @@ const ClerkEquipment = () => {
           <button
             type="button"
             onClick={openAddForm}
-            className="rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white hover:bg-orange-700"
+            className="rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700"
           >
             + Add Equipment
           </button>
         </div>
 
-        {/* SUCCESS */}
+        {/* SUCCESS MESSAGE */}
 
         {success && (
           <div
@@ -406,21 +782,24 @@ const ClerkEquipment = () => {
           </div>
         )}
 
-        {/* ADD / EDIT FORM */}
+        {/* ======================================
+            ADD / EDIT EQUIPMENT FORM
+        ====================================== */}
 
         {showForm && (
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-gray-950">
                 {editingId
                   ? "Edit Equipment"
                   : "Add Equipment"}
               </h2>
+
               <button
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="text-sm font-semibold text-gray-500 hover:text-gray-900"
+                className="text-sm font-semibold text-gray-500 hover:text-gray-900 disabled:opacity-50"
               >
                 Close
               </button>
@@ -441,32 +820,48 @@ const ClerkEquipment = () => {
                     key={field}
                     type="text"
                     required
-                    minLength={field === "name" ? 2 : undefined}
-                    maxLength={field === "name" ? 150 : undefined}
+                    minLength={
+                      field === "name" ? 2 : undefined
+                    }
+                    maxLength={
+                      field === "name" ? 150 : undefined
+                    }
                     placeholder={placeholder}
                     value={formData[field]}
-                    onChange={(e) =>
-                      updateField(field, e.target.value)
+                    onChange={(event) =>
+                      updateField(
+                        field,
+                        event.target.value
+                      )
                     }
-                    className="rounded-xl border border-gray-300 px-4 py-3"
+                    className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                   />
                 ))}
+
+                {/* CATEGORY */}
 
                 <select
                   required
                   value={formData.category}
-                  onChange={(e) =>
-                    updateField("category", e.target.value)
+                  onChange={(event) =>
+                    updateField(
+                      "category",
+                      event.target.value
+                    )
                   }
-                  className="rounded-xl border border-gray-300 px-4 py-3"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
                 >
-                  <option value="">Select Category</option>
+                  <option value="">
+                    Select Category
+                  </option>
+
                   {categories
                     .filter(
                       (category) =>
                         category.status === "ACTIVE" ||
                         (editingId &&
-                          category._id === formData.category)
+                          category._id ===
+                            formData.category)
                     )
                     .map((category) => (
                       <option
@@ -478,6 +873,8 @@ const ClerkEquipment = () => {
                     ))}
                 </select>
 
+                {/* RENTAL PRICE */}
+
                 <input
                   type="number"
                   min="0"
@@ -485,14 +882,16 @@ const ClerkEquipment = () => {
                   required
                   placeholder="Rental Price Per Day (LKR)"
                   value={formData.rentalPricePerDay}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     updateField(
                       "rentalPricePerDay",
-                      e.target.value
+                      event.target.value
                     )
                   }
-                  className="rounded-xl border border-gray-300 px-4 py-3"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
                 />
+
+                {/* SECURITY DEPOSIT */}
 
                 <input
                   type="number"
@@ -501,14 +900,16 @@ const ClerkEquipment = () => {
                   required
                   placeholder="Security Deposit (LKR)"
                   value={formData.securityDeposit}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     updateField(
                       "securityDeposit",
-                      e.target.value
+                      event.target.value
                     )
                   }
-                  className="rounded-xl border border-gray-300 px-4 py-3"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
                 />
+
+                {/* CONDITION */}
 
                 <select
                   value={formData.condition}
@@ -522,14 +923,24 @@ const ClerkEquipment = () => {
                         )
                     )
                   }
-                  onChange={(e) =>
-                    updateField("condition", e.target.value)
+                  onChange={(event) =>
+                    updateField(
+                      "condition",
+                      event.target.value
+                    )
                   }
-                  className="rounded-xl border border-gray-300 px-4 py-3 disabled:bg-gray-100"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500 disabled:bg-gray-100"
                 >
-                  <option value="EXCELLENT">Excellent</option>
-                  <option value="GOOD">Good</option>
-                  <option value="FAIR">Fair</option>
+                  <option value="EXCELLENT">
+                    Excellent
+                  </option>
+                  <option value="GOOD">
+                    Good
+                  </option>
+                  <option value="FAIR">
+                    Fair
+                  </option>
+
                   {editingId &&
                     formData.condition === "DAMAGED" && (
                       <option value="DAMAGED">
@@ -538,17 +949,19 @@ const ClerkEquipment = () => {
                     )}
                 </select>
 
+                {/* DESCRIPTION */}
+
                 <textarea
                   maxLength={1000}
                   placeholder="Description"
                   value={formData.description}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     updateField(
                       "description",
-                      e.target.value
+                      event.target.value
                     )
                   }
-                  className="min-h-28 rounded-xl border border-gray-300 px-4 py-3 md:col-span-2"
+                  className="min-h-28 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500 md:col-span-2"
                 />
               </div>
 
@@ -561,7 +974,7 @@ const ClerkEquipment = () => {
               {formError && (
                 <div
                   role="alert"
-                  className="rounded-xl bg-red-50 p-4 text-sm text-red-700"
+                  className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
                 >
                   {formError}
                 </div>
@@ -570,7 +983,7 @@ const ClerkEquipment = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                className="rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving
                   ? "Saving..."
@@ -582,7 +995,9 @@ const ClerkEquipment = () => {
           </section>
         )}
 
-        {/* FILTERS */}
+        {/* ======================================
+            FILTER EQUIPMENT
+        ====================================== */}
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -590,6 +1005,7 @@ const ClerkEquipment = () => {
               <h2 className="text-lg font-semibold text-gray-950">
                 Filter Equipment
               </h2>
+
               <p className="mt-1 text-sm text-gray-500">
                 Find equipment by details, category,
                 condition, or availability.
@@ -600,7 +1016,7 @@ const ClerkEquipment = () => {
               type="button"
               onClick={clearFilters}
               disabled={!hasActiveFilters}
-              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40"
             >
               Clear Filters
             </button>
@@ -608,35 +1024,44 @@ const ClerkEquipment = () => {
 
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 
+            {/* SEARCH */}
+
             <label className="block text-sm font-medium text-gray-700">
               Search Equipment
+
               <input
                 type="search"
                 placeholder="Name, brand, model, serial..."
                 value={searchTerm}
-                onChange={(e) =>
+                onChange={(event) =>
                   updateFilter(
                     setSearchTerm,
-                    e.target.value
+                    event.target.value
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
               />
             </label>
 
+            {/* CATEGORY */}
+
             <label className="block text-sm font-medium text-gray-700">
               Category
+
               <select
                 value={categoryFilter}
-                onChange={(e) =>
+                onChange={(event) =>
                   updateFilter(
                     setCategoryFilter,
-                    e.target.value
+                    event.target.value
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
               >
-                <option value="ALL">All Categories</option>
+                <option value="ALL">
+                  All Categories
+                </option>
+
                 {categories.map((category) => (
                   <option
                     key={category._id}
@@ -648,44 +1073,72 @@ const ClerkEquipment = () => {
               </select>
             </label>
 
+            {/* CONDITION */}
+
             <label className="block text-sm font-medium text-gray-700">
               Condition
+
               <select
                 value={conditionFilter}
-                onChange={(e) =>
+                onChange={(event) =>
                   updateFilter(
                     setConditionFilter,
-                    e.target.value
+                    event.target.value
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
               >
-                <option value="ALL">All Conditions</option>
-                <option value="EXCELLENT">Excellent</option>
-                <option value="GOOD">Good</option>
-                <option value="FAIR">Fair</option>
-                <option value="DAMAGED">Damaged</option>
+                <option value="ALL">
+                  All Conditions
+                </option>
+                <option value="EXCELLENT">
+                  Excellent
+                </option>
+                <option value="GOOD">
+                  Good
+                </option>
+                <option value="FAIR">
+                  Fair
+                </option>
+                <option value="DAMAGED">
+                  Damaged
+                </option>
               </select>
             </label>
 
+            {/* AVAILABILITY */}
+
             <label className="block text-sm font-medium text-gray-700">
               Availability Status
+
               <select
                 value={statusFilter}
-                onChange={(e) =>
+                onChange={(event) =>
                   updateFilter(
                     setStatusFilter,
-                    e.target.value
+                    event.target.value
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-orange-500"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="AVAILABLE">Available</option>
-                <option value="RESERVED">Reserved</option>
-                <option value="RENTED">Rented</option>
-                <option value="MAINTENANCE">Maintenance</option>
-                <option value="DAMAGED">Damaged</option>
+                <option value="ALL">
+                  All Statuses
+                </option>
+                <option value="AVAILABLE">
+                  Available
+                </option>
+                <option value="RESERVED">
+                  Reserved
+                </option>
+                <option value="RENTED">
+                  Rented
+                </option>
+                <option value="MAINTENANCE">
+                  Maintenance
+                </option>
+                <option value="DAMAGED">
+                  Damaged
+                </option>
               </select>
             </label>
           </div>
@@ -699,10 +1152,12 @@ const ClerkEquipment = () => {
           )}
         </section>
 
-        {/* LOADING AND ERROR */}
+        {/* ======================================
+            LOADING / ERROR / EMPTY STATE
+        ====================================== */}
 
         {loading && (
-          <div className="rounded-2xl border bg-white p-8 text-gray-600">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-gray-600">
             Loading equipment...
           </div>
         )}
@@ -716,8 +1171,6 @@ const ClerkEquipment = () => {
           </div>
         )}
 
-        {/* EMPTY RESULTS */}
-
         {!loading &&
           !error &&
           filteredEquipment.length === 0 && (
@@ -727,11 +1180,12 @@ const ClerkEquipment = () => {
                   ? "No matching equipment found"
                   : "No equipment found"}
               </p>
+
               {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="mt-3 text-sm font-semibold text-orange-600"
+                  className="mt-3 text-sm font-semibold text-orange-600 hover:text-orange-700"
                 >
                   Clear all filters
                 </button>
@@ -739,12 +1193,15 @@ const ClerkEquipment = () => {
             </div>
           )}
 
-        {/* EQUIPMENT TABLE */}
+        {/* ======================================
+            EQUIPMENT TABLE
+        ====================================== */}
 
         {!loading &&
           !error &&
           filteredEquipment.length > 0 && (
             <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -760,7 +1217,7 @@ const ClerkEquipment = () => {
                       ].map((heading) => (
                         <th
                           key={heading}
-                          className="px-6 py-4 text-left text-sm font-semibold text-gray-700"
+                          className="px-5 py-4 text-left text-sm font-semibold text-gray-700"
                         >
                           {heading}
                         </th>
@@ -772,28 +1229,49 @@ const ClerkEquipment = () => {
                     {paginatedEquipment.map((item) => (
                       <tr
                         key={item._id}
-                        className="hover:bg-gray-50"
+                        onClick={() =>
+                          openEquipmentDetails(item)
+                        }
+                        className="cursor-pointer transition hover:bg-orange-50/50"
                       >
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-gray-950">
-                            {item.name || "Unnamed Equipment"}
-                          </p>
+
+                        {/* EQUIPMENT NAME */}
+
+                        <td className="px-5 py-4">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEquipmentDetails(item);
+                            }}
+                            className="text-left font-semibold text-gray-950 transition hover:text-orange-600 hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-orange-500"
+                          >
+                            {item.name ||
+                              "Unnamed Equipment"}
+                          </button>
+
                           <p className="mt-1 text-sm text-gray-500">
                             {item.brand || "—"}{" "}
                             {item.model || ""}
                           </p>
+
                           <p className="mt-1 text-xs text-gray-400">
-                            Serial: {item.serialNumber || "—"}
+                            Serial:{" "}
+                            {item.serialNumber || "—"}
                           </p>
                         </td>
 
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          {item.category?.name || "—"}
+                        {/* CATEGORY */}
+
+                        <td className="px-5 py-4 text-sm text-gray-700">
+                          {getCategoryName(item)}
                         </td>
 
-                        <td className="px-6 py-4">
+                        {/* CONDITION */}
+
+                        <td className="px-5 py-4">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getConditionClass(
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getConditionClass(
                               item.condition
                             )}`}
                           >
@@ -801,9 +1279,11 @@ const ClerkEquipment = () => {
                           </span>
                         </td>
 
-                        <td className="px-6 py-4">
+                        {/* AVAILABILITY */}
+
+                        <td className="px-5 py-4">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
                               item.status
                             )}`}
                           >
@@ -811,28 +1291,49 @@ const ClerkEquipment = () => {
                           </span>
                         </td>
 
-                        <td className="px-6 py-4 font-medium text-gray-900">
-                          LKR{" "}
-                          {Number(
-                            item.rentalPricePerDay || 0
-                          ).toLocaleString()}
+                        {/* DAILY PRICE */}
+
+                        <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                          {formatMoney(
+                            item.rentalPricePerDay
+                          )}
                         </td>
 
-                        <td className="px-6 py-4 font-medium text-gray-900">
-                          LKR{" "}
-                          {Number(
-                            item.securityDeposit || 0
-                          ).toLocaleString()}
+                        {/* SECURITY DEPOSIT */}
+
+                        <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                          {formatMoney(
+                            item.securityDeposit
+                          )}
                         </td>
 
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(item)}
-                            className="rounded-lg border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50"
-                          >
-                            Edit
-                          </button>
+                        {/* ACTIONS */}
+
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap items-center gap-2">
+
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEquipmentDetails(item);
+                              }}
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                            >
+                              View
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditForm(item);
+                              }}
+                              className="rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-semibold text-orange-600 transition hover:bg-orange-50"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -840,7 +1341,9 @@ const ClerkEquipment = () => {
                 </table>
               </div>
 
-              {/* PAGINATION */}
+              {/* ==================================
+                  PAGINATION
+              ================================== */}
 
               <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-500">
@@ -853,6 +1356,7 @@ const ClerkEquipment = () => {
                 </p>
 
                 <div className="flex items-center gap-2">
+
                   <button
                     type="button"
                     onClick={() =>
@@ -864,7 +1368,7 @@ const ClerkEquipment = () => {
                       )
                     }
                     disabled={safeCurrentPage === 1}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:opacity-40"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Previous
                   </button>
@@ -880,8 +1384,10 @@ const ClerkEquipment = () => {
                         Math.min(page + 1, totalPages)
                       )
                     }
-                    disabled={safeCurrentPage === totalPages}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:opacity-40"
+                    disabled={
+                      safeCurrentPage === totalPages
+                    }
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next
                   </button>
