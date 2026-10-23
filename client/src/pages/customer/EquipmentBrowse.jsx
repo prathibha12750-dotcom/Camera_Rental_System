@@ -1,10 +1,24 @@
 import { useEffect, useState, useRef } from "react";
 import { getAllEquipment } from "../../services/equipmentService";
 import { getAllCategories } from "../../services/categoryService";//connect category
-import { useNavigate } from "react-router-dom";
+// MODIFIED by Thasindu: Read category selection from homepage URL
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const EquipmentBrowse = () => {
   const navigate = useNavigate();
+
+  // ==========================================
+  // MODIFICATION: Read Homepage Category
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Identify the selected category
+  // from the URL query parameters.
+  // ==========================================
+
+  const [searchParams] = useSearchParams();
+  const initialCategory = searchParams.get("category") || "";
+
+  // END MODIFICATION: Read Homepage Category by Thasindu
+
   const equipmentSectionRef = useRef(null);
 
   
@@ -51,7 +65,8 @@ const EquipmentBrowse = () => {
   };
 
   const [categories, setCategories] = useState([]);
-  const [category, setCategory] = useState("");
+  // MODIFIED by Thasindu: Initialize selected category from URL
+  const [category, setCategory] = useState(initialCategory);
 
 
   
@@ -76,7 +91,8 @@ const EquipmentBrowse = () => {
   
 useEffect(() => {
   // Load equipment independently
-  loadEquipment();
+  // MODIFIED by Thasindu: Apply homepage category filter on initial load
+  loadEquipment(initialCategory ? { category: initialCategory } : {});
 
   // Load categories separately
   const loadCategories = async () => {
