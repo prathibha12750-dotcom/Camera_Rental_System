@@ -33,10 +33,17 @@ const getDashboardStats = async (req, res, next) => {
             status: "ACTIVE",
         });
 
+
+        //added by abilash
+        // Count overdue equipment returns only.
+        // Confirmed but unissued rentals are excluded.
         const overdueRentals = await Rental.countDocuments({
-            status: { $in: ["CONFIRMED", "ACTIVE"] },
+            status: "ACTIVE",
             endDate: { $lt: new Date() },
+            returnedAt: null,
         });
+        //ended by abilash
+
 
         const upcomingPhotographerBookings = await Booking.countDocuments({
             date: { $gte: new Date() },

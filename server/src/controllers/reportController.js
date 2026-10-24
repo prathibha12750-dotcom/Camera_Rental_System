@@ -169,10 +169,21 @@ const getRentalReport = async (req, res, next) => {
             status: "CANCELLED",
         });
 
+
+        //added by abilash
+        // Keep Rental Report overdue calculation
+        // consistent with the Admin Dashboard.
+        // Only issued, active and unreturned rentals
+        // are considered overdue returns.
+
         const overdueRentals = await Rental.countDocuments({
-            status: { $in: ["CONFIRMED", "ACTIVE"] },
+            status: "ACTIVE",
             endDate: { $lt: new Date() },
+            returnedAt: null,
         });
+
+        //ended by abilash
+
 
         return res.status(200).json({
             success: true,

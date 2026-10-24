@@ -207,13 +207,21 @@ const AdminHome = () => {
   //ended by abilash
 
 
+
+  //added by abilash
+  // Format Sri Lankan Rupees with a maximum of 2 decimal places
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) {
       return "-";
     }
 
-    return `Rs. ${Number(amount).toLocaleString("en-LK")}`;
+    return `Rs. ${Number(amount).toLocaleString("en-LK", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
   };
+  //ended by abilash
+
 
   const formatNumber = (value) => {
     if (value === null || value === undefined) {
