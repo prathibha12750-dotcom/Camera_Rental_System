@@ -481,10 +481,106 @@ const getPhotographerReport = async (req, res) => {
 };
 
 
+ //added by abilash
+ // Revenue trend for the last six calendar months
+ const getRevenueTrend = async (req, res, next) => {
+   try {
+     const now = new Date();
+
+     const startDate = new Date(
+       Date.UTC(
+         now.getUTCFullYear(),
+         now.getUTCMonth() - 5,
+         1
+       )
+     );
+
+     const endDate = new Date(
+       Date.UTC(
+         now.getUTCFullYear(),
+         now.getUTCMonth() + 1,
+         1
+       )
+     );
+
+     const results = await Payment.aggregate([
+       {
+         $match: {
+           paymentStatus: "COMPLETED",
+           paymentDate: {
+             $gte: startDate,
+             $lt: endDate,
+           },
+         },
+       },
+       {
+         $group: {
+           _id: {
+             $dateToString: {
+               format: "%Y-%m",
+               date: "$paymentDate",
+               timezone: "UTC",
+             },
+           },
+           totalRevenue: { $sum: "$amount" },
+           paymentCount: { $sum: 1 },
+         },
+       },
+       { $sort: { _id: 1 } },
+     ]);
+
+     const revenueByMonth = new Map(
+       results.map((item) => [item._id, item])
+     );
+
+     const months = Array.from({ length: 6 }, (_, i) => {
+       const date = new Date(
+         Date.UTC(
+           now.getUTCFullYear(),
+           now.getUTCMonth() - 5 + i,
+           1
+         )
+       );
+
+       const month = date.toISOString().slice(0, 7);
+       const record = revenueByMonth.get(month);
+
+       return {
+         month,
+         label: date.toLocaleDateString("en-US", {
+           month: "short",
+           year: "numeric",
+           timeZone: "UTC",
+         }),
+         totalRevenue: record?.totalRevenue ?? 0,
+         paymentCount: record?.paymentCount ?? 0,
+       };
+     });
+
+     return res.status(200).json({
+       success: true,
+       message: "Revenue trend retrieved successfully",
+       data: { months },
+     });
+
+   } catch (error) {
+     next(error);
+   }
+ };
+ //ended by abilash
+
+
+
+
 module.exports = {
     getDailyRevenue,
     getMonthlyRevenue,
     getRentalReport,
     getEquipmentReport,
     getPhotographerReport,
+
+    //added by abilash
+    getRevenueTrend,
+    //ended by abilash
 };
+

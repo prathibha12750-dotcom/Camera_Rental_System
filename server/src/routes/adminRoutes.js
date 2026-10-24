@@ -57,13 +57,19 @@ const {
     markNotificationAsRead,
 } = require("../controllers/notificationController");
 
+
 const {
   getDailyRevenue,
   getMonthlyRevenue,
   getRentalReport,
   getEquipmentReport,
   getPhotographerReport,
+
+  //added by abilash
+  getRevenueTrend,
+  //ended by abilash
 } = require("../controllers/reportController");
+
 
 const {
     getDashboardStats,
@@ -338,6 +344,21 @@ router.get(
     authorizeRoles("STAFF_ADMIN"),
     getMonthlyRevenue
 );
+
+
+//added by abilash
+// Revenue Analytics - Last Six Months
+// GET /api/admin/reports/revenue/trend
+
+router.get(
+  "/reports/revenue/trend",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRevenueTrend
+);
+
+//ended by abilash
+
 
 router.get(
   "/reports/rentals",
