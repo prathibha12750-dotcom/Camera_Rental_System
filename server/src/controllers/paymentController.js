@@ -34,17 +34,23 @@ const updateInvoicePaymentStatus = async (invoiceId) => {
     });
 
     //Calculate total paid amount
-    const totalPaid = payments.reduce(
-        (sum, payment) => sum + payment.amount,
-        0
-    );
+    const totalPaid = Math.round(
+        payments.reduce(
+            (sum, payment) => sum + Number(payment.amount || 0),
+            0
+        ) * 100
+    ) / 100;
+
+    const invoiceTotal = Math.round(
+        Number(invoice.totalAmount) * 100
+    ) / 100;
 
     //Determine payment status
     let paymentStatus;
 
     if(totalPaid <= 0){
         paymentStatus = "PENDING";
-    }else if(totalPaid < invoice.totalAmount){
+    }else if(totalPaid < invoiceTotal){
         paymentStatus = "PARTIALLY_PAID";
     }else{
         paymentStatus = "PAID";
@@ -122,6 +128,50 @@ const createPayment = async (req, res, next) => {
             return res.status(404).json({
                 success: false,
                 message: "Invoice not found",
+            });
+        }
+
+        // ---------------------------------------
+        // Validate remaining invoice balance
+        // ---------------------------------------
+
+        const completedPayments = await Payment.find({
+            invoice: existingInvoice._id,
+            paymentStatus: "COMPLETED",
+        });
+
+        const totalPaidCents = completedPayments.reduce(
+            (sum, payment) =>
+                sum + Math.round(Number(payment.amount) * 100),
+            0
+        );
+
+        const invoiceTotalCents = Math.round(
+            Number(existingInvoice.totalAmount) * 100
+        );
+
+        const remainingCents = Math.max(
+            0,
+            invoiceTotalCents - totalPaidCents
+        );
+
+        const paymentCents = Math.round(Number(amount) * 100);
+
+        if (
+            !Number.isFinite(Number(amount)) ||
+            paymentCents <= 0 ||
+            Math.abs(Number(amount) * 100 - paymentCents) > 0.000001
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Enter a valid payment amount with at most two decimal places.",
+            });
+        }
+
+        if (paymentCents > remainingCents) {
+            return res.status(400).json({
+                success: false,
+                message: `Payment exceeds the remaining balance of LKR ${(remainingCents / 100).toFixed(2)}.`,
             });
         }
 
@@ -296,8 +346,41 @@ const getAllPayments = async (req, res, next) => {
     }
 };
 
+// =======================================
+// GET MY PAYMENTS
+// GET /api/customer/payments
+// CUSTOMER ONLY
+// =======================================
+
+const getMyPayments = async (req, res, next) => {
+    try {
+        const customerId = req.user.userId;
+
+        const payments = await Payment.find({
+            customer: customerId,
+        })
+            .populate(
+                "invoice",
+                "invoiceNumber serviceDetails serviceAmount securityDeposit totalAmount paymentStatus"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer payment history retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createPayment,
     getPaymentsByInvoice,
     getAllPayments,
+    getMyPayments,
+    updateInvoicePaymentStatus,
 };

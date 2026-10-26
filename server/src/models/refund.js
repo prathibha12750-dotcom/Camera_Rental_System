@@ -35,7 +35,8 @@ const refundSchema = new mongoose.Schema(
         status: {
             type: String,
             enum: ["PENDING", "COMPLETED"],
-            default: "COMPLETED",
+            default: "PENDING",
+            required: true,
         },
 
         notes: {
@@ -46,12 +47,56 @@ const refundSchema = new mongoose.Schema(
 
         refundDate: {
             type: Date,
-            default: Date.now,
+            default: null,
         },
+
+        // ==========================================
+        // REFUND PAYOUT AUDIT INFORMATION
+        // ==========================================
+
+        // Staff member who confirmed the actual payout.
+        confirmedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+
+        // Date and time payout was confirmed.
+        confirmedAt: {
+            type: Date,
+            default: null,
+        },
+
+        // Bank transaction ID or other payout reference.
+        payoutReference: {
+            type: String,
+            trim: true,
+            maxlength: 150,
+            default: "",
+        },
+
     },
     {
         timestamps: true,
     }
 );
 
-module.exports = mongoose.model("Refund", refundSchema);
+
+// Prevent duplicate pending or completed refunds
+// for the same security deposit.
+refundSchema.index(
+  { deposit: 1 },
+  {
+    name: "unique_active_refund_per_deposit",
+    unique: true,
+    partialFilterExpression: {
+      status: {
+        $in: ["PENDING", "COMPLETED"],
+      },
+    },
+  }
+);
+
+module.exports =
+  mongoose.models.Refund ||
+  mongoose.model("Refund", refundSchema);

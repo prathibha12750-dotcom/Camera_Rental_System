@@ -12,9 +12,7 @@ const photographerNotificationSchema =
         required: true,
       },
 
-
       //added by abilash
-
       type: {
         type: String,
         enum: [
@@ -27,28 +25,29 @@ const photographerNotificationSchema =
           "BOOKING_CANCELLED",
           "BOOKING_COMPLETED",
 
-          // Rental notification types
+
+          // Photographer subscription notifications
+          "SUBSCRIPTION_PAYMENT_APPROVED",
+          "SUBSCRIPTION_PAYMENT_REJECTED",
+          "SUBSCRIPTION_TRIAL_EXPIRED",
+          "SUBSCRIPTION_GRACE_PERIOD_STARTED",
+          "SUBSCRIPTION_EXPIRED",
+
+          // Equipment rental notifications
           "RENTAL_REQUEST_CONFIRMED",
           "RENTAL_EQUIPMENT_ISSUED",
           "RENTAL_RETURN_DUE",
           "RENTAL_OVERDUE",
 
-          //added by abilash
+          // Financial notifications
           "DEPOSIT_RECORDED",
           "REFUND_RECORDED",
-          //ended by abilash
-
-          //added by abilash
           "PAYMENT_RECORDED",
-          //ended by abilash
-
           "GENERAL",
         ],
         default: "GENERAL",
       },
-
       //ended by abilash
-
 
       title: {
         type: String,
@@ -83,36 +82,37 @@ const photographerNotificationSchema =
         default: null,
       },
 
-      
-      //added by abilash
+      // Photographer subscription payment reference
+      relatedSubscriptionPayment: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PhotographerSubscriptionPayment",
+        default: null,
+      },
 
-      // Reference to the rental related to this notification
+      // Equipment rental reference
       rental: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Rental",
         default: null,
       },
-
-      //ended by abilash
-
     },
     {
       timestamps: true,
     }
   );
 
+
+// ==========================================
+// INDEXES
+// ==========================================
+
 photographerNotificationSchema.index({
   user: 1,
   createdAt: -1,
 });
 
-
-//added by abilash
-
-// FR-145 and FR-146:
 // Prevent duplicate return-due and overdue
-// notifications for the same rental and type.
-
+// notifications for the same rental.
 photographerNotificationSchema.index(
   {
     rental: 1,
@@ -132,9 +132,6 @@ photographerNotificationSchema.index(
     name: "unique_rental_reminder_type",
   }
 );
-
-//ended by abilash
-
 
 module.exports =
   mongoose.model(

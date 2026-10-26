@@ -35,6 +35,17 @@ const createEquipment = async (req, res, next) => {
       });
     }
 
+    if (
+      req.user.role === "CLERK" &&
+      condition === "DAMAGED"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Record equipment damage through the Damage & Maintenance workflow.",
+      });
+    }
+
     const equipment = await Equipment.create({
       name,
       category,
@@ -44,7 +55,10 @@ const createEquipment = async (req, res, next) => {
       rentalPricePerDay,
       securityDeposit,
       condition,
-      status,
+      status:
+        req.user.role === "CLERK"
+          ? "AVAILABLE"
+          : status || "AVAILABLE",
       description,
     });
 
@@ -205,8 +219,39 @@ const updateEquipment = async (req, res, next) => {
     if (securityDeposit !== undefined) {
       equipment.securityDeposit = securityDeposit;
     }
-    if (condition !== undefined) equipment.condition = condition;
-    if (status !== undefined) equipment.status = status;
+
+    if (
+      req.user.role === "CLERK" &&
+      condition === "DAMAGED" &&
+      condition !== equipment.condition
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Record equipment damage through the Damage & Maintenance workflow.",
+      });
+    }
+
+    if (condition !== undefined) {
+      const protectedStatuses = ["DAMAGED", "MAINTENANCE"];
+
+      if (
+        protectedStatuses.includes(equipment.status) &&
+        condition !== equipment.condition
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Equipment condition cannot be changed while damage or maintenance is unresolved. Complete the damage or maintenance workflow first.",
+        });
+      }
+
+      equipment.condition = condition;
+    }
+
+    if (status !== undefined && req.user.role === "STAFF_ADMIN") {
+      equipment.status = status;
+    }
     if (description !== undefined) equipment.description = description;
 
     await equipment.save();

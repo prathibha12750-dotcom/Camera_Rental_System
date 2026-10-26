@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { useAuth } from "../../context/useAuth";
 import api from "../../services/api";
+import { useAuth } from "../../context/useAuth";
 
   //added by abilash
   import {
@@ -55,8 +54,8 @@ const StatCardIcon = ({ title }) => {
 //ended by abilash
 
 const AdminHome = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +74,6 @@ const AdminHome = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [activitiesError, setActivitiesError] = useState(false);
   //ended by abilash
-
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -235,6 +233,7 @@ const AdminHome = () => {
   //added by abilash
   // Redesigned dashboard statistics with priority ordering
   const statCards = [
+
     {
       title: "Monthly Revenue",
       value: formatCurrency(stats?.monthlyRevenue),
@@ -252,7 +251,10 @@ const AdminHome = () => {
     },
     {
       title: "Upcoming Bookings",
-      value: formatNumber(stats?.upcomingPhotographerBookings),
+      value: formatNumber(
+        stats?.upcomingPhotographerBookings ??
+          stats?.upcomingPhotographerBokings
+      ),
       tone: "booking",
     },
     {
@@ -288,15 +290,12 @@ const AdminHome = () => {
       value: formatNumber(stats?.totalClerks),
     },
   ];
-  //ended by abilash
 
-  
-  //added by abilash
   // Calculate chart scale and six-month revenue total
   const revenueMax = Math.max(
     1,
-    ...revenueTrend.map(
-      (item) => Math.max(0, Number(item.totalRevenue) || 0)
+    ...revenueTrend.map((item) =>
+      Math.max(0, Number(item.totalRevenue) || 0)
     )
   );
 
@@ -305,11 +304,6 @@ const AdminHome = () => {
       total + Math.max(0, Number(item.totalRevenue) || 0),
     0
   );
-  //ended by abilash
-
-  
-  //added by abilash
-  // Revenue performance indicators
 
   const averageMonthlyRevenue =
     revenueTrend.length > 0
@@ -328,10 +322,7 @@ const AdminHome = () => {
 
       if (amount <= 0) return best;
 
-      if (
-        !best ||
-        amount > (Number(best.totalRevenue) || 0)
-      ) {
+      if (!best || amount > (Number(best.totalRevenue) || 0)) {
         return item;
       }
 
@@ -339,10 +330,6 @@ const AdminHome = () => {
     },
     null
   );
-
-  //ended by abilash
-
-
 
 
   return (
@@ -391,7 +378,6 @@ const AdminHome = () => {
                 </p>
               </div>
             </div>
-
           </div>
         </div>
         {/* ended by abilash */}
@@ -437,6 +423,12 @@ const AdminHome = () => {
         path: "/admin/rentals",
         icon: "R",
       },
+      {
+        title: "Payment Verification",
+        description: "Review and verify rental payment receipts",
+        path: "/admin/payment-verification",
+        icon: "PV",
+      },   
     ].map((item) => (
       <button
         key={item.title}
@@ -504,6 +496,7 @@ const AdminHome = () => {
             ))}
           </div>
         ) : (
+
           <>                     
             {/* added by abilash */}
             {/* Redesigned Admin Dashboard Statistic Cards */}
@@ -932,8 +925,6 @@ const AdminHome = () => {
             </section>
 
             {/* ended by abilash */}
-
-
 
           </>
         )}

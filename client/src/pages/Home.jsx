@@ -43,7 +43,7 @@ const heroSlides = [
     title: "Discover the gear",
     highlight: "for your next shoot.",
     description:
-      "Explore cameras, lenses and supporting equipment available through Southern Camera Rental.",
+      "Explore cameras, lenses and supporting equipment available through Southern Camera Rent.",
     image: heroImage,
     primaryText: "Discover Equipment",
     primaryLink: "#equipment",
@@ -81,7 +81,7 @@ const heroSlides = [
 
   {
     id: 4,
-    eyebrow: "Southern Camera Rental",
+    eyebrow: "Southern Camera Rent",
     title: "Discover first.",
     highlight: "Rent or book after login.",
     description:
@@ -1653,7 +1653,7 @@ const Home = () => {
 
                 <p className="font-bold text-white">
                   Southern Camera
-                  Rental
+                  Rent
                 </p>
 
                 <p className="text-xs text-gray-500">

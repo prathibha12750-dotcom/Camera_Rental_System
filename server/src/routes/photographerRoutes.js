@@ -1,9 +1,11 @@
 const express = require("express");
 
-const requirePasswordChangeComplete =
-  require(
-    "../middleware/requirePasswordChangeComplete"
-  );
+const requirePasswordChangeComplete = require("../middleware/requirePasswordChangeComplete");
+const authenticate = require("../middleware/authenticate");
+const authorizeRoles = require("../middleware/authorizeRoles");
+const authenticateSubscription = require("../middleware/authenticateSubscription");
+const uploadSubscriptionReceipt = require("../middleware/uploadSubscriptionReceipt");
+
 
 const {
   getMyProfile,
@@ -38,14 +40,39 @@ const {
   "../controllers/photographerNotificationController"
 );
 
-const authenticate =
-  require("../middleware/authenticate");
-
-const authorizeRoles =
-  require("../middleware/authorizeRoles");
-
+const {
+  getMySubscription,
+  paySubscription,
+  getMySubscriptionPayments,
+} = require(
+  "../controllers/photographerSubscriptionController"
+);
 
 const router = express.Router();
+
+// ==========================================
+// PHOTOGRAPHER SUBSCRIPTION
+// ACTIVE OR SUBSCRIPTION-EXPIRED PHOTOGRAPHER
+// ==========================================
+
+router.get(
+  "/subscription",
+  authenticateSubscription,
+  getMySubscription
+);
+
+router.post(
+  "/subscription/payment",
+  authenticateSubscription,
+  uploadSubscriptionReceipt.single("receipt"),
+  paySubscription
+);
+
+router.get(
+  "/subscription/payments",
+  authenticateSubscription,
+  getMySubscriptionPayments
+);
 
 
 // ==========================================

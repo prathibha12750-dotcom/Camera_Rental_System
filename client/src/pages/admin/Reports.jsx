@@ -4,6 +4,8 @@ import api from "../../services/api";
 const Reports = () => {
   const [dailyReport, setDailyReport] = useState(null);
   const [monthlyReport, setMonthlyReport] = useState(null);
+
+  const [subscriptionPayments, setSubscriptionPayments] = useState([]);
   const [rentalReport, setRentalReport] = useState(null);
   const [equipmentReport, setEquipmentReport] = useState(null);
   const [photographerReport, setPhotographerReport] = useState(null);
@@ -16,27 +18,34 @@ const Reports = () => {
       setLoading(true);
       setError("");
 
+      const [
+        dailyResponse,
+        monthlyResponse,
+        subscriptionPaymentsResponse,
+        rentalResponse,
+        equipmentResponse,
+        photographerResponse,
+      ] = await Promise.all([
+        api.get("/admin/reports/revenue/daily"),
+        api.get("/admin/reports/revenue/monthly"),
+        api.get("/admin/subscription-payments"),
+        api.get("/admin/reports/rentals"),
+        api.get("/admin/reports/equipment"),
+        api.get("/admin/reports/photographers"),
+      ]);
 
-  const [
-    dailyResponse,
-    monthlyResponse,
-    rentalResponse,
-    equipmentResponse,
-    photographerResponse,
-  ] = await Promise.all([
-    api.get("/admin/reports/revenue/daily"),
-    api.get("/admin/reports/revenue/monthly"),
-    api.get("/admin/reports/rentals"),
-    api.get("/admin/reports/equipment"),
-    api.get("/admin/reports/photographers"),
-  ]);
+      setDailyReport(dailyResponse.data?.data || null);
+      setMonthlyReport(monthlyResponse.data?.data || null);
 
+      setSubscriptionPayments(
+        subscriptionPaymentsResponse.data?.data?.payments || []
+      );
 
-  setDailyReport(dailyResponse.data?.data || null);
-  setMonthlyReport(monthlyResponse.data?.data || null);
-  setRentalReport(rentalResponse.data?.data || null);
-  setEquipmentReport(equipmentResponse.data?.data || null);
-  setPhotographerReport(photographerResponse.data?.data || null);
+      setRentalReport(rentalResponse.data?.data || null);
+      setEquipmentReport(equipmentResponse.data?.data || null);
+      setPhotographerReport(
+        photographerResponse.data?.data || null
+      );
 
     } catch (error) {
       const status = error.response?.status;
@@ -60,8 +69,73 @@ const Reports = () => {
     }
   };
 
+
   useEffect(() => {
-    fetchReports();
+    let cancelled = false;
+
+    const loadInitialReports = async () => {
+      try {
+        const [
+          dailyResponse,
+          monthlyResponse,
+          subscriptionPaymentsResponse,
+          rentalResponse,
+          equipmentResponse,
+          photographerResponse,
+        ] = await Promise.all([
+          api.get("/admin/reports/revenue/daily"),
+          api.get("/admin/reports/revenue/monthly"),
+          api.get("/admin/subscription-payments"),
+          api.get("/admin/reports/rentals"),
+          api.get("/admin/reports/equipment"),
+          api.get("/admin/reports/photographers"),
+        ]);
+
+        if (cancelled) return;
+
+        setDailyReport(dailyResponse.data?.data || null);
+        setMonthlyReport(monthlyResponse.data?.data || null);
+
+        setSubscriptionPayments(
+          subscriptionPaymentsResponse.data?.data?.payments || []
+        );
+
+        setRentalReport(rentalResponse.data?.data || null);
+        setEquipmentReport(equipmentResponse.data?.data || null);
+        setPhotographerReport(
+          photographerResponse.data?.data || null
+        );
+      } catch (error) {
+        if (cancelled) return;
+
+        const status = error.response?.status;
+
+        if (status === 401) {
+          setError("Your session has expired. Please log in again.");
+        } else if (status === 403) {
+          setError(
+            "You do not have permission to view admin reports."
+          );
+        } else if (status === 404) {
+          setError("The requested report could not be found.");
+        } else {
+          setError(
+            error.response?.data?.message ||
+              "Failed to load reports. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialReports();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const formatAmount = (value) => {
@@ -86,6 +160,64 @@ const Reports = () => {
       year: "numeric",
     });
   };
+
+    const completedSubscriptionPayments =
+      subscriptionPayments.filter(
+        (payment) =>
+          payment.paymentStatus === "COMPLETED"
+      );
+
+    const now = new Date();
+
+    const todaySubscriptionPayments =
+      completedSubscriptionPayments.filter(
+        (payment) => {
+          if (!payment.paymentDate) return false;
+
+          const paymentDate =
+            new Date(payment.paymentDate);
+
+          return (
+            paymentDate.getFullYear() ===
+              now.getFullYear() &&
+            paymentDate.getMonth() ===
+              now.getMonth() &&
+            paymentDate.getDate() ===
+              now.getDate()
+          );
+        }
+      );
+
+    const monthlySubscriptionPayments =
+      completedSubscriptionPayments.filter(
+        (payment) => {
+          if (!payment.paymentDate) return false;
+
+          const paymentDate =
+            new Date(payment.paymentDate);
+
+          return (
+            paymentDate.getFullYear() ===
+              now.getFullYear() &&
+            paymentDate.getMonth() ===
+              now.getMonth()
+          );
+        }
+      );
+
+    const todaySubscriptionRevenue =
+      todaySubscriptionPayments.reduce(
+        (total, payment) =>
+          total + Number(payment.amount || 0),
+        0
+      );
+
+    const monthlySubscriptionRevenue =
+      monthlySubscriptionPayments.reduce(
+        (total, payment) =>
+          total + Number(payment.amount || 0),
+        0
+      );
 
   return (
     <div className="p-6">
@@ -202,6 +334,85 @@ const Reports = () => {
               <p className="mt-2 text-xs text-gray-500">
                 Completed payments this month
               </p>
+            </div>
+          </div>
+
+          {/* ==================================
+              PHOTOGRAPHER SUBSCRIPTION REVENUE
+          ================================== */}
+
+          <div className="mt-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-950">
+                Photographer Subscription Revenue
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Revenue collected from photographer
+                monthly subscription payments.
+              </p>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Today's Subscription Revenue */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-gray-500">
+                  Today's Subscription Revenue
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-gray-950">
+                  {formatAmount(todaySubscriptionRevenue)}
+                </p>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  {todaySubscriptionPayments.length} completed payment(s)
+                </p>
+              </div>
+
+              {/* Monthly Subscription Revenue */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-gray-500">
+                  Monthly Subscription Revenue
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-gray-950">
+                  {formatAmount(monthlySubscriptionRevenue)}
+                </p>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  {monthlySubscriptionPayments.length} completed payment(s)
+                </p>
+              </div>
+
+              {/* Total Completed Payments */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-gray-500">
+                  Subscription Payments
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-gray-950">
+                  {completedSubscriptionPayments.length}
+                </p>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Total completed subscription payments
+                </p>
+              </div>
+
+              {/* Monthly Subscribers */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-gray-500">
+                  Payments This Month
+                </p>
+
+                <p className="mt-2 text-2xl font-bold text-gray-950">
+                  {monthlySubscriptionPayments.length}
+                </p>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Completed subscription payments this month
+                </p>
+              </div>
             </div>
           </div>
 

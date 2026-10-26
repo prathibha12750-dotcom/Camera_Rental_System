@@ -28,19 +28,62 @@ export const AuthProvider = ({ children }) => {
     const loadCurrentUser = async () => {
       const token = localStorage.getItem("token");
 
+      const renewalRequired =
+        localStorage.getItem(
+          "subscriptionRenewalRequired"
+        ) === "true";
+
       if (!token) {
+        localStorage.removeItem(
+          "subscriptionRenewalRequired"
+        );
+
         setLoading(false);
         return;
       }
 
       try {
-        const response = await api.get("/auth/me");
+        // --------------------------------------
+        // EXPIRED PHOTOGRAPHER RENEWAL SESSION
+        // --------------------------------------
+
+        if (renewalRequired) {
+          const response = await api.get(
+            "/photographer/subscription"
+          );
+
+          setUser({
+            id: response.data.data.photographer?.userId,
+            role: "PHOTOGRAPHER",
+            status: "INACTIVE",
+            disabledReason:
+              "SUBSCRIPTION_EXPIRED",
+            renewalRequired: true,
+          });
+
+          return;
+        }
+
+        // --------------------------------------
+        // NORMAL AUTHENTICATED SESSION
+        // --------------------------------------
+
+        const response =
+          await api.get("/auth/me");
 
         setUser(response.data.data.user);
       } catch (error) {
-        console.error("Failed to load current user:", error);
+        console.error(
+          "Failed to load current user:",
+          error
+        );
 
         localStorage.removeItem("token");
+
+        localStorage.removeItem(
+          "subscriptionRenewalRequired"
+        );
+
         setUser(null);
       } finally {
         setLoading(false);
@@ -60,9 +103,24 @@ export const AuthProvider = ({ children }) => {
       password,
     });
 
-    const { token, user } = response.data.data;
+    const {
+      token,
+      user,
+      renewalRequired,
+    } = response.data.data;
 
     localStorage.setItem("token", token);
+
+    if (renewalRequired) {
+      localStorage.setItem(
+        "subscriptionRenewalRequired",
+        "true"
+      );
+    } else {
+      localStorage.removeItem(
+        "subscriptionRenewalRequired"
+      );
+    }
 
     setUser(user);
 
@@ -93,8 +151,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Logout request failed:", error);
     } finally {
-      localStorage.removeItem("token");
-      setUser(null);
+        localStorage.removeItem("token");
+        localStorage.removeItem(
+          "subscriptionRenewalRequired"
+        );
+        setUser(null);
     }
   };
 

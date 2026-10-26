@@ -36,21 +36,76 @@ const Payments = () => {
     notes: "",
   });
 
+  // ==========================================
+  // API ERROR HANDLER
+  // ==========================================
+
+  const handleApiError = (
+    error,
+    setter,
+    defaultMessage
+  ) => {
+    const status = error.response?.status;
+
+    if (status === 401) {
+      setter(
+        "Your session has expired. Please log in again."
+      );
+    } else if (status === 403) {
+      setter(
+        "You do not have permission to perform this action."
+      );
+    } else if (status === 404) {
+      setter(
+        "Requested API endpoint was not found."
+      );
+    } else if (status === 409) {
+      setter(
+        error.response?.data?.message ||
+          "This action conflicts with existing data."
+      );
+    } else if (status >= 500) {
+      setter(
+        "Server error. Please try again later."
+      );
+    } else {
+      setter(
+        error.response?.data?.message ||
+          defaultMessage
+      );
+    }
+  };
+
+  // ==========================================
+  // FETCH PAYMENTS
+  // ==========================================
+
   const fetchPayments = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await api.get("/admin/payments");
+      const response =
+        await api.get("/admin/payments");
 
-      setPayments(response.data?.data?.payments || []);
+      setPayments(
+        response.data?.data?.payments || []
+      );
     } catch (error) {
-      handleApiError(error, setError, "Failed to load payments.");
+      handleApiError(
+        error,
+        setError,
+        "Failed to load payments."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+
+  // ==========================================
+  // BILLING RECEIPT FUNCTIONS
+  // ==========================================
   
 //added by abilash
 
@@ -164,51 +219,113 @@ const handleViewReceipt = async (paymentId) => {
   }
 };
 
-//ended by abilash
 
+  // ==========================================
+  // FETCH INVOICES
+  // ==========================================
 
   const fetchInvoices = async () => {
+
     try {
       setLoadingInvoices(true);
 
-      const response = await api.get("/admin/invoices");
+      const response =
+        await api.get("/admin/invoices");
 
-      setInvoices(response.data?.data?.invoices || []);
+      setInvoices(
+        response.data?.data?.invoices || []
+      );
     } catch (error) {
-      handleApiError(error, setError, "Failed to load invoices.");
+      handleApiError(
+        error,
+        setError,
+        "Failed to load invoices."
+      );
     } finally {
       setLoadingInvoices(false);
     }
   };
 
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
+
   useEffect(() => {
-    fetchPayments();
-    fetchInvoices();
+    let cancelled = false;
+
+    const loadInitialData = async () => {
+      try {
+        const [
+          paymentsResponse,
+          invoicesResponse,
+        ] = await Promise.all([
+          api.get("/admin/payments"),
+          api.get("/admin/invoices"),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setPayments(
+          paymentsResponse.data?.data?.payments || []
+        );
+
+        setInvoices(
+          invoicesResponse.data?.data?.invoices || []
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const status = error.response?.status;
+
+        if (status === 401) {
+          setError(
+            "Your session has expired. Please log in again."
+          );
+        } else if (status === 403) {
+          setError(
+            "You do not have permission to perform this action."
+          );
+        } else if (status === 404) {
+          setError(
+            "Requested API endpoint was not found."
+          );
+        } else if (status === 409) {
+          setError(
+            error.response?.data?.message ||
+              "This action conflicts with existing data."
+          );
+        } else if (status >= 500) {
+          setError(
+            "Server error. Please try again later."
+          );
+        } else {
+          setError(
+            error.response?.data?.message ||
+              "Failed to load payment information."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setLoadingInvoices(false);
+        }
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleApiError = (error, setter, defaultMessage) => {
-    const status = error.response?.status;
-
-    if (status === 401) {
-      setter("Your session has expired. Please log in again.");
-    } else if (status === 403) {
-      setter("You do not have permission to perform this action.");
-    } else if (status === 404) {
-      setter("Requested API endpoint was not found.");
-    } else if (status === 409) {
-      setter(
-        error.response?.data?.message ||
-          "This action conflicts with existing data."
-      );
-    } else if (status >= 500) {
-      setter("Server error. Please try again later.");
-    } else {
-      setter(
-        error.response?.data?.message ||
-          defaultMessage
-      );
-    }
-  };
+  // ==========================================
+  // FORM CHANGE
+  // ==========================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -220,6 +337,10 @@ const handleViewReceipt = async (paymentId) => {
 
     setFormMessage("");
   };
+
+  // ==========================================
+  // SELECTED INVOICE
+  // ==========================================
 
   const selectedInvoice = invoices.find(
     (invoice) => invoice._id === formData.invoice
@@ -236,14 +357,22 @@ const handleViewReceipt = async (paymentId) => {
         payment.paymentStatus === "COMPLETED"
     )
     .reduce(
-      (total, payment) => total + Number(payment.amount || 0),
+      (total, payment) =>
+        total + Number(payment.amount || 0),
       0
     );
 
-  const remainingAmount = Math.max(
-    invoiceTotal - paidAmount,
-    0
-  );
+  const remainingAmount =
+    Math.max(
+      0,
+      Math.round(
+        (invoiceTotal - paidAmount) * 100
+      )
+    ) / 100;
+
+  // ==========================================
+  // RECORD PAYMENT
+  // ==========================================
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -252,14 +381,21 @@ const handleViewReceipt = async (paymentId) => {
     setError("");
 
     if (!formData.invoice) {
-      setFormMessage("Please select an invoice.");
+      setFormMessage(
+        "Please select an invoice."
+      );
       return;
     }
 
     const amount = Number(formData.amount);
 
-    if (!formData.amount || Number.isNaN(amount)) {
-      setFormMessage("Please enter a valid payment amount.");
+    if (
+      !formData.amount ||
+      Number.isNaN(amount)
+    ) {
+      setFormMessage(
+        "Please enter a valid payment amount."
+      );
       return;
     }
 
@@ -280,7 +416,9 @@ const handleViewReceipt = async (paymentId) => {
     }
 
     if (!formData.paymentMethod) {
-      setFormMessage("Please select a payment method.");
+      setFormMessage(
+        "Please select a payment method."
+      );
       return;
     }
 
@@ -291,7 +429,7 @@ const handleViewReceipt = async (paymentId) => {
         invoice: formData.invoice,
         amount,
         paymentMethod: formData.paymentMethod,
-        note: formData.notes.trim(),
+        notes: formData.notes.trim(),
       });
 
       setFormMessage(
@@ -319,19 +457,36 @@ const handleViewReceipt = async (paymentId) => {
     }
   };
 
+  // ==========================================
+  // FORMAT AMOUNT
+  // ==========================================
+
   const formatAmount = (amount) => {
-    return `LKR ${Number(amount || 0).toLocaleString()}`;
+    return `LKR ${Number(
+      amount || 0
+    ).toLocaleString()}`;
   };
+
+  // ==========================================
+  // FORMAT DATE
+  // ==========================================
 
   const formatDate = (date) => {
     if (!date) return "-";
 
-    return new Date(date).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(date).toLocaleDateString(
+      "en-GB",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   };
+
+  // ==========================================
+  // PAYMENT STATUS STYLE
+  // ==========================================
 
   const getPaymentStatusClass = (status) => {
     if (status === "COMPLETED") {
@@ -345,6 +500,10 @@ const handleViewReceipt = async (paymentId) => {
     return "bg-gray-100 text-gray-700";
   };
 
+  // ==========================================
+  // INVOICE STATUS STYLE
+  // ==========================================
+
   const getInvoiceStatusClass = (status) => {
     if (status === "PAID") {
       return "bg-green-100 text-green-700";
@@ -356,6 +515,10 @@ const handleViewReceipt = async (paymentId) => {
 
     return "bg-gray-100 text-gray-700";
   };
+
+  // ==========================================
+  // LOADING
+  // ==========================================
 
   if (loading) {
     return (
@@ -369,9 +532,14 @@ const handleViewReceipt = async (paymentId) => {
     );
   }
 
+  // ==========================================
+  // PAGE
+  // ==========================================
+
   return (
     <div className="p-6">
       {/* Page Header */}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-950">
           Payment Management
@@ -382,6 +550,8 @@ const handleViewReceipt = async (paymentId) => {
         </p>
       </div>
 
+      {/* Error */}
+
       {error && (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -389,6 +559,7 @@ const handleViewReceipt = async (paymentId) => {
       )}
 
       {/* Record Payment */}
+
       <div className="mb-6 rounded-2xl bg-white shadow-sm">
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="font-semibold text-gray-950">
@@ -396,7 +567,8 @@ const handleViewReceipt = async (paymentId) => {
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Manually record a payment received from a customer.
+            Manually record a payment received
+            from a customer.
           </p>
         </div>
 
@@ -406,6 +578,7 @@ const handleViewReceipt = async (paymentId) => {
         >
           <div className="grid gap-5 md:grid-cols-2">
             {/* Invoice */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Invoice
@@ -415,7 +588,9 @@ const handleViewReceipt = async (paymentId) => {
                 name="invoice"
                 value={formData.invoice}
                 onChange={handleChange}
-                disabled={loadingInvoices || submitting}
+                disabled={
+                  loadingInvoices || submitting
+                }
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               >
                 <option value="">
@@ -430,14 +605,19 @@ const handleViewReceipt = async (paymentId) => {
                     value={invoice._id}
                   >
                     {invoice.invoiceNumber} -{" "}
-                    {invoice.customer?.name || "Customer"} -{" "}
-                    {formatAmount(invoice.totalAmount)}
+                    {invoice.customer?.name ||
+                      "Customer"}{" "}
+                    -{" "}
+                    {formatAmount(
+                      invoice.totalAmount
+                    )}
                   </option>
                 ))}
               </select>
             </div>
 
             {/* Customer */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Customer
@@ -446,7 +626,8 @@ const handleViewReceipt = async (paymentId) => {
               <input
                 type="text"
                 value={
-                  selectedInvoice?.customer?.name || ""
+                  selectedInvoice?.customer
+                    ?.name || ""
                 }
                 readOnly
                 placeholder="Select an invoice first"
@@ -455,6 +636,7 @@ const handleViewReceipt = async (paymentId) => {
             </div>
 
             {/* Invoice Total */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Invoice Total
@@ -474,6 +656,7 @@ const handleViewReceipt = async (paymentId) => {
             </div>
 
             {/* Already Paid */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Already Paid
@@ -492,7 +675,8 @@ const handleViewReceipt = async (paymentId) => {
               />
             </div>
 
-            {/* Remaining */}
+            {/* Remaining Amount */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Remaining Amount
@@ -502,7 +686,9 @@ const handleViewReceipt = async (paymentId) => {
                 type="text"
                 value={
                   selectedInvoice
-                    ? formatAmount(remainingAmount)
+                    ? formatAmount(
+                        remainingAmount
+                      )
                     : ""
                 }
                 readOnly
@@ -512,6 +698,7 @@ const handleViewReceipt = async (paymentId) => {
             </div>
 
             {/* Payment Amount */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Payment Amount
@@ -522,16 +709,24 @@ const handleViewReceipt = async (paymentId) => {
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                disabled={!selectedInvoice || submitting}
+                disabled={
+                  !selectedInvoice ||
+                  submitting
+                }
                 min="0.01"
-                step="0.01"
-                max={remainingAmount || undefined}
+                step="0.01"             
+                max={
+                  selectedInvoice
+                    ? remainingAmount
+                    : undefined
+                }
                 placeholder="Enter payment amount"
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               />
             </div>
 
             {/* Payment Method */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Payment Method
@@ -539,7 +734,9 @@ const handleViewReceipt = async (paymentId) => {
 
               <select
                 name="paymentMethod"
-                value={formData.paymentMethod}
+                value={
+                  formData.paymentMethod
+                }
                 onChange={handleChange}
                 disabled={submitting}
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
@@ -563,6 +760,7 @@ const handleViewReceipt = async (paymentId) => {
             </div>
 
             {/* Notes */}
+
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Notes
@@ -590,7 +788,10 @@ const handleViewReceipt = async (paymentId) => {
           <div className="mt-6 flex justify-end">
             <button
               type="submit"
-              disabled={submitting || loadingInvoices}
+              disabled={
+                submitting ||
+                loadingInvoices
+              }
               className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting
@@ -602,6 +803,7 @@ const handleViewReceipt = async (paymentId) => {
       </div>
 
       {/* Payment List */}
+
       <div className="rounded-2xl bg-white shadow-sm">
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="font-semibold text-gray-950">
@@ -610,7 +812,10 @@ const handleViewReceipt = async (paymentId) => {
 
           <p className="mt-1 text-sm text-gray-500">
             {payments.length} payment
-            {payments.length !== 1 ? "s" : ""} found
+            {payments.length !== 1
+              ? "s"
+              : ""}{" "}
+            found
           </p>
         </div>
 
@@ -621,7 +826,8 @@ const handleViewReceipt = async (paymentId) => {
             </p>
 
             <p className="mt-1 text-sm text-gray-500">
-              Recorded payments will appear here.
+              Recorded payments will appear
+              here.
             </p>
           </div>
         ) : (
@@ -673,21 +879,27 @@ const handleViewReceipt = async (paymentId) => {
                     className="hover:bg-gray-50"
                   >
                     <td className="px-6 py-4 font-medium text-gray-900">
-                      {payment.invoice?.invoiceNumber || "-"}
+                      {payment.invoice
+                        ?.invoiceNumber ||
+                        "-"}
                     </td>
 
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">
-                        {payment.customer?.name || "-"}
+                        {payment.customer
+                          ?.name || "-"}
                       </div>
 
                       <div className="text-xs text-gray-500">
-                        {payment.customer?.email || "-"}
+                        {payment.customer
+                          ?.email || "-"}
                       </div>
                     </td>
 
                     <td className="px-6 py-4 font-semibold text-gray-900">
-                      {formatAmount(payment.amount)}
+                      {formatAmount(
+                        payment.amount
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
@@ -700,7 +912,9 @@ const handleViewReceipt = async (paymentId) => {
                     </td>
 
                     <td className="px-6 py-4 text-gray-600">
-                      {formatDate(payment.paymentDate)}
+                      {formatDate(
+                        payment.paymentDate
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
@@ -709,17 +923,21 @@ const handleViewReceipt = async (paymentId) => {
                           payment.paymentStatus
                         )}`}
                       >
-                        {payment.paymentStatus || "-"}
+                        {payment.paymentStatus ||
+                          "-"}
                       </span>
                     </td>
 
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getInvoiceStatusClass(
-                          payment.invoice?.paymentStatus
+                          payment.invoice
+                            ?.paymentStatus
                         )}`}
                       >
-                        {payment.invoice?.paymentStatus || "-"}
+                        {payment.invoice
+                          ?.paymentStatus ||
+                          "-"}
                       </span>
                     </td>
                     

@@ -6,6 +6,7 @@ import { useAuth } from "../../context/useAuth";
 const dashboardRoutes = {
   CUSTOMER: "/",
   PHOTOGRAPHER: "/photographer",
+  CLERK: "/clerk",
   STAFF_ADMIN: "/admin",
 };
 
@@ -40,18 +41,28 @@ const Login = () => {
       return;
     }
 
-    if (
-      user.role === "PHOTOGRAPHER" &&
-      user.mustChangePassword
-    ) {
-      navigate(
-        "/photographer/change-password",
-        {
-          replace: true,
-        }
-      );
+    if (user.mustChangePassword) {
+      if (user.role === "PHOTOGRAPHER") {
+        navigate(
+          "/photographer/change-password",
+          {
+            replace: true,
+          }
+        );
 
-      return;
+        return;
+      }
+
+      if (user.role === "CLERK") {
+        navigate(
+          "/clerk/change-password",
+          {
+            replace: true,
+          }
+        );
+
+        return;
+      }
     }
 
     navigate(
@@ -103,18 +114,28 @@ const Login = () => {
       const loggedInUser =
         response.data.user;
 
-      if (
-        loggedInUser.role === "PHOTOGRAPHER" &&
-        loggedInUser.mustChangePassword
-      ) {
-        navigate(
-          "/photographer/change-password",
-          {
-            replace: true,
-          }
-        );
+      if (loggedInUser.mustChangePassword) {
+        if (loggedInUser.role === "PHOTOGRAPHER") {
+          navigate(
+            "/photographer/change-password",
+            {
+              replace: true,
+            }
+          );
 
-        return;
+          return;
+        }
+
+        if (loggedInUser.role === "CLERK") {
+          navigate(
+            "/clerk/change-password",
+            {
+              replace: true,
+            }
+          );
+
+          return;
+        }
       }
 
       navigate(
@@ -183,8 +204,9 @@ const Login = () => {
                 available for your account.
 
                 Customers can submit rental and photographer
-                booking requests, while photographers and
-                staff access their own dedicated dashboards.
+                booking requests, while photographers, clerks,
+                and administrators access their own dedicated
+                dashboards.
 
               </p>
 

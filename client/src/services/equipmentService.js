@@ -16,7 +16,7 @@ export const getEquipmentById = async (id) => {
   return response.data;
 };
 
-// Create equipment - STAFF_ADMIN
+// Create equipment - STAFF_ADMIN and CLERK
 export const createEquipment = async (equipmentData) => {
   const response = await api.post(
     "/equipment",
@@ -26,11 +26,8 @@ export const createEquipment = async (equipmentData) => {
   return response.data;
 };
 
-// Update equipment - STAFF_ADMIN
-export const updateEquipment = async (
-  id,
-  equipmentData
-) => {
+// Update equipment - STAFF_ADMIN and CLERK
+export const updateEquipment = async (id, equipmentData) => {
   const response = await api.put(
     `/equipment/${id}`,
     equipmentData
@@ -39,7 +36,7 @@ export const updateEquipment = async (
   return response.data;
 };
 
-// Delete equipment - STAFF_ADMIN
+// Delete equipment - STAFF_ADMIN ONLY
 export const deleteEquipment = async (id) => {
   const response = await api.delete(`/equipment/${id}`);
 
