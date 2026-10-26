@@ -20,6 +20,9 @@ const DamageRecord = require("../models/DamageRecord");
 const Return = require("../models/Return");
 const PhotographerSubscriptionPayment = require("../models/PhotographerSubscriptionPayment");
 
+// FR-085: Audit logging for Admin account management
+const { logActivity } = require("../services/auditLogService");
+
 // ==========================================
 // GENERATE TEMPORARY PASSWORD
 // ==========================================
@@ -947,6 +950,28 @@ const reviewPhotographerApplication =
             "name email",
         },
       ]);
+
+      
+
+      //added by abilash
+      // FR-085: Audit photographer application approval/rejection
+      await logActivity({
+        actor: req.user.userId,
+        actorRole: "STAFF_ADMIN",
+        action:
+          status === "APPROVED"
+            ? "PHOTOGRAPHER_APPLICATION_APPROVED"
+            : "PHOTOGRAPHER_APPLICATION_REJECTED",
+        entityType: "PhotographerApplication",
+        entityId: application._id,
+        outcome: "SUCCESS",
+        message:
+          status === "APPROVED"
+            ? "Photographer application approved successfully"
+            : "Photographer application rejected successfully",
+      });
+      //ended by abilash
+
 
 
       // ======================================

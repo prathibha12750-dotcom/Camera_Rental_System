@@ -29,33 +29,20 @@ require("dotenv").config({
 // ==========================================
 
 const app = require("./app");
+const connectDB = require("./config/db");
 
-const connectDB =
-  require("./config/db");
-
-
-// ==========================================
-// PHOTOGRAPHER SUBSCRIPTION SCHEDULER
-// ==========================================
-
+// Photographer subscription scheduler
 const {
   startPhotographerSubscriptionScheduler,
-} = require(
-  "./services/photographerSubscriptionScheduler"
-);
+} = require("./services/photographerSubscriptionScheduler");
 
- // ==========================================
- // RENTAL REMINDER SCHEDULER
- // ==========================================
-
- const {
-   startRentalReminderScheduler,
- } = require("./services/rentalReminderScheduler");
-
+// Rental reminder scheduler
+const {
+  startRentalReminderScheduler,
+} = require("./services/rentalReminderScheduler");
 
 const PORT =
   process.env.PORT || 5000;
-
 
 // ==========================================
 // START SERVER
@@ -63,7 +50,8 @@ const PORT =
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB first.
+
+    // Connect to MongoDB before starting the server.
     await connectDB();
 
     app.listen(PORT, () => {
@@ -80,6 +68,7 @@ const startServer = async () => {
       startRentalReminderScheduler();
 
     });
+
   } catch (error) {
     console.error(
       "Failed to start server:",

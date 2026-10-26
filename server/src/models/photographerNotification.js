@@ -12,6 +12,7 @@ const photographerNotificationSchema =
         required: true,
       },
 
+      //added by abilash
       type: {
         type: String,
         enum: [
@@ -24,18 +25,29 @@ const photographerNotificationSchema =
           "BOOKING_CANCELLED",
           "BOOKING_COMPLETED",
 
+
+          // Photographer subscription notifications
           "SUBSCRIPTION_PAYMENT_APPROVED",
           "SUBSCRIPTION_PAYMENT_REJECTED",
-
-          // Subscription lifecycle notifications
           "SUBSCRIPTION_TRIAL_EXPIRED",
           "SUBSCRIPTION_GRACE_PERIOD_STARTED",
           "SUBSCRIPTION_EXPIRED",
 
+          // Equipment rental notifications
+          "RENTAL_REQUEST_CONFIRMED",
+          "RENTAL_EQUIPMENT_ISSUED",
+          "RENTAL_RETURN_DUE",
+          "RENTAL_OVERDUE",
+
+          // Financial notifications
+          "DEPOSIT_RECORDED",
+          "REFUND_RECORDED",
+          "PAYMENT_RECORDED",
           "GENERAL",
         ],
         default: "GENERAL",
       },
+      //ended by abilash
 
       title: {
         type: String,
@@ -70,10 +82,17 @@ const photographerNotificationSchema =
         default: null,
       },
 
+      // Photographer subscription payment reference
       relatedSubscriptionPayment: {
-        type:
-          mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "PhotographerSubscriptionPayment",
+        default: null,
+      },
+
+      // Equipment rental reference
+      rental: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Rental",
         default: null,
       },
     },
@@ -92,6 +111,27 @@ photographerNotificationSchema.index({
   createdAt: -1,
 });
 
+// Prevent duplicate return-due and overdue
+// notifications for the same rental.
+photographerNotificationSchema.index(
+  {
+    rental: 1,
+    type: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      rental: { $type: "objectId" },
+      type: {
+        $in: [
+          "RENTAL_RETURN_DUE",
+          "RENTAL_OVERDUE",
+        ],
+      },
+    },
+    name: "unique_rental_reminder_type",
+  }
+);
 
 module.exports =
   mongoose.model(

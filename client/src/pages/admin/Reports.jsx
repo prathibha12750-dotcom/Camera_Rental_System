@@ -4,7 +4,11 @@ import api from "../../services/api";
 const Reports = () => {
   const [dailyReport, setDailyReport] = useState(null);
   const [monthlyReport, setMonthlyReport] = useState(null);
+
   const [subscriptionPayments, setSubscriptionPayments] = useState([]);
+  const [rentalReport, setRentalReport] = useState(null);
+  const [equipmentReport, setEquipmentReport] = useState(null);
+  const [photographerReport, setPhotographerReport] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -14,19 +18,35 @@ const Reports = () => {
       setLoading(true);
       setError("");
 
-  const [
-    dailyResponse,
-    monthlyResponse,
-    subscriptionPaymentsResponse,
-  ] = await Promise.all([
-    api.get("/admin/reports/revenue/daily"),
-    api.get("/admin/reports/revenue/monthly"),
-    api.get("/admin/subscription-payments"),
-  ]);
+      const [
+        dailyResponse,
+        monthlyResponse,
+        subscriptionPaymentsResponse,
+        rentalResponse,
+        equipmentResponse,
+        photographerResponse,
+      ] = await Promise.all([
+        api.get("/admin/reports/revenue/daily"),
+        api.get("/admin/reports/revenue/monthly"),
+        api.get("/admin/subscription-payments"),
+        api.get("/admin/reports/rentals"),
+        api.get("/admin/reports/equipment"),
+        api.get("/admin/reports/photographers"),
+      ]);
 
       setDailyReport(dailyResponse.data?.data || null);
       setMonthlyReport(monthlyResponse.data?.data || null);
-      setSubscriptionPayments(subscriptionPaymentsResponse.data?.data || []);
+
+      setSubscriptionPayments(
+        subscriptionPaymentsResponse.data?.data?.payments || []
+      );
+
+      setRentalReport(rentalResponse.data?.data || null);
+      setEquipmentReport(equipmentResponse.data?.data || null);
+      setPhotographerReport(
+        photographerResponse.data?.data || null
+      );
+
     } catch (error) {
       const status = error.response?.status;
 
@@ -49,49 +69,55 @@ const Reports = () => {
     }
   };
 
+
   useEffect(() => {
+    let cancelled = false;
+
     const loadInitialReports = async () => {
       try {
-        setLoading(true);
-        setError("");
-
         const [
           dailyResponse,
           monthlyResponse,
           subscriptionPaymentsResponse,
+          rentalResponse,
+          equipmentResponse,
+          photographerResponse,
         ] = await Promise.all([
           api.get("/admin/reports/revenue/daily"),
           api.get("/admin/reports/revenue/monthly"),
           api.get("/admin/subscription-payments"),
+          api.get("/admin/reports/rentals"),
+          api.get("/admin/reports/equipment"),
+          api.get("/admin/reports/photographers"),
         ]);
 
-        setDailyReport(
-          dailyResponse.data?.data || null
-        );
+        if (cancelled) return;
 
-        setMonthlyReport(
-          monthlyResponse.data?.data || null
-        );
+        setDailyReport(dailyResponse.data?.data || null);
+        setMonthlyReport(monthlyResponse.data?.data || null);
 
         setSubscriptionPayments(
-          subscriptionPaymentsResponse.data?.data
-            ?.payments || []
+          subscriptionPaymentsResponse.data?.data?.payments || []
+        );
+
+        setRentalReport(rentalResponse.data?.data || null);
+        setEquipmentReport(equipmentResponse.data?.data || null);
+        setPhotographerReport(
+          photographerResponse.data?.data || null
         );
       } catch (error) {
+        if (cancelled) return;
+
         const status = error.response?.status;
 
         if (status === 401) {
-          setError(
-            "Your session has expired. Please log in again."
-          );
+          setError("Your session has expired. Please log in again.");
         } else if (status === 403) {
           setError(
             "You do not have permission to view admin reports."
           );
         } else if (status === 404) {
-          setError(
-            "The requested report could not be found."
-          );
+          setError("The requested report could not be found.");
         } else {
           setError(
             error.response?.data?.message ||
@@ -99,11 +125,17 @@ const Reports = () => {
           );
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadInitialReports();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const formatAmount = (value) => {
@@ -492,6 +524,336 @@ const Reports = () => {
                 </div>
               </div>
             </div>
+            
+            {/* RENTAL REPORTS */}
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold text-gray-950">
+                  Rental Reports
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Overview of rental statuses and overdue rentals.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { label: "Total Rentals", value: rentalReport?.totalRentals },
+                  { label: "Pending Rentals", value: rentalReport?.pendingRentals },
+                  { label: "Confirmed Rentals", value: rentalReport?.confirmedRentals },
+                  { label: "Active Rentals", value: rentalReport?.activeRentals },
+                  { label: "Returned Rentals", value: rentalReport?.returnedRentals },
+                  { label: "Completed Rentals", value: rentalReport?.completedRentals },
+                  { label: "Rejected Rentals", value: rentalReport?.rejectedRentals },
+                  { label: "Cancelled Rentals", value: rentalReport?.cancelledRentals },
+                  { label: "Overdue Rentals", value: rentalReport?.overdueRentals },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl bg-gray-50 p-4"
+                  >
+                    <p className="text-sm font-medium text-gray-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      {item.value ?? 0}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* EQUIPMENT REPORTS */}
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold text-gray-950">
+                  Equipment Reports
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Overview of equipment availability, status, and condition.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { label: "Total Equipment", value: equipmentReport?.totalEquipment },
+                  { label: "Available Equipment", value: equipmentReport?.availableEquipment },
+                  { label: "Reserved Equipment", value: equipmentReport?.reservedEquipment },
+                  { label: "Rented Equipment", value: equipmentReport?.rentedEquipment },
+                  { label: "Under Maintenance", value: equipmentReport?.equipmentUnderMaintenance },
+                  { label: "Damaged Equipment", value: equipmentReport?.damagedEquipment },
+                  { label: "Excellent Condition", value: equipmentReport?.excellentCondition },
+                  { label: "Good Condition", value: equipmentReport?.goodCondition },
+                  { label: "Fair Condition", value: equipmentReport?.fairCondition },
+                  { label: "Damaged Condition", value: equipmentReport?.damagedCondition },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-xl bg-gray-50 p-4"
+                  >
+                    <p className="text-sm font-medium text-gray-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      {item.value ?? 0}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              
+              {/* =============================
+                  MOST RENTED EQUIPMENT
+              ================================= */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Most Rented Equipment
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Top 10 equipment items ranked by completed or
+                  accepted rental transactions.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rank
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Equipment
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Brand
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rental Count
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(equipmentReport?.mostRentedEquipment ?? [])
+                        .length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No rental data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        equipmentReport.mostRentedEquipment.map(
+                          (item, index) => (
+                            <tr key={item.equipmentId}>
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {index + 1}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {item.equipmentName || "Unknown"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {item.brand || "-"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                {item.rentalCount}
+                              </td>
+                            </tr>
+                          )
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+
+              {/* ===========================
+                  EQUIPMENT BY CATEGORY 
+              =============================== */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Equipment by Category
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Distribution of equipment across categories.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Category
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
+                          Total Equipment
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(equipmentReport?.equipmentByCategory ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={2}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No category data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        equipmentReport.equipmentByCategory.map((item, index) => (
+                          <tr key={item.categoryId ?? index}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {item.categoryName || "Unknown Category"}
+                            </td>
+
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                              {item.totalEquipment}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+
+            </div>
+
+            {/* Photographer Reports */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Photographer Reports
+              </h2>
+
+              {!photographerReport ? (
+                <p className="text-gray-500">No photographer report data available.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      label: "Total Photographers",
+                      value: photographerReport.totalPhotographers,
+                    },
+                    {
+                      label: "Requested Bookings",
+                      value: photographerReport.requestedBookings,
+                    },
+                    {
+                      label: "Confirmed Bookings",
+                      value: photographerReport.confirmedBookings,
+                    },
+                    {
+                      label: "Rejected Bookings",
+                      value: photographerReport.rejectedBookings,
+                    },
+                    {
+                      label: "Upcoming Bookings",
+                      value: photographerReport.upcomingBookings,
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-100"
+                    >
+                      <p className="text-sm text-gray-500">{item.label}</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-2">
+                        {item.value ?? 0}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* =====================================
+                  MOST BOOKED PHOTOGRAPHERS - FR-112
+              ===================================== */}
+
+              <div className="mt-8">
+                <h3 className="text-base font-semibold text-gray-900">
+                  Most Booked Photographers
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Top 10 photographers ranked by confirmed and
+                  completed bookings.
+                </p>
+
+                <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Rank
+                        </th>
+
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Photographer
+                        </th>
+
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Specialization
+                        </th>
+
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
+                          Booking Count
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {(photographerReport?.mostBookedPhotographers ?? [])
+                        .length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-sm text-gray-500"
+                          >
+                            No booking data available.
+                          </td>
+                        </tr>
+                      ) : (
+                        photographerReport.mostBookedPhotographers.map(
+                          (item, index) => (
+                            <tr key={item.photographerId ?? index}>
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {index + 1}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {item.photographerName || "Unknown Photographer"}
+                              </td>
+
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {item.specialization || "-"}
+                              </td>
+
+                              <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                                {item.bookingCount}
+                              </td>
+                            </tr>
+                          )
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </section>
+
+
           </div>
 
           {/* ==================================
@@ -504,10 +866,7 @@ const Reports = () => {
             </h3>
 
             <p className="mt-1 text-sm text-orange-800">
-              Revenue reporting is currently available for daily
-              and monthly periods. Additional rental, equipment,
-              and photographer reports can be added when their
-              corresponding backend APIs are implemented.
+              Daily and monthly revenue reports, rental reports, equipment reports, and photographer reports are available.
             </p>
           </div>
         </>

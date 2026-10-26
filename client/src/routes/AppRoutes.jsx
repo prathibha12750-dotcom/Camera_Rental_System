@@ -1,3 +1,13 @@
+ // ==========================================
+ // CATEGORY MANAGEMENT
+ // Added by Abilash
+ // ==========================================
+
+ import CategoryManagement from "../pages/admin/CategoryManagement";
+
+ // ==========================================
+ // REACT ROUTER
+ // ==========================================
 
 import {
   BrowserRouter,
@@ -80,6 +90,14 @@ import PhotographerSubscriptionManagement from "../pages/admin/PhotographerSubsc
 // ==========================================
 
 import AdminHome from "../pages/admin/AdminHome";
+
+ //added by abilash
+import ActivityLogs from "../pages/admin/ActivityLogs";
+//ended by abilash
+
+ //added by abilash
+import AdminProfile from "../pages/admin/AdminProfile";
+//ended by abilash
 import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
 import Users from "../pages/admin/Users";
 import CustomerDetails from "../pages/admin/CustomerDetails";
@@ -518,6 +536,18 @@ const AppRoutes = () => {
                   element={<AdminHome />}
                 />
 
+                {/* Admin Activity Logs - Added by Abilash */}
+                <Route
+                  path="/admin/activity-logs"
+                  element={<ActivityLogs />}
+                />
+
+                {/* Admin Profile - Added by Abilash */}
+                <Route
+                  path="/admin/profile"
+                  element={<AdminProfile />}
+                />
+
                 {/* User Management */}
 
                 <Route
@@ -603,8 +633,14 @@ const AppRoutes = () => {
                   element={<EquipmentManagement />}
                 />
 
-                {/* Rental Management */}
 
+                {/* Category Management - Added by Abilash */}
+                <Route
+                  path="/admin/categories"
+                  element={<CategoryManagement />}
+                />
+
+                {/* Rental Management - Added by Thasindu */}
                 <Route
                   path="/admin/rentals"
                   element={<RentalManagement />}

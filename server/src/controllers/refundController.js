@@ -6,6 +6,13 @@ const Refund = require("../models/refund");
 // POST /api/admin/refunds
 // ==========================================
 
+// Refund creation must use the verified settlement
+// workflow with separate refund preparation and
+// payout confirmation.
+//
+// Direct refund creation is intentionally disabled
+// to prevent bypassing deposit settlement checks.
+
 const createRefund = async (req, res) => {
   return res.status(409).json({
     success: false,
@@ -13,7 +20,6 @@ const createRefund = async (req, res) => {
       "Direct refund creation is disabled. Refunds must use the verified settlement workflow with separate refund preparation and payout confirmation.",
   });
 };
-
 
 // ===========================================
 // GET REFUNDS FOR AN INVOICE
@@ -59,6 +65,13 @@ const getRefundsByInvoice = async (req, res, next) => {
 const getRefundById = async (req, res, next) => {
     try{
         const {refundId} = req.params;
+
+        if (!mongoose.isValidObjectId(refundId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid refund ID",
+            });
+        }
 
         const refund = await Refund.findById(refundId)
             .populate("customer", "name email")

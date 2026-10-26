@@ -145,13 +145,21 @@ const AppLayout = () => {
   }, [mobileMenuOpen]);
 
 
+
   // ==========================================
-  // CUSTOMER USES PUBLIC-STYLE TOP NAVBAR
+  // CUSTOMER AND ADMIN USE THEIR OWN LAYOUTS
   // ==========================================
 
-  if (user?.role === "CUSTOMER") {
+  //added by abilash
+  // AdminLayout already provides the black Admin sidebar.
+  // Prevent AppLayout from rendering a second navigation.
+  if (
+    user?.role === "CUSTOMER" ||
+    user?.role === "STAFF_ADMIN"
+  ) {
     return <Outlet />;
   }
+  //ended by abilash
 
 
   return (

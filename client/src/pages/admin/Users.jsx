@@ -618,6 +618,7 @@ const Users = () => {
               Create and manage photographer accounts.
             </p>
 
+
             <button
               type="button"
               onClick={() => {
@@ -1081,10 +1082,11 @@ const Users = () => {
               </div>
             )}
 
-          {/* Accounts */}
-          {!staffAccountsLoading &&
-            !staffAccountsError &&
-            staffAccounts.length > 0 && (
+
+            {/* Accounts */}
+            {!staffAccountsLoading &&
+              !staffAccountsError &&
+              filteredStaffAccounts.length > 0 && (
               <div className="mt-6 overflow-x-auto">
                 <table className="w-full min-w-[700px] text-left">
                   <thead>

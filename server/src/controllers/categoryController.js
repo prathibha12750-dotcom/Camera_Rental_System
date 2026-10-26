@@ -1,5 +1,9 @@
 const Category = require("../models/Category");
 
+//Imported by ABilash
+const Equipment = require("../models/Equipment");
+//end
+
 // CREATE CATEGORY - Admin only
 const createCategory = async (req, res, next) => {
   try {
@@ -111,9 +115,17 @@ const updateCategory = async (req, res, next) => {
 };
 
 // DELETE CATEGORY - Admin only
+
+// ==========================================
+// DELETE CATEGORY - ADMIN ONLY By Abilash
+// ==========================================
+
 const deleteCategory = async (req, res, next) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const { id } = req.params;
+
+    // 1. Find the category
+    const category = await Category.findById(id);
 
     if (!category) {
       return res.status(404).json({
@@ -122,6 +134,22 @@ const deleteCategory = async (req, res, next) => {
       });
     }
 
+    // 2. Check whether equipment uses this category
+    const equipmentCount = await Equipment.countDocuments({
+      category: category._id,
+    });
+
+    if (equipmentCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          `Cannot delete this category because ${equipmentCount} ` +
+          `equipment item(s) are assigned to it. ` +
+          `Reassign those items before deleting the category.`,
+      });
+    }
+
+    // 3. Delete unused category
     await category.deleteOne();
 
     return res.status(200).json({
@@ -132,6 +160,7 @@ const deleteCategory = async (req, res, next) => {
     next(error);
   }
 };
+
 
 module.exports = {
   createCategory,

@@ -2,6 +2,10 @@ const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
 const {syncPhotographerSubscription,} = require("../services/photographerSubscriptionService");
+
+// FR-085: Record account-related system activities
+const { logActivity } = require("../services/auditLogService");
+
 const { generateToken } = require("../utils/jwt");
 const {
   validateRegistration,
@@ -159,6 +163,21 @@ const login = async (req, res, next) => {
 
     const token = generateToken(user);
 
+    
+    //added by abilash
+    // FR-085: Record successful user login
+    await logActivity({
+      actor: user._id,
+      actorRole: user.role,
+      action: "USER_LOGIN",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "SUCCESS",
+      message: "User logged in successfully.",
+    });
+    //ended by abilash
+
+
     return res.status(200).json({
       success: true,
       message:
@@ -203,6 +222,19 @@ const logout = async (req, res, next) => {
       A more advanced token revocation/refresh-token system
       can be added later if required.
     */
+    
+    //added by abilash
+    // FR-085: Record authenticated logout request
+    await logActivity({
+      actor: req.user.userId,
+      actorRole: req.user.role || "SYSTEM",
+      action: "USER_LOGOUT",
+      entityType: "User",
+      entityId: req.user.userId,
+      outcome: "SUCCESS",
+      message: "User requested logout successfully.",
+    });
+    //ended by abilash
 
     return res.status(200).json({
       success: true,
@@ -396,6 +428,21 @@ const changeTemporaryPassword =
 
       await user.save();
 
+      
+      //added by abilash
+      // FR-085: Audit successful temporary password changes
+      await logActivity({
+        actor: user._id,
+        actorRole: user.role,
+        action: "PASSWORD_CHANGED",
+        entityType: "User",
+        entityId: user._id,
+        outcome: "SUCCESS",
+        message: "User successfully changed their temporary password.",
+      });
+      //ended by abilash
+
+
 
       // ======================================
       // RETURN UPDATED USER
@@ -424,6 +471,123 @@ const changeTemporaryPassword =
     }
   };
 
+  
+//added by abilash
+// FR-169: Update the authenticated user's basic profile
+const updateMyProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+
+    if (
+      typeof name !== "string" ||
+      typeof email !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and email are required.",
+      });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (
+      normalizedName.length < 2 ||
+      normalizedName.length > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must contain 2 to 100 characters.",
+      });
+    }
+
+    if (
+      normalizedEmail.length > 150 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email address.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User account not found.",
+      });
+    }
+
+    if (user.role !== "STAFF_ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "This profile update is restricted to staff administrators.",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+      _id: { $ne: user._id },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "This email address is already in use.",
+      });
+    }
+
+    user.name = normalizedName;
+    user.email = normalizedEmail;
+
+    await user.save();
+
+    
+    //added by abilash
+    // FR-085: Audit successful Admin profile updates
+    await logActivity({
+      actor: user._id,
+      actorRole: user.role,
+      action: "ADMIN_PROFILE_UPDATED",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "SUCCESS",
+      message: "Administrator updated their basic profile.",
+    });
+    //ended by abilash
+
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          mustChangePassword: user.mustChangePassword,
+        },
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "This email address is already in use.",
+      });
+    }
+
+    next(error);
+  }
+};
+//ended by abilash
+
+
+
 
 module.exports = {
   register,
@@ -431,4 +595,7 @@ module.exports = {
   logout,
   getCurrentUser,
   changeTemporaryPassword,
+  //added by abilash
+  updateMyProfile,
+  //ended by abilash
 };

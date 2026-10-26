@@ -20,40 +20,41 @@ const notificationSchema = new mongoose.Schema(
             trim: true,
         },
 
-
         type: {
-        type: String,
-        enum: [
-            // Equipment rental notifications
-            "RENTAL_REQUEST",
-            "RENTAL_APPROVED",
-            "RENTAL_REJECTED",
-            "RENTAL_ISSUED",
-            "RENTAL_RETURNED",
-            "RENTAL_COMPLETED",
-            "RENTAL_CANCELLED",
-            "RENTAL_RETURN_DUE",
-            "RENTAL_OVERDUE",
+            type: String,
+            enum: [
+                // Equipment rental notifications
+                "RENTAL_REQUEST",
+                "RENTAL_APPROVED",
+                "RENTAL_REJECTED",
+                "RENTAL_ISSUED",
+                "RENTAL_RETURNED",
+                "RENTAL_COMPLETED",
+                "RENTAL_CANCELLED",
+                "RENTAL_RETURN_DUE",
+                "RENTAL_OVERDUE",
 
-            // Photographer booking notifications
-            "BOOKING_CONFIRMATION",
-            "BOOKING_STATUS_CHANGE",
+                // Photographer booking notifications
+                "BOOKING_CONFIRMATION",
+                "BOOKING_STATUS_CHANGE",
 
-            // Payment notifications
-            "PAYMENT_RECORDED",
+                // Payment notifications
+                "PAYMENT_RECORDED",
+                "DEPOSIT_RECORDED",
+                "REFUND_RECORDED",
 
-            // Photographer subscription notifications
-            "SUBSCRIPTION_PAYMENT_SUBMITTED",
-            "SUBSCRIPTION_PAYMENT_APPROVED",
-            "SUBSCRIPTION_PAYMENT_REJECTED",
-        ],
-        required: true,
+                // Photographer subscription notifications
+                "SUBSCRIPTION_PAYMENT_SUBMITTED",
+                "SUBSCRIPTION_PAYMENT_APPROVED",
+                "SUBSCRIPTION_PAYMENT_REJECTED",
+            ],
+            required: true,
         },
 
         relatedSubscriptionPayment: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PhotographerSubscriptionPayment",
-        default: null,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "PhotographerSubscriptionPayment",
+            default: null,
         },
         
         isRead: {

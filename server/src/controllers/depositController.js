@@ -5,12 +5,24 @@ const Deposit = require("../models/deposit");
 const Invoice = require("../models/invoice");
 const User = require("../models/User");
 
+//added by abilash
+const PhotographerNotification = require("../models/photographerNotification");
+//ended by abilash
+
+
+ //added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
+
 // ==========================================
 // RECORD SECURITY DEPOSIT
 // POST /api/admin/deposits
 // ==========================================
 
 const createDeposit = async (req, res, next) => {
+
   try {
     const { invoice, amount } = req.body;
 
@@ -183,6 +195,52 @@ const createDeposit = async (req, res, next) => {
       amount: depositAmount,
       status: "HELD",
     });
+
+    // ==========================================
+    // FR-150: NOTIFY CUSTOMER
+    // ==========================================
+
+    try {
+      await PhotographerNotification.create({
+        user: customer._id,
+        title: "Security Deposit Recorded",
+        message:
+          `Your security deposit of LKR ${deposit.amount} ` +
+          `has been recorded for invoice ${existingInvoice.invoiceNumber}.`,
+        type: "DEPOSIT_RECORDED",
+        read: false,
+      });
+    } catch (notificationError) {
+      // A notification failure must not undo a saved deposit.
+      console.error(
+        "Failed to create deposit notification:",
+        notificationError
+      );
+    }
+
+    // ==========================================
+    // FR-085: RECORD DEPOSIT ACTIVITY
+    // ==========================================
+
+    try {
+      await logActivity({
+        actor: req.user.userId,
+        actorRole: req.user.role || "STAFF_ADMIN",
+        action: "DEPOSIT_RECORDED",
+        entityType: "Deposit",
+        entityId: deposit._id,
+        outcome: "SUCCESS",
+        message:
+          `Security deposit recorded for invoice ${existingInvoice.invoiceNumber}`,
+      });
+    } catch (auditError) {
+      // The deposit has already been saved.
+      // Audit logging failure must not cause a duplicate retry.
+      console.error(
+        "Failed to record deposit audit activity:",
+        auditError
+      );
+    }
 
     // ==========================================
     // 8. SUCCESS RESPONSE

@@ -124,6 +124,11 @@ const navigationByRole = {
       icon: "users",
     },
     {
+      label: "Categories",
+      to: "/admin/categories",
+      icon: "categories",
+    },
+    {
       label: "Equipment",
       to: "/admin/equipment",
       icon: "equipment",
@@ -261,17 +266,11 @@ const Icon = ({ name }) => {
   }
 
   // PHOTOGRAPHER SUBSCRIPTIONS
-  // Camera + recurring subscription indicator
   if (name === "photographer-subscriptions") {
     return (
       <svg {...commonProps}>
-        {/* Camera body */}
         <path d="M3 9a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v4" />
-
-        {/* Camera lens */}
         <circle cx="12" cy="12" r="3" />
-
-        {/* Subscription renewal */}
         <path d="M16 18a3 3 0 0 1 5-2" />
         <path d="M21 13v3h-3" />
         <path d="M21 18a3 3 0 0 1-5 2" />
@@ -284,13 +283,7 @@ const Icon = ({ name }) => {
   if (name === "subscription") {
     return (
       <svg {...commonProps}>
-        <rect
-          x="3"
-          y="5"
-          width="18"
-          height="14"
-          rx="2"
-        />
+        <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 9h18" />
         <path d="M7 14h4" />
         <circle cx="17" cy="14" r="1.5" />
@@ -302,13 +295,8 @@ const Icon = ({ name }) => {
   if (name === "photographer-applications") {
     return (
       <svg {...commonProps}>
-        {/* Camera body */}
         <path d="M3 8a2 2 0 0 1 2-2h3l2-2h4l2 2h3a2 2 0 0 1 2 2v6" />
-
-        {/* Camera lens */}
         <circle cx="12" cy="11" r="3" />
-
-        {/* Approval checkmark */}
         <circle cx="18" cy="18" r="4" />
         <path d="m16.5 18 1 1 2-2" />
       </svg>
@@ -319,13 +307,7 @@ const Icon = ({ name }) => {
   if (name === "equipment") {
     return (
       <svg {...commonProps}>
-        <rect
-          x="3"
-          y="6"
-          width="18"
-          height="13"
-          rx="2"
-        />
+        <rect x="3" y="6" width="18" height="13" rx="2" />
         <path d="M8 6l1.5-2h5L16 6" />
         <circle cx="12" cy="12.5" r="3" />
       </svg>
@@ -341,17 +323,11 @@ const Icon = ({ name }) => {
     );
   }
 
-  // PAYMENTS / DEPOSITS
+  // PAYMENTS
   if (name === "payments") {
     return (
       <svg {...commonProps}>
-        <rect
-          x="3"
-          y="5"
-          width="18"
-          height="14"
-          rx="2"
-        />
+        <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 9h18" />
         <path d="M7 15h4" />
       </svg>
@@ -390,6 +366,17 @@ const Icon = ({ name }) => {
       </svg>
     );
   }
+
+  // CATEGORIES
+  if (name === "categories") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+        <path d="M3 10h18" />
+      </svg>
+    );
+  }
+
 
   // DEPOSITS
   if (name === "deposits") {

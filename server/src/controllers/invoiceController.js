@@ -1,5 +1,11 @@
 const Invoice = require("../models/invoice.js")
 
+ //added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
+
 // ==================================
 // CREATE INVOICE
 // POST /api/admin/invoices
@@ -89,6 +95,21 @@ const createInvoice = async (req, res, next) => {
             totalAmount,
             paymentStatus: "PENDING",
         });
+
+                
+        //added by abilash
+        // FR-085: Record successful invoice creation
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: "STAFF_ADMIN",
+            action: "INVOICE_CREATED",
+            entityType: "Invoice",
+            entityId: invoice._id,
+            outcome: "SUCCESS",
+            message: `Invoice ${invoice.invoiceNumber} created successfully`,
+        });
+        //ended by abilash
+
 
         //-----------------------------------
         //6. Return response

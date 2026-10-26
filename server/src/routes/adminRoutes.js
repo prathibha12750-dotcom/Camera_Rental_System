@@ -20,6 +20,14 @@ const {
 } = require("../controllers/adminController");
 
 
+//added by abilash
+// FR-085: System activity monitoring
+const {
+  getActivityLogs,
+} = require("../controllers/auditLogController");
+//ended by abilash
+
+
 // imports by Abilash starts here
 
 const {
@@ -33,6 +41,14 @@ const {
     getPaymentsByInvoice,
     getAllPayments,
 } = require("../controllers/paymentController");
+
+
+//added by abilash
+const {
+  getBillingReceiptByPayment,
+} = require("../controllers/billingReceiptController");
+//ended by abilash
+
 
 const {
   createDeposit,
@@ -53,10 +69,19 @@ const {
     markNotificationAsRead,
 } = require("../controllers/notificationController");
 
+
 const {
   getDailyRevenue,
-  getMonthlyRevenue
+  getMonthlyRevenue,
+  getRentalReport,
+  getEquipmentReport,
+  getPhotographerReport,
+
+  //added by abilash
+  getRevenueTrend,
+  //ended by abilash
 } = require("../controllers/reportController");
+
 
 const {
     getDashboardStats,
@@ -292,17 +317,30 @@ router.get(
   getPaymentsByInvoice
 );
 
-// ===========================================
+// ==========================================
 // GET ALL PAYMENTS
 // GET /api/admin/payments
 // STAFF_ADMIN ONLY
-// ===========================================
+// ==========================================
 
 router.get(
   "/payments",
   authenticate,
   authorizeRoles("STAFF_ADMIN"),
   getAllPayments
+);
+
+// ==========================================
+// GET BILLING RECEIPT BY PAYMENT
+// GET /api/admin/billing-receipts/payment/:paymentId
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/billing-receipts/payment/:paymentId",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getBillingReceiptByPayment
 );
 
 // ==========================================
@@ -452,6 +490,43 @@ router.get(
     getMonthlyRevenue
 );
 
+
+//added by abilash
+// Revenue Analytics - Last Six Months
+// GET /api/admin/reports/revenue/trend
+
+router.get(
+  "/reports/revenue/trend",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRevenueTrend
+);
+
+//ended by abilash
+
+
+router.get(
+  "/reports/rentals",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRentalReport
+);
+
+router.get(
+  "/reports/equipment",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getEquipmentReport
+);
+
+router.get(
+  "/reports/photographers",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getPhotographerReport
+);
+
+
 // ==========================================
 // ADMIN DASHBOARD
 // GET /api/admin/dashboard
@@ -593,5 +668,17 @@ router.delete(
   authorizeRoles("STAFF_ADMIN"),
   deleteCustomer
 );
+
+//added by abilash
+// FR-085: Admin can monitor system activities
+router.get(
+  "/activity-logs",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getActivityLogs
+);
+//ended by abilash
+
+
 
 module.exports = router;

@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+
+// Customer rental notifications from the integration branch.
+const PhotographerNotification = require("../models/photographerNotification");
+
 const DamageRecord = require("../models/DamageRecord");
 const Return = require("../models/Return");
 const Rental = require("../models/Rental");
@@ -237,9 +241,16 @@ const checkAvailability = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // VALIDATE EQUIPMENT ID AND RENTAL DATES
+    // ==========================================
+
     validId(equipmentId, "equipment");
 
-    if (typeof startDate !== "string" || typeof endDate !== "string") {
+    if (
+      typeof startDate !== "string" ||
+      typeof endDate !== "string"
+    ) {
       fail(400, "Please provide valid rental start and end dates");
     }
 
@@ -253,60 +264,23 @@ const checkAvailability = async (req, res, next) => {
       );
     }
 
-    // The selected start date begins at midnight
-    // in Sri Lanka.
+    // Rental starts at midnight in Sri Lanka.
     const start = getRentalStartDate(startDate);
 
-    // The selected end date finishes at 6:00 PM
-    // in Sri Lanka.
+    // Rental ends at 6:00 PM in Sri Lanka.
     const end = getRentalReturnDeadline(endDate);
 
-    // Preserve the existing rule:
-    // end calendar date must be after start calendar date.
     if (startDate >= endDate) {
       fail(400, "End date must be after start date");
     }
 
-    // Compare Sri Lankan calendar dates.
     if (startDate < getColomboDateKey(new Date())) {
       fail(400, "Rental start date cannot be in the past");
     }
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide valid rental start and end dates",
-      });
-    }
-
-    if (start >= end) {
-      return res.status(400).json({
-        success: false,
-        message: "End date must be after start date",
-      });
-    }
-
-    const sriLankaDateFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Colombo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-
-    const getSriLankaDateKey = (date) => {
-      const parts = sriLankaDateFormatter.formatToParts(date);
-      const value = (type) =>
-        parts.find((part) => part.type === type).value;
-
-      return `${value("year")}-${value("month")}-${value("day")}`;
-    };
-
-    if (getSriLankaDateKey(start) < getSriLankaDateKey(new Date())) {
-      return res.status(400).json({
-        success: false,
-        message: "Rental start date cannot be in the past",
-      });
-    }
+    // ==========================================
+    // CHECK EQUIPMENT AVAILABILITY
+    // ==========================================
 
     const equipment = await Equipment.findById(equipmentId);
 
@@ -357,19 +331,71 @@ const checkAvailability = async (req, res, next) => {
       endDate: { $gte: start },
     });
 
-    if (conflictingRental) {
-      return res.status(200).json({
-        success: true,
-        available: false,
-        message: "Equipment is not available for the selected dates",
-      });
+    
+  // ========================================
+  // CURRENT PHYSICAL AVAILABILITY added by abilash
+  // ========================================
+
+  // Compare date-only rental starts using UTC,
+  // consistent with our previous validation.
+  const currentDate = new Date();
+  currentDate.setUTCHours(0, 0, 0, 0);
+
+  // Equipment still physically rented cannot be
+  // requested for a rental starting today.
+  if (
+    equipment.status === "RENTED" &&
+    start <= currentDate
+  ) {
+    return res.status(200).json({
+      success: true,
+      available: false,
+      availabilityStatus: "RENTED",
+      message:
+        "Equipment is currently rented and has not been returned",
+    });
+  }
+  //end
+
+  //added by abilash
+  if (conflictingRental) {
+    let availabilityStatus = "UNAVAILABLE";
+    let message =
+      "Equipment is not available for the selected dates";
+
+    if (conflictingRental.status === "PENDING") {
+      availabilityStatus = "PENDING_REQUEST";
+      message =
+        "Equipment has a pending rental request for the selected dates";
+    }
+
+    if (conflictingRental.status === "CONFIRMED") {
+      availabilityStatus = "RESERVED";
+      message =
+        "Equipment is reserved for the selected dates";
+    }
+
+    if (conflictingRental.status === "ACTIVE") {
+      availabilityStatus = "RENTED";
+      message =
+        "Equipment is currently rented during the selected dates";
     }
 
     return res.status(200).json({
       success: true,
-      available: true,
-      message: "Equipment is available for the selected dates",
+      available: false,
+      availabilityStatus,
+      message,
     });
+  }
+
+  return res.status(200).json({
+    success: true,
+    available: true,
+    availabilityStatus: "AVAILABLE",
+    message: "Equipment is available for the selected dates",
+  });
+  //end
   } catch (error) {
     return handleError(error, res, next);
   }
@@ -391,9 +417,16 @@ const createRentalRequest = async (req, res, next) => {
       fail(400, "Equipment ID, start date and end date are required");
     }
 
+    // ==========================================
+    // VALIDATE RENTAL EQUIPMENT AND DATES
+    // ==========================================
+
     validId(equipmentId, "equipment");
 
-    if (typeof startDate !== "string" || typeof endDate !== "string") {
+    if (
+      typeof startDate !== "string" ||
+      typeof endDate !== "string"
+    ) {
       fail(400, "Please provide valid rental start and end dates");
     }
 
@@ -426,31 +459,15 @@ const createRentalRequest = async (req, res, next) => {
       fail(400, "Rental start date cannot be in the past");
     }
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
       fail(400, "Please provide valid rental start and end dates");
     }
 
     if (start >= end) {
       fail(400, "End date must be after start date");
-    }
-
-    const sriLankaDateFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Colombo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-
-    const getSriLankaDateKey = (date) => {
-      const parts = sriLankaDateFormatter.formatToParts(date);
-      const value = (type) =>
-        parts.find((part) => part.type === type).value;
-
-      return `${value("year")}-${value("month")}-${value("day")}`;
-    };
-
-    if (getSriLankaDateKey(start) < getSriLankaDateKey(new Date())) {
-      fail(400, "Rental start date cannot be in the past");
     }
 
     const rental = await inTransaction(async (session) => {
@@ -498,6 +515,21 @@ const createRentalRequest = async (req, res, next) => {
         startDate,
         endDate
       );
+
+      // ==========================================
+      // SNAPSHOT SECURITY DEPOSIT AT BOOKING
+      // ==========================================
+
+      const securityDeposit = Number(
+        equipment.securityDeposit ?? 0
+      );
+
+      if (
+        !Number.isFinite(securityDeposit) ||
+        securityDeposit < 0
+      ) {
+        fail(400, "Equipment security deposit is invalid");
+      }
 
       const dailyRentalPrice = Number(equipment.rentalPricePerDay);
 
@@ -557,7 +589,8 @@ const createRentalRequest = async (req, res, next) => {
             startDate: start,
             endDate: end,
             totalPrice,
-
+            securityDeposit,
+            
             overduePenaltyRate,
             overduePenaltyPerDay,
 
@@ -587,6 +620,24 @@ const createRentalRequest = async (req, res, next) => {
       );
     }
 
+    // Notify the customer after successful rental creation.
+    try {
+      await PhotographerNotification.create({
+        user: rental.customer,
+        type: "RENTAL_REQUEST_CONFIRMED",
+        title: "Rental Request Received",
+        message:
+          "Your equipment rental request has been received " +
+          "successfully and is awaiting approval.",
+        rental: rental._id,
+        read: false,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create customer rental confirmation notification:",
+        notificationError
+      );
+    }
 
     return res.status(201).json({
       success: true,
@@ -835,8 +886,8 @@ const approveRental = async (req, res, next) => {
         }).session(session);
 
         if (!existingInvoice) {
-          const serviceAmount = Number(updatedRental.totalPrice);
-          const securityDeposit = Number(equipment.securityDeposit);
+          const serviceAmount = Number(updatedRental.totalPrice);    
+          const securityDeposit = Number(updatedRental.securityDeposit ??equipment.securityDeposit ??0);
 
           // Validate invoice amounts.
           if (
@@ -1124,7 +1175,6 @@ const issueRental = async (req, res, next) => {
         writeConcern: { w: "majority" },
       }
     );
-
 
     // ============================================================
     // NOTIFY CUSTOMER AFTER SUCCESSFUL EQUIPMENT ISSUE

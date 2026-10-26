@@ -3,6 +3,22 @@ const Invoice = require("../models/invoice");
 const User = require("../models/User");
 const Notification = require("../models/notification");
 
+ //added by abilash
+ const PhotographerNotification = require("../models/photographerNotification");
+ //ended by abilash
+ 
+ //added by abilash
+ const BillingReceipt = require("../models/billingReceipt");
+ //ended by abilash
+ 
+//added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
+
+
+
 const updateInvoicePaymentStatus = async (invoiceId) => {
     // Get invoice
     const invoice = await Invoice.findById(invoiceId);
@@ -67,7 +83,7 @@ const createPayment = async (req, res, next) => {
             invoice,
             amount,
             paymentMethod,
-            notes,
+            note,
         } = req.body;
 
         // -----------------------------------
@@ -183,7 +199,7 @@ const createPayment = async (req, res, next) => {
             customer: customer._id,
             amount,
             paymentMethod,
-            notes,
+            note,
         });
 
         //----------------------------------------
@@ -192,17 +208,79 @@ const createPayment = async (req, res, next) => {
 
         await updateInvoicePaymentStatus(existingInvoice._id);
 
+        
+
+        //added by abilash
+
+        // FR-167: Generate a billing receipt after payment recording.
+        const receiptNumber =
+            `RCP-${payment._id.toString().toUpperCase()}`;
+
+        let billingReceipt = null;
+
+        try {
+            billingReceipt = await BillingReceipt.create({
+                receiptNumber,
+                invoice: existingInvoice._id,
+                payment: payment._id,
+                customer: customer._id,
+                amount: payment.amount,
+                paymentMethod: payment.paymentMethod,
+                issuedAt: payment.paymentDate,
+            });
+        } catch (receiptError) {
+            console.error(
+                `Failed to create billing receipt for payment ${payment._id}:`,
+                receiptError
+            );
+        }
+
+        //ended by abilash
+
+
+
         //----------------------------------------
         // 6. Create payment notification
         //----------------------------------------
 
-        await Notification.create({
-            recipient: customer._id,
-            title: "Payment Recorded",
-            message: `A payment of LKR ${amount} has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
-            type: "PAYMENT_RECORDED",
-        });
+
+        //added by abilash
+
+        // FR-149: Notify the customer after payment is recorded.
+        try {
+            await PhotographerNotification.create({
+                user: customer._id,
+                title: "Payment Recorded",
+                message:
+                    `A payment of LKR ${payment.amount} ` +
+                    `has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
+                type: "PAYMENT_RECORDED",
+                read: false,
+            });
+        } catch (notificationError) {
+            // A notification failure must not make a saved payment appear failed.
+            console.error(
+                "Failed to create payment notification:",
+                notificationError
+            );
+        }
+
+        //ended by abilash
+
         
+        //added by abilash
+        // FR-085: Record the successful payment activity
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: "STAFF_ADMIN",
+            action: "PAYMENT_CREATED",
+            entityType: "Payment",
+            entityId: payment._id,
+            outcome: "SUCCESS",
+            message: `Payment recorded for invoice ${existingInvoice.invoiceNumber}`,
+        });
+        //ended by abilash
+
 
         //----------------------------------------
         // 7. Return response
