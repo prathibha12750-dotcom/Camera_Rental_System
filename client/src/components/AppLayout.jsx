@@ -145,22 +145,15 @@ const AppLayout = () => {
   }, [mobileMenuOpen]);
 
 
-
   // ==========================================
-  // CUSTOMER AND ADMIN USE THEIR OWN LAYOUTS
+  // CUSTOMER USES ITS OWN PAGE LAYOUT
   // ==========================================
 
-  //added by abilash
-  // AdminLayout already provides the black Admin sidebar.
-  // Prevent AppLayout from rendering a second navigation.
-  if (
-    user?.role === "CUSTOMER" ||
-    user?.role === "STAFF_ADMIN"
-  ) {
+  // Admin, Clerk, and Photographer use the
+  // shared AppLayout with AppSidebar and AppHeader.
+  if (user?.role === "CUSTOMER") {
     return <Outlet />;
   }
-  //ended by abilash
-
 
   return (
     <div className="min-h-screen bg-gray-50">
