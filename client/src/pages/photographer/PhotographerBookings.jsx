@@ -13,8 +13,8 @@ import api from "../../services/api";
 
 const PhotographerBookings = () => {
 
-  const [searchParams] =
-    useSearchParams();
+const [searchParams, setSearchParams] =
+  useSearchParams();
 
   const highlightedBookingId =
     searchParams.get("booking");
@@ -60,6 +60,7 @@ const PhotographerBookings = () => {
     setSelectedStatus,
   ] = useState("ALL");
 
+  const [activeTab, setActiveTab] = useState("pending");
 
   const BOOKINGS_PER_PAGE = 3;
 
@@ -511,6 +512,26 @@ const PhotographerBookings = () => {
         highlightedBookingId
     );
 
+  // ==========================================
+  // SELECT TAB FOR NOTIFICATION BOOKING
+  // ==========================================
+
+  const notificationBookingTab =
+    highlightedPendingIndex >= 0
+      ? "pending"
+      : highlightedUpcomingIndex >= 0
+        ? "upcoming"
+        : highlightedHistoryIndex >= 0
+          ? "history"
+          : null;
+
+  // Automatically display the notification booking's tab
+  // while preserving normal manual tab navigation.
+
+  const currentTab =
+    highlightedBookingId && notificationBookingTab
+      ? notificationBookingTab
+      : activeTab;
 
   const highlightedPendingPage =
     highlightedPendingIndex >= 0
@@ -661,6 +682,7 @@ const PhotographerBookings = () => {
   }, [
     highlightedBookingId,
     loading,
+    currentTab,
     safePendingPage,
     safeUpcomingPage,
     safeHistoryPage,
@@ -1891,119 +1913,104 @@ const PhotographerBookings = () => {
 
           <>
 
+            {/* ==========================================
+                BOOKING NAVIGATION TABS
+            ========================================== */}
 
-            {/* QUICK OVERVIEW */}
-
-            <div className="
-              mt-7
-              flex
-              flex-wrap
-              gap-3
-            ">
-
-              <button
-                type="button"
-                onClick={() =>
-                  pendingSectionRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
-                }
-                className="
-                  rounded-full
-                  border
-                  border-gray-200
-                  bg-white
-                  px-4
-                  py-2
-                  text-sm
-                  text-gray-600
-                  shadow-sm
-                  transition
-                  hover:border-orange-300
-                  hover:bg-orange-50
-                  hover:text-orange-700
-                "
+            <div className="mt-8 border-b border-gray-200">
+              <div
+                role="tablist"
+                aria-label="Booking categories"
+                className="flex gap-2 overflow-x-auto"
               >
-                <span className="
-                  font-semibold
-                  text-gray-950
-                ">
-                  {pendingBookings.length}
-                </span>
-                {" "}Pending
-              </button>
+                {[
+                  {
+                    id: "pending",
+                    label: "Pending",
+                    count: pendingBookings.length,
+                  },
+                  {
+                    id: "upcoming",
+                    label: "Upcoming",
+                    count: upcomingBookings.length,
+                  },
+                  {
+                    id: "history",
+                    label: "History",
+                    count: bookingHistory.length,
+                  },
+                ].map((tab) => {
+                  const isActive = currentTab === tab.id;
 
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      
+                      onClick={() => {
+                        setActiveTab(tab.id);
 
-              <button
-                type="button"
-                onClick={() =>
-                  upcomingSectionRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
-                }
-                className="
-                  rounded-full
-                  border
-                  border-gray-200
-                  bg-white
-                  px-4
-                  py-2
-                  text-sm
-                  text-gray-600
-                  shadow-sm
-                  transition
-                  hover:border-orange-300
-                  hover:bg-orange-50
-                  hover:text-orange-700
-                "
-              >
-                <span className="
-                  font-semibold
-                  text-gray-950
-                ">
-                  {upcomingBookings.length}
-                </span>
-                {" "}Upcoming
-              </button>
+                        if (highlightedBookingId) {
+                          const nextParams = new URLSearchParams(searchParams);
+                          nextParams.delete("booking");
+                          setSearchParams(nextParams, { replace: true });
+                        }
 
+                        const sectionId = {
+                          pending: "pending-bookings-section",
+                          upcoming: "upcoming-bookings-section",
+                          history: "history-bookings-section",
+                        }[tab.id];
 
-              <button
-                type="button"
-                onClick={() =>
-                  historySectionRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
-                }
-                className="
-                  rounded-full
-                  border
-                  border-gray-200
-                  bg-white
-                  px-4
-                  py-2
-                  text-sm
-                  text-gray-600
-                  shadow-sm
-                  transition
-                  hover:border-orange-300
-                  hover:bg-orange-50
-                  hover:text-orange-700
-                "
-              >
-                <span className="
-                  font-semibold
-                  text-gray-950
-                ">
-                  {bookingHistory.length}
-                </span>
-                {" "}History
-              </button>
+                        requestAnimationFrame(() => {
+                          requestAnimationFrame(() => {
+                            document.getElementById(sectionId)?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          });
+                        });
+                      }}
 
+                      className={`
+                        relative flex shrink-0 items-center
+                        gap-2 whitespace-nowrap
+                        border-b-2 px-5 py-3
+                        text-sm font-semibold
+                        transition-colors
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-orange-400
+                        ${
+                          isActive
+                            ? "border-orange-600 text-orange-700"
+                            : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800"
+                        }
+                      `}
+                    >
+                      {tab.label}
+
+                      <span
+                        className={`
+                          inline-flex min-w-6 items-center
+                          justify-center rounded-full
+                          px-2 py-0.5 text-xs font-bold
+                          ${
+                            isActive
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-gray-100 text-gray-600"
+                          }
+                        `}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-
 
             {/* FILTERS */}
 
@@ -2596,11 +2603,12 @@ const PhotographerBookings = () => {
 
             </section>
 
-
             {/* PENDING REQUESTS */}
 
-            <section
-              ref={pendingSectionRef}
+            {currentTab === "pending" && (
+              <section
+                id="pending-bookings-section"
+                ref={pendingSectionRef}
               className="
                 mt-9
                 scroll-mt-24
@@ -2678,12 +2686,14 @@ const PhotographerBookings = () => {
               )}
 
             </section>
-
+            )}
 
             {/* UPCOMING BOOKINGS */}
 
-            <section
-              ref={upcomingSectionRef}
+            {currentTab === "upcoming" && (
+              <section
+                id="upcoming-bookings-section"
+                ref={upcomingSectionRef}
               className="
                 mt-12
                 scroll-mt-24
@@ -2764,12 +2774,14 @@ const PhotographerBookings = () => {
               )}
 
             </section>
-
+            )}
 
             {/* BOOKING HISTORY */}
 
-            <section
-              ref={historySectionRef}
+            {currentTab === "history" && (
+              <section
+                id="history-bookings-section"
+                ref={historySectionRef}
               className="
                 mt-12
                 scroll-mt-24
@@ -2850,7 +2862,7 @@ const PhotographerBookings = () => {
               )}
 
             </section>
-
+            )}
           </>
 
         )}
