@@ -1,9 +1,7 @@
- // ==========================================
- // CATEGORY MANAGEMENT
- // Added by Abilash
- // ==========================================
-
- import CategoryManagement from "../pages/admin/CategoryManagement";
+import CategoryManagement from "../pages/admin/CategoryManagement";
+import AboutUs from "../pages/AboutUs";
+import Footer from "../components/Footer";
+import ContactUs from "../pages/ContactUs";
 
  // ==========================================
  // REACT ROUTER
@@ -15,6 +13,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 // ==========================================
@@ -159,6 +158,25 @@ const NotFound = () => {
   );
 };
 
+const PublicFooter = () => {
+  const { pathname } = useLocation();
+
+  const publicPaths = [
+    "/",
+    "/about",
+    "/photographers",
+    "/login",
+    "/register",
+    "/contact",
+  ];
+
+  const showFooter =
+    publicPaths.includes(pathname) ||
+    pathname.startsWith("/photographers/");
+
+  return showFooter ? <Footer /> : null;
+};
+
 // ==========================================
 // APPLICATION ROUTES
 // ==========================================
@@ -169,13 +187,23 @@ const AppRoutes = () => {
       <Navbar />
 
       <Routes>
+
         {/* ==================================
             PUBLIC ROUTES
         ================================== */}
-
         <Route
           path="/"
           element={<Home />}
+        />
+
+        <Route
+          path="/about"
+          element={<AboutUs />}
+        />
+
+        <Route 
+          path="/contact" 
+          element={<ContactUs />}
         />
 
         <Route
@@ -196,7 +224,6 @@ const AppRoutes = () => {
         {/* ==================================
             PUBLIC PHOTOGRAPHER DISCOVERY
         ================================== */}
-
         <Route
           path="/photographers"
           element={<PhotographerListing />}
@@ -659,6 +686,7 @@ const AppRoutes = () => {
           element={<NotFound />}
         />
       </Routes>
+      <PublicFooter />
     </BrowserRouter>
   );
 };

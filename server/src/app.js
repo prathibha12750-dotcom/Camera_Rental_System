@@ -18,6 +18,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const customerRoutes = require("./routes/customerRoutes");
 const photographerRoutes = require("./routes/photographerRoutes");
+const contactRoutes = require("./routes/contactRoutes");
 
 const app = express();
 
@@ -29,20 +30,31 @@ const app = express();
 
 app.use(helmet());
 
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:4173",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5174",
+    origin: allowedOrigins,
     credentials: true,
   })
 );
-
 
 // ==========================================
 // BODY PARSER
 // ==========================================
 
-app.use(express.json());
+app.use(
+  "/api/contact",
+  express.json({ limit: "20kb" })
+);
 
+app.use(express.json());
 
 // ==========================================
 // RATE LIMITING
@@ -82,6 +94,7 @@ app.use("/api/customer", customerRoutes);
 
 app.use("/api/photographer", photographerRoutes);
 
+app.use("/api/contact", contactRoutes);
 
 // ======================================================================================
 // routes connects by thasindu

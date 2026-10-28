@@ -17,6 +17,7 @@ const Navbar = () => {
   const [accountOpen, setAccountOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const accountRef = useRef(null);
   const searchRef = useRef(null);
@@ -200,6 +201,43 @@ const Navbar = () => {
 
           <div className="flex items-center gap-2 lg:gap-5">
 
+      {/* MOBILE MENU TOGGLE */}
+      <button
+        type="button"
+        aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+        aria-expanded={mobileMenuOpen}
+        aria-controls="scr-mobile-navigation"
+        onClick={() => {
+          setMobileMenuOpen((previous) => !previous);
+          setAccountOpen(false);
+          setSearchOpen(false);
+        }}
+        className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-orange-50 hover:text-orange-600 lg:hidden"
+      >
+        {mobileMenuOpen ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-6 w-6"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-6 w-6"
+            aria-hidden="true"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        )}
+      </button>
 
       {/* ==========================================
           DESKTOP NAVIGATION
@@ -228,11 +266,12 @@ const Navbar = () => {
 
         {/* Equipment */}
         <a
-          href="/customer/equipment"
+          href="/#equipment"
           className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
         >
           Equipment
         </a>
+
 
 
         {/* Photographers */}
@@ -243,9 +282,24 @@ const Navbar = () => {
           Photographers
         </Link>
 
+        {/* About Us */}
+        <Link
+          to="/about"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          About Us
+        </Link>
 
-        {/* Customer / Guest specific links */}
-        {isAuthenticated && user?.role === "CUSTOMER" ? (
+        {/* Contact Us */}
+        <Link
+          to="/contact"
+          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+        >
+          Contact Us
+        </Link>
+
+        {/* Customer-specific navigation */}
+        {isAuthenticated && user?.role === "CUSTOMER" && (
           <>
             <Link
               to="/customer/bookings"
@@ -261,17 +315,9 @@ const Navbar = () => {
               My Rentals
             </Link>
           </>
-        ) : (
-          <a
-            href="/#how-it-works"
-            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-          >
-            How It Works
-          </a>
         )}
 
     </nav>
-
 
 
             {/* ==========================================
@@ -686,6 +732,75 @@ const Navbar = () => {
           </div>
 
         </div>
+
+        {/* MOBILE NAVIGATION */}
+        {mobileMenuOpen && (
+          <div
+            id="scr-mobile-navigation"
+            className="border-t border-gray-100 bg-white px-5 py-4 shadow-lg lg:hidden"
+          >
+            <div className="mx-auto flex max-w-7xl flex-col gap-1">
+              <Link
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Home
+              </Link>
+
+              <a
+                href="/#equipment"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Equipment
+              </a>
+
+              <Link
+                to="/photographers"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Photographers
+              </Link>
+
+              <Link
+                to="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                About Us
+              </Link>
+
+              <Link
+                to="/contact"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Contact Us
+              </Link>
+
+              {/* Customer-specific navigation */}
+              {isAuthenticated && user?.role === "CUSTOMER" && (
+                <>
+                  <Link
+                    to="/customer/bookings"
+                    className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+                  >
+                    My Bookings
+                  </Link>
+
+                  <Link
+                    to="/customer/rentals"
+                    className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+                  >
+                    My Rentals
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
       </nav>
     </>

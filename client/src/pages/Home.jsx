@@ -74,7 +74,7 @@ const heroSlides = [
       "Explore studio equipment, lighting gear and creative tools for photography and production work.",
     image: studioImage,
     primaryText: "Explore Equipment",
-    primaryLink: "/customer/equipment",
+    primaryLink: "#equipment",
     secondaryText: "Create Account",
     secondaryLink: "/register",
   },
@@ -808,10 +808,10 @@ const Home = () => {
           EQUIPMENT DISCOVERY
       ========================================== */}
 
-      <section
-        id="equipment"
-        className="bg-white py-20 sm:py-24"
-      >
+        <section
+          id="equipment"
+          className="scroll-mt-28 bg-white py-20 sm:py-24"
+        >
 
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
 
@@ -1627,164 +1627,6 @@ const Home = () => {
         </section>
 
       )}
-
-
-      {/* ==========================================
-          FOOTER
-      ========================================== */}
-
-      <footer className="bg-gray-950 text-gray-300">
-
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.4fr_0.8fr_0.8fr] lg:px-8">
-
-
-          {/* Brand */}
-
-          <div className="max-w-md">
-
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-xs font-black text-white">
-                SCR
-              </div>
-
-
-              <div>
-
-                <p className="font-bold text-white">
-                  Southern Camera
-                  Rent
-                </p>
-
-                <p className="text-xs text-gray-500">
-                  Equipment &
-                  Photographer Services
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <p className="mt-5 text-sm leading-7 text-gray-400">
-
-              Discover camera equipment
-              and professional
-              photographers through one
-              platform.
-
-              <br />
-              <br />
-
-              Register or login when you
-              are ready to rent equipment
-              or submit a photographer
-              booking request.
-
-            </p>
-
-          </div>
-
-
-          {/* Explore */}
-
-          <div>
-
-            <p className="text-sm font-bold uppercase tracking-wider text-white">
-              Explore
-            </p>
-
-
-            <div className="mt-4 flex flex-col gap-3 text-sm text-gray-400">
-
-              <a
-                href="#discover"
-                className="transition hover:text-white"
-              >
-                Discover
-              </a>
-
-              <a
-                href="#equipment"
-                className="transition hover:text-white"
-              >
-                Equipment
-              </a>
-
-              <Link
-                to="/photographers"
-                className="transition hover:text-white"
-              >
-                Photographers
-              </Link>
-
-              <a
-                href="#how-it-works"
-                className="transition hover:text-white"
-              >
-                How It Works
-              </a>
-
-            </div>
-
-          </div>
-
-
-          {/* Account */}
-
-          <div>
-
-            <p className="text-sm font-bold uppercase tracking-wider text-white">
-              Customer Account
-            </p>
-
-
-            <div className="mt-4 flex flex-col gap-3 text-sm text-gray-400">
-
-              <Link
-                to="/login"
-                className="transition hover:text-white"
-              >
-                Login
-              </Link>
-
-              <Link
-                to="/register"
-                className="transition hover:text-white"
-              >
-                Customer Registration
-              </Link>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* Bottom Footer */}
-
-        <div className="border-t border-white/10">
-
-          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-
-            <p>
-              © 2026 Southern Camera
-              Rental. All rights
-              reserved.
-            </p>
-
-            <p>
-              Camera Equipment Rental &
-              Photographer Booking
-              System
-            </p>
-
-          </div>
-
-        </div>
-
-      </footer>
 
     </main>
   );
