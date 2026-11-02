@@ -21,6 +21,8 @@ const photographerRoutes = require("./routes/photographerRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const rentalAgreementRoutes = require("./routes/rentalAgreementRoutes");
 
+const bankDetailsRoutes = require("./routes/bankDetailsRoutes");
+
 const app = express();
 
 //const app = express();
@@ -119,5 +121,6 @@ app.use("/api/rental-agreements", rentalAgreementRoutes);
 
 app.use(errorHandler);
 
+app.use("/api/payment-instructions", bankDetailsRoutes);
 
 module.exports = app;

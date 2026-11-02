@@ -1086,7 +1086,36 @@ const uploadSignedReturn = async (req, res, next) => {
         "A signed return document has already been uploaded."
       );
     }
+    
+    // ========================================================
+    // PREVENT REUSING THE SAME SIGNED DOCUMENT
+    // ========================================================
 
+    const handoverDocumentHash =
+    agreement.signedHandoverDocument?.sha256;
+
+    const returnDocumentHash = uploadedFile.sha256;
+
+    if (!handoverDocumentHash || !returnDocumentHash) {
+    return rejectUpload(
+        400,
+        "Document integrity verification failed. " +
+        "Both signed documents must have valid SHA-256 hashes."
+    );
+    }
+
+    if (
+    handoverDocumentHash.toLowerCase() ===
+    returnDocumentHash.toLowerCase()
+    ) {
+    return rejectUpload(
+        409,
+        "The uploaded return document is identical to the " +
+        "signed handover document. Please upload the " +
+        "completed two-page agreement containing the " +
+        "return inspection details and signatures."
+    );
+    }
     // ========================================================
     // PREPARE DOCUMENT METADATA
     // ========================================================
