@@ -95,7 +95,7 @@ const Navbar = () => {
         term.includes(keyword)
       )
     ) {
-      window.location.href = "/#equipment";
+      window.location.href = "/customer/equipment";
     } else if (
       photographerKeywords.some((keyword) =>
         term.includes(keyword)
@@ -266,7 +266,7 @@ const Navbar = () => {
 
         {/* Equipment */}
         <a
-          href="/#equipment"
+          href="/customer/equipment"
           className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
         >
           Equipment
@@ -417,7 +417,7 @@ const Navbar = () => {
                     <div className="mt-2 flex flex-wrap gap-2">
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -427,7 +427,7 @@ const Navbar = () => {
                       </a>
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -437,7 +437,7 @@ const Navbar = () => {
                       </a>
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -749,7 +749,7 @@ const Navbar = () => {
               </Link>
 
               <a
-                href="/#equipment"
+                href="/customer/equipment"
                 onClick={() => setMobileMenuOpen(false)}
                 className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
               >

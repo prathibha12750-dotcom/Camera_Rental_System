@@ -10,6 +10,14 @@ const Equipment = require("../models/Equipment");
 const Invoice = require("../models/invoice");
 const Deposit = require("../models/deposit");
 
+const RentalAgreement = require("../models/RentalAgreement");
+
+const {
+  AGREEMENT_TERMS_VERSION,
+  RENTAL_AGREEMENT_TERMS,
+} = require("../constants/rentalAgreementTerms");
+
+
 const Notification = require("../models/notification");
 const User = require("../models/User");
 
@@ -926,6 +934,82 @@ const approveRental = async (req, res, next) => {
           );
         }
 
+        // ============================================================
+        // CREATE RENTAL AGREEMENT RECORD
+        // ============================================================
+
+        // Check for an existing agreement to prevent duplicates.
+        const existingAgreement = await RentalAgreement.findOne({
+          rental: updatedRental._id,
+        }).session(session);
+
+        if (!existingAgreement) {
+          const customer = await User.findById(
+            updatedRental.customer
+          )
+            .select("name")
+            .session(session);
+
+          if (!customer) {
+            throw approvalError(
+              404,
+              "Customer not found. Rental agreement cannot be created."
+            );
+          }
+
+          const agreementNumber =
+            `SCR-AGR-${updatedRental._id.toString().toUpperCase()}`;
+
+          await RentalAgreement.create(
+            [
+              {
+                rental: updatedRental._id,
+                agreementNumber,
+
+                status: "DRAFT",
+
+                termsVersion: AGREEMENT_TERMS_VERSION,
+                termsSnapshot: [...RENTAL_AGREEMENT_TERMS],
+
+                rentalSnapshot: {
+                  customerId: updatedRental.customer,
+                  customerName: customer.name,
+
+                  equipmentId: equipment._id,
+                  equipmentName: equipment.name,
+                  brand: equipment.brand || "",
+                  model: equipment.model || "",
+                  serialNumber: equipment.serialNumber || "",
+
+                  startDate: updatedRental.startDate,
+                  endDate: updatedRental.endDate,
+
+                  rentalAmount: Number(updatedRental.totalPrice),
+                  securityDeposit: Number(
+                    updatedRental.securityDeposit ?? 0
+                  ),
+
+                  overduePenaltyRate: Number(
+                    updatedRental.overduePenaltyRate ?? 0
+                  ),
+
+                  overduePenaltyPerDay: Number(
+                    updatedRental.overduePenaltyPerDay ?? 0
+                  ),
+                },
+
+                handoverInspection: null,
+                returnInspection: null,
+
+                specialNotes: "",
+
+                createdBy: req.user.userId,
+              },
+            ],
+            { session }
+          );
+        }
+
         return updatedRental;
       },
       {
@@ -1036,9 +1120,10 @@ const approveRental = async (req, res, next) => {
    }
  };
 
-// ============================================================
-// ISSUE EQUIPMENT - ADMIN / CLERK
-// ============================================================
+
+ // ============================================================
+ // ISSUE EQUIPMENT - ADMIN / CLERK
+ // ============================================================
 
 const issueRental = async (req, res, next) => {
   let session;
@@ -1062,20 +1147,62 @@ const issueRental = async (req, res, next) => {
 
     const result = await session.withTransaction(
       async () => {
-        const rental = await Rental.findById(req.params.id).session(session);
+        const rental = await Rental.findById(
+          req.params.id
+        ).session(session);
 
         if (!rental) {
           throw issueError(404, "Rental not found");
         }
 
         if (rental.status !== "CONFIRMED") {
-          throw issueError(400, "Only confirmed rentals can be issued");
+          throw issueError(
+            400,
+            "Only confirmed rentals can be issued"
+          );
         }
 
+        // ====================================================
+        // VERIFY SIGNED RENTAL AGREEMENT BEFORE EQUIPMENT ISSUE
+        // ====================================================
 
-        // ============================================================
+        const agreement = await RentalAgreement.findOne({
+          rental: rental._id,
+        }).session(session);
+
+        if (!agreement) {
+          throw issueError(
+            409,
+            "Equipment cannot be issued because the rental agreement was not found."
+          );
+        }
+
+        if (
+          agreement.status !== "HANDOVER_SIGNED" &&
+          agreement.status !== "RETURN_SIGNED"
+        ) {
+          throw issueError(
+            409,
+            "Equipment cannot be issued until the signed handover agreement has been verified."
+          );
+        }
+
+        if (
+          !agreement.generatedPdf?.storageKey ||
+          !agreement.signedHandoverDocument?.storageKey ||
+          !agreement.signedHandoverDocument?.sha256 ||
+          !agreement.handoverVerifiedAt ||
+          !agreement.handoverVerifiedBy
+        ) {
+          throw issueError(
+            409,
+            "Equipment cannot be issued because the signed handover agreement verification is incomplete."
+          );
+        }
+
+        // ====================================================
         // VERIFY RENTAL INVOICE PAYMENT BEFORE EQUIPMENT ISSUE
-        // ============================================================
+        // ====================================================
 
         const invoice = await Invoice.findOne({
           rental: rental._id,
@@ -1096,6 +1223,9 @@ const issueRental = async (req, res, next) => {
           );
         }
 
+        // ====================================================
+        // CHECK EQUIPMENT AVAILABILITY
+        // ====================================================
 
         const equipment = await Equipment.findOneAndUpdate(
           { _id: rental.equipment },
@@ -1135,6 +1265,10 @@ const issueRental = async (req, res, next) => {
             "This equipment has an active rental. Record its return before issuing it again."
           );
         }
+
+        // ====================================================
+        // UPDATE RENTAL STATUS
+        // ====================================================
 
         const updatedRental = await Rental.findOneAndUpdate(
           {
@@ -1176,9 +1310,9 @@ const issueRental = async (req, res, next) => {
       }
     );
 
-    // ============================================================
+    // ========================================================
     // NOTIFY CUSTOMER AFTER SUCCESSFUL EQUIPMENT ISSUE
-    // ============================================================
+    // ========================================================
 
     try {
       await Notification.create({
@@ -1226,7 +1360,7 @@ const returnRental = async (req, res, next) => {
   try {
     validId(req.params.id);
 
-    const { condition, damageDescription, notes } = req.body;
+    const { condition, damageDescription, notes, accessories = [] } = req.body;
 
     if (!condition) {
       fail(400, "Return condition is required");
@@ -1240,7 +1374,26 @@ const returnRental = async (req, res, next) => {
       damageDescription,
       "Damage description"
     );
-    const cleanNotes = optionalText(notes, "Notes");
+    const cleanNotes = (() => {
+    if (notes === undefined || notes === null) {
+      return "";
+    }
+
+    if (typeof notes !== "string") {
+      fail(400, "Return inspection notes must be text.");
+    }
+
+    const value = notes.trim();
+
+    if (value.length > 2000) {
+      fail(
+        400,
+        "Return inspection notes cannot exceed 2000 characters."
+      );
+    }
+
+    return value;
+  })();
 
     if (condition === "DAMAGED" && !description) {
       fail(
@@ -1248,6 +1401,117 @@ const returnRental = async (req, res, next) => {
         "Damage description is required for damaged equipment"
       );
     }
+
+    // ============================================================
+    // VALIDATE RETURN INSPECTION ACCESSORIES
+    // ============================================================
+
+    if (!Array.isArray(accessories) || accessories.length > 30) {
+      fail(
+        400,
+        "Accessories must be an array containing no more than 30 items."
+      );
+    }
+
+    const cleanedAccessories = accessories.map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        fail(400, `Accessory ${index + 1} is invalid.`);
+      }
+
+      const name =
+        typeof item.name === "string" ? item.name.trim() : "";
+
+      const quantity = item.quantity;
+
+      const accessoryNotes =
+        typeof item.notes === "string" ? item.notes.trim() : "";
+
+      const accessoryCondition =
+        item.condition === undefined ||
+        item.condition === null ||
+        item.condition === ""
+          ? null
+          : item.condition;
+
+      if (!name || name.length > 150) {
+        fail(
+          400,
+          `Accessory ${index + 1} must have a name of 1–150 characters.`
+        );
+      }
+
+      if (!Number.isSafeInteger(quantity) || quantity < 0) {
+        fail(
+          400,
+          `Accessory ${index + 1} must have a non-negative whole-number quantity.`
+        );
+      }
+
+      // Require a valid condition for every returned accessory.
+      if (quantity > 0 && accessoryCondition === null) {
+        fail(
+          400,
+          `Please select the returned condition for accessory "${name}".`
+        );
+      }
+
+      // Accessories that were not returned have no inspectable condition.
+      if (quantity === 0 && accessoryCondition !== null) {
+        fail(
+          400,
+          `Accessory "${name}" was not returned, so its condition must be empty.`
+        );
+      }
+
+      // Validate the supplied accessory condition.
+      if (
+        accessoryCondition !== null &&
+        !["EXCELLENT", "GOOD", "FAIR", "DAMAGED"].includes(
+          accessoryCondition
+        )
+      ) {
+        fail(
+          400,
+          `Accessory ${index + 1} has an invalid condition.`
+        );
+      }
+
+      if (typeof item.notes !== "undefined" &&
+          typeof item.notes !== "string") {
+        fail(
+          400,
+          `Accessory ${index + 1} notes must be text.`
+        );
+      }
+
+      if (accessoryNotes.length > 500) {
+        fail(
+          400,
+          `Accessory ${index + 1} notes cannot exceed 500 characters.`
+        );
+      }
+
+      if (quantity === 0 && !accessoryNotes) {
+        fail(
+          400,
+          `Explain why accessory "${name}" was not returned.`
+        );
+      }
+
+      if (accessoryCondition === "DAMAGED" && !accessoryNotes) {
+        fail(
+          400,
+          `Describe the damage to accessory "${name}".`
+        );
+      }
+
+      return {
+        name,
+        quantity,
+        condition: accessoryCondition,
+        notes: accessoryNotes,
+      };
+    });
 
     const result = await inTransaction(async (session) => {
       const rental = await Rental.findById(req.params.id).session(session);
@@ -1258,6 +1522,113 @@ const returnRental = async (req, res, next) => {
 
       if (rental.status !== "ACTIVE") {
         fail(400, "Only active rentals can be returned");
+      }
+
+      // ============================================================
+      // VERIFY RETURN ACCESSORIES AGAINST ORIGINAL HANDOVER
+      // ============================================================
+
+      const agreement = await RentalAgreement.findOne({
+        rental: rental._id,
+        status: "HANDOVER_SIGNED",
+        returnRecord: null,
+      }).session(session);
+
+      if (!agreement) {
+        fail(
+          409,
+          "A verified handover agreement is required before recording the return."
+        );
+      }
+
+      const issuedAccessories = agreement.handoverInspection?.accessories;
+
+      if (!Array.isArray(issuedAccessories)) {
+        fail(
+          409,
+          "Original handover accessories are unavailable. Return cannot be verified."
+        );
+      }
+
+      if (cleanedAccessories.length !== issuedAccessories.length) {
+        fail(
+          400,
+          "Returned accessories must match the original handover accessory list."
+        );
+      }
+
+      // Normalize names for comparison without modifying saved names.
+      const normalizeAccessoryName = (name) =>
+        name.trim().toLocaleLowerCase("en");
+
+      const issuedAccessoryMap = new Map();
+
+      for (const accessory of issuedAccessories) {
+        const key = normalizeAccessoryName(accessory.name);
+
+        if (issuedAccessoryMap.has(key)) {
+          fail(
+            409,
+            `Duplicate accessory "${accessory.name}" exists in the handover inspection.`
+          );
+        }
+
+        if (
+          !Number.isInteger(accessory.quantity) ||
+          accessory.quantity < 1
+        ) {
+          fail(
+            409,
+            `Invalid issued quantity for "${accessory.name}".`
+          );
+        }
+
+        issuedAccessoryMap.set(key, accessory);
+      }
+
+      const returnedAccessoryNames = new Set();
+
+      for (const accessory of cleanedAccessories) {
+        const key = normalizeAccessoryName(accessory.name);
+
+        if (returnedAccessoryNames.has(key)) {
+          fail(
+            400,
+            `Duplicate returned accessory "${accessory.name}" is not allowed.`
+          );
+        }
+
+        returnedAccessoryNames.add(key);
+
+        const issuedAccessory = issuedAccessoryMap.get(key);
+
+        if (!issuedAccessory) {
+          fail(
+            400,
+            `Accessory "${accessory.name}" was not recorded during handover.`
+          );
+        }
+
+        if (accessory.quantity > issuedAccessory.quantity) {
+          fail(
+            400,
+            `Returned quantity for "${accessory.name}" cannot exceed ` +
+              `the issued quantity (${issuedAccessory.quantity}).`
+          );
+        }
+
+        if (
+          accessory.quantity < issuedAccessory.quantity &&
+          !accessory.notes
+        ) {
+          fail(
+            400,
+            `Please explain the missing quantity for "${accessory.name}".`
+          );
+        }
+
+        // Preserve the original accessory name from handover.
+        accessory.name = issuedAccessory.name;
       }
 
       const equipment = await lockEquipment(rental.equipment, session);
@@ -1311,6 +1682,48 @@ const returnRental = async (req, res, next) => {
         ],
         { session }
       );
+
+      // ============================================================
+      // LINK RETURN RECORD TO THE RENTAL AGREEMENT
+      // ============================================================
+
+      const updatedAgreement = await RentalAgreement.findOneAndUpdate(
+        {
+          rental: rental._id,
+          status: "HANDOVER_SIGNED",
+          returnRecord: null,
+          handoverVerifiedAt: { $ne: null },
+          handoverVerifiedBy: { $ne: null },
+        },
+        {
+        $set: {
+          returnRecord: returnRecord._id,
+          returnInspection: {
+            condition,
+            accessories: cleanedAccessories,
+            damageDescription: description,
+            notes: cleanNotes,
+            inspectedBy: req.user.userId,
+            inspectedAt: returnedAt,
+          },
+        },
+          $inc: {
+            __v: 1,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          session,
+        }
+      );
+
+      if (!updatedAgreement) {
+        fail(
+          409,
+          "Equipment return cannot be recorded because the signed handover agreement is missing, unverified, or already linked to a return."
+        );
+      }
 
       let damageRecord = null;
 
@@ -1964,6 +2377,56 @@ const cancelRental = async (req, res, next) => {
          fail(409, "Only returned rentals can be completed");
        }
 
+      // ==========================================
+      // VERIFY SIGNED RENTAL RETURN AGREEMENT
+      // ==========================================
+
+      const agreement = await RentalAgreement.findOne({
+        rental: existingRental._id,
+      }).session(session);
+
+      if (!agreement) {
+        fail(
+          409,
+          "Rental agreement not found. Rental cannot be completed."
+        );
+      }
+
+      if (agreement.status !== "RETURN_SIGNED") {
+        fail(
+          409,
+          "The signed return acknowledgement must be verified before completing the rental."
+        );
+      }
+
+      // Ensure the return acknowledgement belongs to
+      // the recorded equipment return.
+      if (
+        !agreement.returnRecord ||
+        !agreement.returnInspection?.condition ||
+        !agreement.returnInspection?.inspectedAt ||
+        !agreement.returnInspection?.inspectedBy
+      ) {
+        fail(
+          409,
+          "Rental agreement return inspection is incomplete."
+        );
+      }
+
+      // Ensure the signed document and staff verification
+      // information are present.
+      if (
+        !agreement.signedReturnDocument?.storageKey ||
+        !agreement.signedReturnDocument?.sha256 ||
+        !agreement.returnVerifiedAt ||
+        !agreement.returnVerifiedBy
+      ) {
+        fail(
+          409,
+          "Signed return acknowledgement verification is incomplete."
+        );
+      }
+
        // ==========================================
        // VERIFY INVOICE
        // ==========================================
@@ -2010,6 +2473,41 @@ const cancelRental = async (req, res, next) => {
            "Security deposit must be fully settled before completing the rental."
          );
        }
+       
+      // ==========================================
+      // VERIFY SETTLEMENT AMOUNT CONSISTENCY
+      // ==========================================
+
+      const depositAmount = Number(deposit.amount);
+      const refundedAmount = Number(deposit.refundedAmount ?? 0);
+      const deductedAmount = Number(deposit.deductedAmount ?? 0);
+
+      if (
+        ![depositAmount, refundedAmount, deductedAmount].every(
+          (amount) => Number.isSafeInteger(amount) && amount >= 0
+        ) ||
+        refundedAmount + deductedAmount !== depositAmount
+      ) {
+        fail(
+          409,
+          "Security deposit settlement amounts are inconsistent. " +
+            "Please review the deposit before completing the rental."
+        );
+      }
+
+      if (
+        (deposit.status === "REFUNDED" &&
+          (refundedAmount !== depositAmount || deductedAmount !== 0)) ||
+        (deposit.status === "PARTIALLY_REFUNDED" &&
+          (refundedAmount <= 0 || deductedAmount <= 0)) ||
+        (deposit.status === "DEDUCTED" &&
+          (refundedAmount !== 0 || deductedAmount !== depositAmount))
+      ) {
+        fail(
+          409,
+          "Security deposit status does not match its settlement amounts."
+        );
+      }
 
        // ==========================================
        // COORDINATE WITH DEPOSIT SETTLEMENT

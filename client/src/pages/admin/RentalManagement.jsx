@@ -15,6 +15,8 @@ import {
 } from "../../services/rentalService";
 
 import DepositSettlementPanel from "../../components/rentals/DepositSettlementPanel";
+import RentalAgreementModal from "../../components/rentals/RentalAgreementModal";
+import { getRentalAgreement } from "../../services/rentalAgreementService";
 
 const RENTALS_PER_PAGE = 8;
 
@@ -33,6 +35,7 @@ const RentalManagement = () => {
   const [overdueCount, setOverdueCount] = useState(0);
     
   const [detailsRental, setDetailsRental] = useState(null);
+  const [agreementRental, setAgreementRental] = useState(null);
   const [detailsDamageRecords, setDetailsDamageRecords] = useState([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState("");
@@ -43,9 +46,18 @@ const RentalManagement = () => {
   const [actionLoading, setActionLoading] = useState(null);
 
   const [returningRental, setReturningRental] = useState(null);
+  const [returnInspectionLoading, setReturnInspectionLoading] =
+    useState(false);
+
+  const [returnInspectionError, setReturnInspectionError] =
+    useState("");
+  const returnFormRef = useRef(null);
+
   const [returnData, setReturnData] = useState({
     condition: "GOOD",
     damageDescription: "",
+    notes: "",
+    accessories: [],
   });
 
   // ==========================================
@@ -98,6 +110,25 @@ const RentalManagement = () => {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [selectedDepositRental]);
+
+  // ==========================================
+  // SCROLL TO RETURN EQUIPMENT FORM
+  // ==========================================
+
+  useEffect(() => {
+    if (!returningRental) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      returnFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [returningRental]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -784,23 +815,85 @@ const detailsField = (label, value) => (
   // RETURN EQUIPMENT
   // ==========================================
 
-  const openReturnForm = (rental) => {
+  const openReturnForm = async (rental) => {
+    if (actionLoading !== null) return;
+
     setReturningRental(rental);
+
     setReturnData({
       condition: "GOOD",
       damageDescription: "",
+      notes: "",
+      accessories: [],
     });
+
+    setReturnInspectionLoading(true);
+    setReturnInspectionError("");
     setError("");
     setSuccess("");
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    try {
+      const response = await getRentalAgreement(rental._id);
+
+      const agreement =
+        response?.data?.agreement ??
+        response?.agreement ??
+        null;
+
+      if (!agreement) {
+        throw new Error("Rental agreement was not found.");
+      }
+
+      if (agreement.status !== "HANDOVER_SIGNED") {
+        throw new Error(
+          "The handover agreement must be verified before equipment return."
+        );
+      }
+
+      const issuedAccessories =
+        agreement.handoverInspection?.accessories;
+
+      if (!Array.isArray(issuedAccessories)) {
+        throw new Error(
+          "The original handover accessories could not be loaded."
+        );
+      }
+
+      setReturnData((previous) => ({
+        ...previous,
+
+        accessories: issuedAccessories.map((item) => ({
+          name: item.name,
+          issuedQuantity: Number(item.quantity),
+          quantity: Number(item.quantity),
+          handoverCondition: item.condition || "NOT RECORDED",
+
+          // Staff must select the actual returned condition.
+          condition: "",
+
+          notes: "",
+        })),
+      }));
+    } catch (err) {
+      setReturnInspectionError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load the original handover inspection."
+      );
+    } finally {
+      setReturnInspectionLoading(false);
+    }
   };
 
-  const handleReturn = async () => {
-    if (!returningRental) return;
+    const handleReturn = async () => {
+      if (
+        !returningRental ||
+        actionLoading !== null ||
+        returnInspectionLoading ||
+        returnInspectionError
+      ) {
+        return;
+      }
 
     if (
       returnData.condition === "DAMAGED" &&
@@ -812,18 +905,106 @@ const detailsField = (label, value) => (
       return;
     }
 
+    // ==========================================
+    // VALIDATE RETURNED ACCESSORIES
+    // ==========================================
+
+    for (const accessory of returnData.accessories) {
+      const issuedQuantity = accessory.issuedQuantity;
+      const returnedQuantity = accessory.quantity;
+
+      if (
+        !Number.isInteger(issuedQuantity) ||
+        issuedQuantity < 0 ||
+        !Number.isInteger(returnedQuantity) ||
+        returnedQuantity < 0 ||
+        returnedQuantity > issuedQuantity
+      ) {
+        setError(
+          `Please enter a valid returned quantity for "${accessory.name}". ` +
+            `The quantity must be between 0 and ${issuedQuantity}.`
+        );
+        return;
+      }
+
+      if (
+        returnedQuantity < issuedQuantity &&
+        !accessory.notes.trim()
+      ) {
+        setError(
+          `Please explain the missing quantity for "${accessory.name}" ` +
+            "in the accessory notes."
+        );
+        return;
+      }
+
+      const validAccessoryConditions = [
+        "EXCELLENT",
+        "GOOD",
+        "FAIR",
+        "DAMAGED",
+      ];
+
+      if (
+        returnedQuantity > 0 &&
+        !validAccessoryConditions.includes(accessory.condition)
+      ) {
+        setError(
+          `Please select a valid returned condition for "${accessory.name}".`
+        );
+        return;
+      }
+
+      if (
+        returnedQuantity > 0 &&
+        accessory.condition === "DAMAGED" &&
+        !accessory.notes.trim()
+      ) {
+        setError(
+          `Please describe the damage to accessory "${accessory.name}" ` +
+            "in the accessory notes."
+        );
+        return;
+      }
+
+    }
+
     try {
       setActionLoading(returningRental._id);
       setError("");
       setSuccess("");
 
-      await returnRental(returningRental._id, {
+      // ==========================================
+      // PREPARE RETURN INSPECTION DATA
+      // ==========================================
+
+      const returnPayload = {
         condition: returnData.condition,
+
         damageDescription:
           returnData.condition === "DAMAGED"
             ? returnData.damageDescription.trim()
             : "",
-      });
+
+        notes: returnData.notes.trim(),
+
+        accessories: returnData.accessories.map((accessory) => ({
+          name: accessory.name,
+          quantity: accessory.quantity,
+          condition:
+            accessory.quantity === 0
+              ? null
+              : accessory.condition,
+          notes: accessory.notes.trim(),
+        })),
+
+      };
+
+      // ==========================================
+      // SUBMIT EQUIPMENT RETURN
+      // ==========================================
+
+      await returnRental(returningRental._id, returnPayload);
 
       await refreshRentals();
 
@@ -831,6 +1012,8 @@ const detailsField = (label, value) => (
       setReturnData({
         condition: "GOOD",
         damageDescription: "",
+        notes: "",
+        accessories: [],
       });
 
       setSuccess("Equipment returned successfully.");
@@ -886,6 +1069,14 @@ const detailsField = (label, value) => (
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
       <div className="mx-auto max-w-7xl">
+
+        {/* RENTAL AGREEMENT MODAL */}
+        {agreementRental && (
+          <RentalAgreementModal
+            rental={agreementRental}
+            onClose={() => setAgreementRental(null)}
+          />
+        )}
 
   {/* ==========================================
       OVERDUE PENALTY REVIEW MODAL
@@ -1920,10 +2111,13 @@ const detailsField = (label, value) => (
           </div>
         )}
 
-        {/* RETURN FORM */}
+          {/* RETURN FORM */}
 
-        {returningRental && (
-          <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          {returningRental && (
+            <section
+              ref={returnFormRef}
+              className="mt-6 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+            >
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-950">
@@ -1949,6 +2143,25 @@ const detailsField = (label, value) => (
             </div>
 
             <div className="mt-6 grid gap-4">
+            {/* HANDOVER INSPECTION LOADING */}
+            {returnInspectionLoading && (
+              <div
+                role="status"
+                className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700"
+              >
+                Loading original handover accessories...
+              </div>
+            )}
+
+            {/* HANDOVER INSPECTION ERROR */}
+            {returnInspectionError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              >
+                {returnInspectionError}
+              </div>
+            )}
               <label className="block text-sm font-semibold text-gray-700">
                 Returned Condition
 
@@ -1987,10 +2200,239 @@ const detailsField = (label, value) => (
                 </label>
               )}
 
+              {/* ==========================================
+                  RETURN ACCESSORIES VERIFICATION
+              ========================================== */}
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Accessories Verification
+                  </h3>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    Compare the returned accessories with the original
+                    handover inspection. Confirm the actual returned quantity.
+                  </p>
+                </div>
+
+                {returnInspectionLoading ? (
+                  <p className="text-sm text-gray-500">
+                    Loading handover accessories...
+                  </p>
+                ) : returnInspectionError ? (
+                  <p className="text-sm text-red-600">
+                    Accessories cannot be verified until the handover
+                    inspection loads successfully.
+                  </p>
+                ) : returnData.accessories.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No accessories were recorded during handover.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {returnData.accessories.map((accessory, index) => (
+                      <div
+                        key={`${accessory.name}-${index}`}
+                        className="rounded-xl border border-gray-200 bg-white p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {accessory.name}
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
+                              Issued Quantity: {accessory.issuedQuantity}
+                            </p>
+                          </div>
+
+                          <label className="text-xs font-semibold text-gray-600">
+                            Returned Quantity
+
+                            <input
+                              type="number"
+                              min="0"
+                              max={accessory.issuedQuantity}
+                              step="1"
+                              value={accessory.quantity}
+                              onChange={(event) => {
+                                const value = event.target.value;
+
+                                setReturnData((previous) => ({
+                                  ...previous,
+                                  accessories: previous.accessories.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? {
+                                            ...item,
+                                            quantity:
+                                              value === ""
+                                                ? ""
+                                                : Number(value),
+                                          }
+                                        : item
+                                  ),
+                                }));
+                              }}
+                              className="mt-1 block w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            />
+                            {Number.isInteger(accessory.quantity) &&
+                              accessory.quantity >= 0 &&
+                              accessory.quantity < accessory.issuedQuantity && (
+                                <p className="mt-2 text-xs font-semibold text-red-600">
+                                  Missing: {accessory.issuedQuantity - accessory.quantity}
+                                </p>
+                              )}
+                          </label>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-lg bg-gray-50 p-3">
+                            <p className="text-xs font-semibold text-gray-500">
+                              Handover Condition
+                            </p>
+
+                            <p className="mt-1 text-sm font-semibold text-gray-900">
+                              {accessory.handoverCondition}
+                            </p>
+                          </div>
+
+                          <label className="block text-xs font-semibold text-gray-600">
+                            Returned Condition
+
+                            <select
+                              value={accessory.condition}
+                              onChange={(event) =>
+                                setReturnData((previous) => ({
+                                  ...previous,
+                                  accessories: previous.accessories.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? {
+                                            ...item,
+                                            condition: event.target.value,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              disabled={accessory.quantity === 0}
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+                            >
+                              <option value="">Select returned condition</option>
+                              <option value="EXCELLENT">Excellent</option>
+                              <option value="GOOD">Good</option>
+                              <option value="FAIR">Fair</option>
+                              <option value="DAMAGED">Damaged</option>
+                            </select>
+                          </label>
+                        </div>
+                        {accessory.quantity < accessory.issuedQuantity && (
+                          <p className="mt-3 text-xs font-medium text-amber-700">
+                            Some accessories are missing. Please explain the missing quantity.
+                          </p>
+                        )}
+
+                        {accessory.quantity > 0 &&
+                          accessory.condition === "DAMAGED" && (
+                            <p className="mt-3 text-xs font-medium text-red-600">
+                              This accessory is marked as damaged. Please describe the damage
+                              in the notes below.
+                            </p>
+                          )}
+                        <label className="mt-3 block text-xs font-semibold text-gray-600">
+                          {accessory.quantity < accessory.issuedQuantity ||
+                            accessory.condition === "DAMAGED"
+                              ? "Accessory Notes (Required)"
+                              : "Accessory Notes (Optional)"}
+
+                          <input
+                            type="text"
+                            value={accessory.notes}
+                            onChange={(event) =>
+                              setReturnData((previous) => ({
+                                ...previous,
+                                accessories: previous.accessories.map(
+                                  (item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, notes: event.target.value }
+                                      : item
+                                ),
+                              }))
+                            }
+                            maxLength={500}
+                            placeholder="Missing, damaged, or other observations..."
+                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ==========================================
+                  GENERAL RETURN INSPECTION NOTES
+              ========================================== */}
+
+              <label className="block text-sm font-semibold text-gray-700">
+                Return Inspection Notes
+                <span className="ml-2 text-xs font-normal text-gray-400">
+                  (Optional)
+                </span>
+
+                <textarea
+                  value={returnData.notes}
+                  onChange={(event) =>
+                    setReturnData((previous) => ({
+                      ...previous,
+                      notes: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Describe the equipment condition, cleanliness, functionality, or other observations..."
+                  className="mt-2 w-full resize-y rounded-xl border border-gray-300 px-4 py-3 text-sm font-normal text-gray-900 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+
+                <span className="mt-1 block text-right text-xs font-normal text-gray-400">
+                  {returnData.notes.length}/2000 characters
+                </span>
+              </label>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 text-amber-600">⚠</span>
+
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">
+                      Final Return Inspection
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-amber-800">
+                      Before confirming, verify the returned equipment condition,
+                      accessory quantities, accessory conditions, and inspection
+                      notes. Missing or damaged accessories must be documented.
+                    </p>
+
+                    <p className="mt-2 text-xs text-amber-800">
+                      Confirming the return records the physical equipment return.
+                      The rental agreement must still complete its separate return
+                      acknowledgement and signature verification process.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={handleReturn}
-                disabled={actionLoading !== null}
+                disabled={
+                  actionLoading !== null ||
+                  returnInspectionLoading ||
+                  Boolean(returnInspectionError)
+                }
                 className="w-fit rounded-xl bg-orange-600 px-5 py-3 font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
               >
                 {actionLoading === returningRental._id
@@ -2224,6 +2666,19 @@ const detailsField = (label, value) => (
                     >
                       View Details
                     </button>
+
+                    {/* RENTAL AGREEMENT MANAGEMENT */}
+                    {["CONFIRMED", "ACTIVE", "RETURNED", "COMPLETED"].includes(
+                      rental.status
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => setAgreementRental(rental)}
+                        className="w-full rounded-xl border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-semibold text-orange-700 transition hover:border-orange-400 hover:bg-orange-100"
+                      >
+                        Manage Agreement
+                      </button>
+                    )}
 
                     {/* PENDING - APPROVE OR REJECT */}
                     {rental.status === "PENDING" && (

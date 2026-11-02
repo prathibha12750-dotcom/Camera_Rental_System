@@ -19,6 +19,7 @@ const errorHandler = require("./middleware/errorHandler");
 const customerRoutes = require("./routes/customerRoutes");
 const photographerRoutes = require("./routes/photographerRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const rentalAgreementRoutes = require("./routes/rentalAgreementRoutes");
 
 const app = express();
 
@@ -110,7 +111,7 @@ app.use("/api/categories", categoryRoutes);//connect the category routes by thas
 // End of the routes connects by thasindu
 // ======================================================================================
 
-
+app.use("/api/rental-agreements", rentalAgreementRoutes);
 
 // ==========================================
 // ERROR HANDLER
