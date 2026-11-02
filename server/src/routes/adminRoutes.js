@@ -289,7 +289,7 @@ router.get(
 router.get(
   "/invoices/:id",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getInvoiceById
 );
 
@@ -301,7 +301,7 @@ router.get(
 router.post(
   "/payments",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createPayment
 );
 
@@ -313,7 +313,7 @@ router.post(
 router.get(
   "/payments/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPaymentsByInvoice
 );
 
@@ -326,7 +326,7 @@ router.get(
 router.get(
   "/payments",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getAllPayments
 );
 
@@ -339,7 +339,7 @@ router.get(
 router.get(
   "/billing-receipts/payment/:paymentId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getBillingReceiptByPayment
 );
 

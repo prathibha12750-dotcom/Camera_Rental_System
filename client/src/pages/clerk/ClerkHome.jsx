@@ -143,6 +143,15 @@ const managementModules = [
     category: "Financial Operations",
   },
   {
+    title: "Payment Management",
+    description:
+      "Record customer payments, review payment history, and view or download billing receipts.",
+    icon: "payments",
+    path: "/clerk/payments",
+    action: "Manage Payments",
+    category: "Financial Operations",
+  },
+  {
     title: "Damage & Maintenance",
     description:
       "Inspect reported equipment damage, manage maintenance records, and track repair progress.",

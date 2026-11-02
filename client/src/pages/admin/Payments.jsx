@@ -9,10 +9,20 @@ import { jsPDF } from "jspdf";
 const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  // ==========================================
+  // PAYMENT HISTORY FILTERS
+  // ==========================================
+
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] =
+    useState("ALL");
+  const [paymentMethodFilter, setPaymentMethodFilter] =
+    useState("ALL");
 
   const [loading, setLoading] = useState(true);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const [error, setError] = useState("");
   const [formMessage, setFormMessage] = useState("");
@@ -339,6 +349,14 @@ const handleViewReceipt = async (paymentId) => {
   };
 
   // ==========================================
+  // INVOICES ELIGIBLE FOR PAYMENT
+  // ==========================================
+
+  const payableInvoices = invoices.filter((invoice) =>
+    ["PENDING", "PARTIALLY_PAID"].includes(invoice.paymentStatus)
+  );
+
+  // ==========================================
   // SELECTED INVOICE
   // ==========================================
 
@@ -429,7 +447,7 @@ const handleViewReceipt = async (paymentId) => {
         invoice: formData.invoice,
         amount,
         paymentMethod: formData.paymentMethod,
-        notes: formData.notes.trim(),
+        note: formData.notes.trim(),
       });
 
       setFormMessage(
@@ -443,6 +461,8 @@ const handleViewReceipt = async (paymentId) => {
         paymentMethod: "",
         notes: "",
       });
+
+      setPaymentModalOpen(false);
 
       await fetchPayments();
       await fetchInvoices();
@@ -485,19 +505,77 @@ const handleViewReceipt = async (paymentId) => {
   };
 
   // ==========================================
-  // PAYMENT STATUS STYLE
+  // PAYMENT DASHBOARD STATISTICS
   // ==========================================
 
+  const completedPayments = payments.filter(
+    (payment) => payment.paymentStatus === "COMPLETED"
+  );
+
+  const totalReceived = completedPayments.reduce(
+    (total, payment) =>
+      total + Math.round(Number(payment.amount || 0) * 100),
+    0
+  ) / 100;
+
+  const completedPaymentCount = completedPayments.length;
+
+  const outstandingInvoiceCount = invoices.filter(
+    (invoice) =>
+      invoice.paymentStatus === "PENDING" ||
+      invoice.paymentStatus === "PARTIALLY_PAID"
+  ).length;
+
+  // ==========================================
+  // FILTER PAYMENT HISTORY
+  // ==========================================
+
+  const filteredPayments = payments.filter((payment) => {
+    const search = paymentSearch.trim().toLowerCase();
+
+    const invoiceNumber =
+      payment.invoice?.invoiceNumber?.toLowerCase() || "";
+
+    const customerName =
+      payment.customer?.name?.toLowerCase() || "";
+
+    const customerEmail =
+      payment.customer?.email?.toLowerCase() || "";
+
+    const matchesSearch =
+      !search ||
+      invoiceNumber.includes(search) ||
+      customerName.includes(search) ||
+      customerEmail.includes(search);
+
+    const matchesStatus =
+      paymentStatusFilter === "ALL" ||
+      payment.paymentStatus === paymentStatusFilter;
+
+    const matchesMethod =
+      paymentMethodFilter === "ALL" ||
+      payment.paymentMethod === paymentMethodFilter;
+
+    return matchesSearch && matchesStatus && matchesMethod;
+  });
+
+  // ==========================================
+  // PAYMENT STATUS STYLE
+  // ==========================================
   const getPaymentStatusClass = (status) => {
-    if (status === "COMPLETED") {
-      return "bg-green-100 text-green-700";
-    }
+    switch (status) {
+      case "COMPLETED":
+        return "bg-green-50 text-green-700 ring-1 ring-green-200";
 
-    if (status === "REFUNDED") {
-      return "bg-red-100 text-red-700";
-    }
+      case "PENDING":
+        return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
 
-    return "bg-gray-100 text-gray-700";
+      case "REFUNDED":
+        return "bg-red-50 text-red-700 ring-1 ring-red-200";
+
+      default:
+        return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
+    }
   };
 
   // ==========================================
@@ -505,15 +583,19 @@ const handleViewReceipt = async (paymentId) => {
   // ==========================================
 
   const getInvoiceStatusClass = (status) => {
-    if (status === "PAID") {
-      return "bg-green-100 text-green-700";
-    }
+    switch (status) {
+      case "PAID":
+        return "bg-green-50 text-green-700 ring-1 ring-green-200";
 
-    if (status === "PARTIALLY_PAID") {
-      return "bg-yellow-100 text-yellow-700";
-    }
+      case "PARTIALLY_PAID":
+        return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
 
-    return "bg-gray-100 text-gray-700";
+      case "PENDING":
+        return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
+
+      default:
+        return "bg-gray-100 text-gray-600 ring-1 ring-gray-200";
+    }
   };
 
   // ==========================================
@@ -538,17 +620,105 @@ const handleViewReceipt = async (paymentId) => {
 
   return (
     <div className="p-6">
-      {/* Page Header */}
+    {/* ==========================================
+        PAGE HEADER
+    ========================================== */}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-950">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-950">
           Payment Management
         </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          Record and monitor customer payments.
+          Record customer payments, monitor transactions,
+          and manage billing receipts.
         </p>
       </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setFormMessage("");
+          setPaymentModalOpen(true);
+        }}
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+      >
+        <span className="text-lg leading-none">+</span>
+        Record Payment
+      </button>
+    </div>
+
+    {/* ==========================================
+        PAYMENT STATISTICS
+    ========================================== */}
+
+    <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+
+      {/* Total Received */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">
+            Total Received
+          </p>
+
+          <div className="rounded-xl bg-green-50 p-2.5 text-green-600">
+            <span className="text-lg">↗</span>
+          </div>
+        </div>
+
+        <p className="mt-4 text-2xl font-bold tracking-tight text-gray-950">
+          {formatAmount(totalReceived)}
+        </p>
+
+        <p className="mt-2 text-xs text-gray-500">
+          Sum of completed payment records
+        </p>
+      </div>
+
+      {/* Completed Payments */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">
+            Completed Payments
+          </p>
+
+          <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
+            <span className="text-lg">✓</span>
+          </div>
+        </div>
+
+        <p className="mt-4 text-2xl font-bold tracking-tight text-gray-950">
+          {completedPaymentCount}
+        </p>
+
+        <p className="mt-2 text-xs text-gray-500">
+          Successfully recorded payments
+        </p>
+      </div>
+
+      {/* Outstanding Invoices */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-500">
+            Outstanding Invoices
+          </p>
+
+          <div className="rounded-xl bg-orange-50 p-2.5 text-orange-600">
+            <span className="text-lg">!</span>
+          </div>
+        </div>
+
+        <p className="mt-4 text-2xl font-bold tracking-tight text-gray-950">
+          {outstandingInvoiceCount}
+        </p>
+
+        <p className="mt-2 text-xs text-gray-500">
+          Pending or partially paid invoices
+        </p>
+      </div>
+
+    </div>
 
       {/* Error */}
 
@@ -557,20 +727,50 @@ const handleViewReceipt = async (paymentId) => {
           {error}
         </div>
       )}
+      {/* ==========================================
+          RECORD PAYMENT MODAL
+      ========================================== */}
 
-      {/* Record Payment */}
+      {paymentModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="record-payment-title"
+        >
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
-      <div className="mb-6 rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="font-semibold text-gray-950">
-            Record Payment
-          </h2>
+            {/* Modal Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
+              <div>
+                <h2
+                  id="record-payment-title"
+                  className="text-xl font-bold text-gray-950"
+                >
+                  Record Payment
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Select an invoice and enter the received payment details.
+                </p>
+              </div>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Manually record a payment received
-            from a customer.
-          </p>
-        </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!submitting) {
+                    setPaymentModalOpen(false);
+                  }
+                }}
+                disabled={submitting}
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+                aria-label="Close payment form"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Form Area */}
+            <div className="min-h-0 overflow-y-auto">
 
         <form
           onSubmit={handleSubmit}
@@ -588,18 +788,18 @@ const handleViewReceipt = async (paymentId) => {
                 name="invoice"
                 value={formData.invoice}
                 onChange={handleChange}
-                disabled={
-                  loadingInvoices || submitting
-                }
+                disabled={loadingInvoices || payableInvoices.length === 0 || submitting}
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
               >
-                <option value="">
-                  {loadingInvoices
-                    ? "Loading invoices..."
-                    : "Select an invoice"}
-                </option>
+              <option value="">
+                {loadingInvoices
+                  ? "Loading invoices..."
+                  : payableInvoices.length === 0
+                    ? "No outstanding invoices available"
+                    : "Select an outstanding invoice"}
+              </option>
 
-                {invoices.map((invoice) => (
+                {payableInvoices.map((invoice) => (
                   <option
                     key={invoice._id}
                     value={invoice._id}
@@ -785,7 +985,16 @@ const handleViewReceipt = async (paymentId) => {
             </div>
           )}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setPaymentModalOpen(false)}
+              disabled={submitting}
+              className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
             <button
               type="submit"
               disabled={
@@ -801,25 +1010,99 @@ const handleViewReceipt = async (paymentId) => {
           </div>
         </form>
       </div>
+    </div>
+  </div>
+)}
 
-      {/* Payment List */}
+{/* Payment List */}
 
       <div className="rounded-2xl bg-white shadow-sm">
+      {/* ==========================================
+          PAYMENT SEARCH AND FILTERS
+      ========================================== */}
+
+      <div className="grid gap-3 border-b border-gray-100 p-5 md:grid-cols-3">
+
+        {/* Search */}
+        <div>
+          <label
+            htmlFor="payment-search"
+            className="mb-2 block text-xs font-semibold text-gray-600"
+          >
+            Search Payments
+          </label>
+
+          <input
+            id="payment-search"
+            type="search"
+            value={paymentSearch}
+            onChange={(event) =>
+              setPaymentSearch(event.target.value)
+            }
+            placeholder="Invoice, customer, or email..."
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+        </div>
+
+        {/* Payment Status */}
+        <div>
+          <label
+            htmlFor="payment-status-filter"
+            className="mb-2 block text-xs font-semibold text-gray-600"
+          >
+            Payment Status
+          </label>
+
+          <select
+            id="payment-status-filter"
+            value={paymentStatusFilter}
+            onChange={(event) =>
+              setPaymentStatusFilter(event.target.value)
+            }
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="PENDING">Pending</option>
+            <option value="REFUNDED">Refunded</option>
+          </select>
+        </div>
+
+        {/* Payment Method */}
+        <div>
+          <label
+            htmlFor="payment-method-filter"
+            className="mb-2 block text-xs font-semibold text-gray-600"
+          >
+            Payment Method
+          </label>
+
+          <select
+            id="payment-method-filter"
+            value={paymentMethodFilter}
+            onChange={(event) =>
+              setPaymentMethodFilter(event.target.value)
+            }
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          >
+            <option value="ALL">All Methods</option>
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank Transfer</option>
+            <option value="CARD">Card</option>
+          </select>
+        </div>
+      </div>
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="font-semibold text-gray-950">
             Recorded Payments
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            {payments.length} payment
-            {payments.length !== 1
-              ? "s"
-              : ""}{" "}
-            found
+          Showing {filteredPayments.length} of {payments.length} payments
           </p>
         </div>
 
-        {payments.length === 0 ? (
+        {filteredPayments.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="font-medium text-gray-700">
               No payments found
@@ -833,55 +1116,37 @@ const handleViewReceipt = async (paymentId) => {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-gray-100 bg-gray-50">
-                <tr>
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Invoice
+              <thead className="border-b border-gray-200 bg-gray-50/80">
+              <tr>
+                {[
+                  "Invoice",
+                  "Customer",
+                  "Amount",
+                  "Method",
+                  "Date",
+                  "Payment Status",
+                  "Invoice Status",
+                  "Actions",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    scope="col"
+                    className="whitespace-nowrap px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  >
+                    {heading}
                   </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Customer
-                  </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Amount
-                  </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Method
-                  </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Date
-                  </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Invoice Status
-                  </th>
-                  
-                  {/* added by abilash */}
-                  <th className="px-6 py-4 font-semibold text-gray-600">
-                    Actions
-                  </th>
-                  {/* ended by abilash */}
-
-                </tr>
+                ))}
+              </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100">
-                {payments.map((payment) => (
-                  <tr
-                    key={payment._id}
-                    className="hover:bg-gray-50"
-                  >
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {filteredPayments.map((payment) => (
+                    <tr
+                      key={payment._id}
+                      className="transition-colors hover:bg-orange-50/40"
+                    >
                     <td className="px-6 py-4 font-medium text-gray-900">
-                      {payment.invoice
-                        ?.invoiceNumber ||
-                        "-"}
+                      {payment.invoice?.paymentStatus?.replaceAll("_", " ") || "-"}
                     </td>
 
                     <td className="px-6 py-4">
@@ -923,8 +1188,7 @@ const handleViewReceipt = async (paymentId) => {
                           payment.paymentStatus
                         )}`}
                       >
-                        {payment.paymentStatus ||
-                          "-"}
+                        {payment.paymentStatus?.replaceAll("_", " ") || "-"}
                       </span>
                     </td>
 
@@ -944,13 +1208,28 @@ const handleViewReceipt = async (paymentId) => {
                     {/* added by abilash */}
                     <td className="px-6 py-4">
                       {payment.paymentStatus === "COMPLETED" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleViewReceipt(payment._id)}
-                          className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-100"
+                      <button
+                        type="button"
+                        onClick={() => handleViewReceipt(payment._id)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        aria-label={`View receipt for ${
+                          payment.invoice?.invoiceNumber || "payment"
+                        }`}
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden="true"
                         >
-                          View Receipt
-                        </button>
+                          <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+                          <path d="M9 8h6M9 12h6" />
+                        </svg>
+
+                        View Receipt
+                      </button>
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
                       )}

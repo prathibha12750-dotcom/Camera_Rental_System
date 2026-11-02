@@ -462,6 +462,16 @@ const AppRoutes = () => {
                   element={<ClerkPaymentVerification />}
                 />
 
+                {/* ==========================================
+                    CLERK PAYMENT MANAGEMENT
+                    Record payments and view payment history
+                ========================================== */}
+
+                <Route
+                  path="/clerk/payments"
+                  element={<Payments />}
+                />
+
                 {/* Clerk Equipment Management */}
 
                 <Route

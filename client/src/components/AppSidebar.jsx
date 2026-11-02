@@ -93,6 +93,11 @@ const navigationByRole = {
       icon: "maintenance",
     },
     {
+      label: "Payment Management",
+      to: "/clerk/payments",
+      icon: "payments",
+    },
+    {
       label: "Security Deposits",
       to: "/clerk/deposits",
       icon: "payments",

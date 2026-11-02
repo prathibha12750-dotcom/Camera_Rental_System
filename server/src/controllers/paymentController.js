@@ -272,12 +272,14 @@ const createPayment = async (req, res, next) => {
         // FR-085: Record the successful payment activity
         await logActivity({
             actor: req.user.userId,
-            actorRole: "STAFF_ADMIN",
+            actorRole: req.user.role,
             action: "PAYMENT_CREATED",
             entityType: "Payment",
             entityId: payment._id,
             outcome: "SUCCESS",
-            message: `Payment recorded for invoice ${existingInvoice.invoiceNumber}`,
+            message:
+                `Payment recorded for invoice ${existingInvoice.invoiceNumber} ` +
+                `by ${req.user.role}`,
         });
         //ended by abilash
 
