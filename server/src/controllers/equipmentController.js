@@ -4,6 +4,10 @@ const Equipment = require("../models/Equipment");
 
 const Category = require("../models/Category");
 
+// MODIFIED BY: Thasindu
+// PURPOSE: Check existing rental dates when filtering equipment availability.
+const Rental = require("../models/Rental");
+
 // ==========================================
 // CREATE EQUIPMENT
 // POST /api/equipment
@@ -18,11 +22,13 @@ const createEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
-      condition,
       status,
       description,
       imageUrl,
       images,
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Accept optional promotional information.
+      offer,
     } = req.body;
 
     const categoryExists = await Category.findOne({
@@ -37,6 +43,21 @@ const createEquipment = async (req, res, next) => {
       });
     }
 
+
+
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Reject invalid offer payloads during equipment creation.
+    if (
+      offer !== undefined &&
+      (!offer || typeof offer !== "object" || Array.isArray(offer))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Offer must be an object",
+      });
+    }
+
+
     const equipment = await Equipment.create({
       name,
       category,
@@ -45,11 +66,13 @@ const createEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
-      condition,
       status,
       description,
       imageUrl,
       images: Array.isArray(images) ? images : [],
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Save offer metadata with newly created equipment.
+      ...(offer !== undefined ? { offer } : {}),
     });
 
 
@@ -75,13 +98,38 @@ const createEquipment = async (req, res, next) => {
 // GET /api/equipment
 //SEARCH AND FILTER EQUIPMENTS
 
+// ============================================================
+// GET ALL EQUIPMENT
+// MODIFIED BY: Thasindu
+// PURPOSE: Support price, special offer and rental-date filters.
+// ============================================================
 const getAllEquipment = async (req, res, next) => {
   try {
-    const { search, category, brand, condition, status } = req.query;
+    const {
+      search,
+      category,
+      brand,
+      status,
+      minPrice,
+      maxPrice,
+      specialOffers,
+      startDate,
+      endDate,
+      sortBy,
+      customerView,
+    } = req.query;
 
     const filter = {};
+    const additionalConditions = [];
 
-    // Search by equipment name, brand, or model
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Keep damaged and under-maintenance items out of customer browsing,
+    // while leaving the admin equipment list unchanged.
+    if (customerView === "true") {
+      filter.status = { $nin: ["MAINTENANCE", "DAMAGED"] };
+    }
+
+    // Search by equipment name, brand or model.
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -90,7 +138,6 @@ const getAllEquipment = async (req, res, next) => {
       ];
     }
 
-    // Category is now a Category ObjectId
     if (category) {
       filter.category = category;
     }
@@ -99,17 +146,188 @@ const getAllEquipment = async (req, res, next) => {
       filter.brand = brand;
     }
 
-    if (condition) {
-      filter.condition = condition;
-    }
-
+    // Preserve status filtering for admin uses without overriding customer exclusions.
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Combine an explicitly requested status with customer-safe exclusions.
     if (status) {
-      filter.status = status;
+      if (customerView === "true") {
+        filter.status = { $in: [status], $nin: ["MAINTENANCE", "DAMAGED"] };
+      } else {
+        filter.status = status;
+      }
     }
 
-    const equipment = await Equipment.find(filter)
+    // ==========================================
+    // PRICE RANGE FILTER
+    // MODIFIED BY: Thasindu
+    // ==========================================
+
+    const priceFilter = {};
+
+    if (minPrice !== undefined && minPrice !== "") {
+      const min = Number(minPrice);
+
+      if (!Number.isFinite(min) || min < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid minimum price",
+        });
+      }
+
+      priceFilter.$gte = min;
+    }
+
+    if (maxPrice !== undefined && maxPrice !== "") {
+      const max = Number(maxPrice);
+
+      if (!Number.isFinite(max) || max < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid maximum price",
+        });
+      }
+
+      priceFilter.$lte = max;
+    }
+
+    if (
+      priceFilter.$gte !== undefined &&
+      priceFilter.$lte !== undefined &&
+      priceFilter.$gte > priceFilter.$lte
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Minimum price cannot exceed maximum price",
+      });
+    }
+
+    if (Object.keys(priceFilter).length > 0) {
+      filter.rentalPricePerDay = priceFilter;
+    }
+
+    // ==========================================
+    // SPECIAL OFFERS FILTER
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Show only currently active offers.
+    // ==========================================
+
+    if (specialOffers === "true") {
+      const now = new Date();
+
+      filter["offer.enabled"] = true;
+      filter["offer.type"] = {
+        $in: ["DISCOUNT", "BONUS"],
+      };
+
+      additionalConditions.push({
+        $or: [
+          { "offer.startAt": null },
+          { "offer.startAt": { $lte: now } },
+        ],
+      });
+
+      additionalConditions.push({
+        $or: [
+          { "offer.endAt": null },
+          { "offer.endAt": { $gte: now } },
+        ],
+      });
+    }
+
+    // ==========================================
+    // RENTAL DATE VALIDATION
+    // MODIFIED BY: Thasindu
+    // ==========================================
+
+    const hasStartDate = Boolean(startDate);
+    const hasEndDate = Boolean(endDate);
+
+    if (hasStartDate !== hasEndDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select both rental dates",
+      });
+    }
+
+    let rentalStart = null;
+    let rentalEnd = null;
+
+    if (hasStartDate && hasEndDate) {
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Parse date-picker values consistently as UTC calendar-day boundaries.
+      rentalStart = new Date(`${startDate}T00:00:00.000Z`);
+      rentalEnd = new Date(`${endDate}T00:00:00.000Z`);
+
+      if (
+        Number.isNaN(rentalStart.getTime()) ||
+        Number.isNaN(rentalEnd.getTime()) ||
+        rentalStart >= rentalEnd
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid rental date range",
+        });
+      }
+
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Status exclusions are applied to every customer catalogue request,
+      // not only requests that include rental dates.
+    }
+
+    if (additionalConditions.length > 0) {
+      filter.$and = additionalConditions;
+    }
+
+    // ==========================================
+    // SORTING
+    // MODIFIED BY: Thasindu
+    // ==========================================
+
+    const sortOptions = {
+      featured: { createdAt: -1 },
+      price_asc: { rentalPricePerDay: 1 },
+      price_desc: { rentalPricePerDay: -1 },
+      name_asc: { name: 1 },
+    };
+
+    const selectedSort =
+      sortOptions[sortBy] || sortOptions.featured;
+
+    let equipment = await Equipment.find(filter)
       .populate("category", "name description status")
-      .sort({ createdAt: -1 });
+      .sort(selectedSort);
+
+    // ==========================================
+    // DATE-BASED AVAILABILITY FILTER
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Exclude equipment with overlapping
+    // pending, confirmed or active rentals.
+    // ==========================================
+
+    if (rentalStart && rentalEnd && equipment.length > 0) {
+      const equipmentIds = equipment.map((item) => item._id);
+
+      // A rental occupies the half-open interval [startDate, endDate).
+      // Any partial, contained, or containing overlap is a conflict:
+      // existing start < requested end AND existing end > requested start.
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Exclude equipment with conflicting pending, confirmed, or active
+      // rentals, including rentals that overlap only part of the selected period.
+      const conflictingEquipmentIds = await Rental.distinct("equipment", {
+        equipment: { $in: equipmentIds },
+        status: { $in: ["PENDING", "CONFIRMED", "ACTIVE"] },
+        startDate: { $lt: rentalEnd },
+        endDate: { $gt: rentalStart },
+      });
+
+      const conflictingIds = new Set(
+        conflictingEquipmentIds.map((id) => String(id))
+      );
+
+      equipment = equipment.filter(
+        (item) => !conflictingIds.has(String(item._id))
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -118,11 +336,12 @@ const getAllEquipment = async (req, res, next) => {
         equipment,
       },
     });
+
   } catch (error) {
     next(error);
   }
 };
-
+// END GET ALL EQUIPMENT MODIFICATION BY THASINDU
 //END OF SEARCH AND FILTER EQUIPMENTS
 // ==========================================
 
@@ -178,11 +397,13 @@ const updateEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
-      condition,
       status,
       description,
       imageUrl,
       images,
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Read admin-edited promotion data.
+      offer,
       
     } = req.body;
 
@@ -216,14 +437,39 @@ const updateEquipment = async (req, res, next) => {
     if (securityDeposit !== undefined) {
       equipment.securityDeposit = securityDeposit;
     }
-    if (condition !== undefined) equipment.condition = condition;
     if (status !== undefined) equipment.status = status;
     if (description !== undefined) equipment.description = description;
     if (imageUrl !== undefined) equipment.imageUrl = imageUrl;
 
     if (images !== undefined) {
     equipment.images = Array.isArray(images) ? images : [];
-  }
+    }
+
+    
+    // ==========================================
+    // MODIFICATION: Update Equipment Special Offer
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Save or disable admin-configured
+    // promotions without changing the base rental price.
+    // ==========================================
+
+    if (offer !== undefined) {
+      if (
+        !offer ||
+        typeof offer !== "object" ||
+        Array.isArray(offer)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Offer must be an object",
+        });
+      }
+
+      equipment.offer = offer;
+    }
+
+    // END MODIFICATION: Update Equipment Special Offer by Thasindu
+
 
 
   console.log("IMAGES BEFORE SAVE:", equipment.images);
