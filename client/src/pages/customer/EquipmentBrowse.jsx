@@ -37,9 +37,22 @@ const EquipmentBrowse = () => {
 
   const [equipment, setEquipment] = useState([]);
 
+  // ==========================================
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Store the new equipment filter values.
+  // ==========================================
   const [search, setSearch] = useState("");
-  const [condition, setCondition] = useState("");
-  const [status, setStatus] = useState("");
+
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  const [specialOffersOnly, setSpecialOffersOnly] = useState(false);
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const [sortBy, setSortBy] = useState("featured");
+  // END MODIFICATION BY THASINDU
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,8 +104,12 @@ const EquipmentBrowse = () => {
   
 useEffect(() => {
   // Load equipment independently
-  // MODIFIED by Thasindu: Apply homepage category filter on initial load
-  loadEquipment(initialCategory ? { category: initialCategory } : {});
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Always hide damaged/maintenance equipment in the customer catalogue.
+  loadEquipment({
+    customerView: "true",
+    ...(initialCategory ? { category: initialCategory } : {}),
+  });
 
   // Load categories separately
   const loadCategories = async () => {
@@ -114,8 +131,11 @@ useEffect(() => {
 
     
 
-  const applyFilters = (overrides = {}) => {
-  const filters = {};
+  // ==========================================
+// MODIFIED BY: Thasindu
+// PURPOSE: Apply price, special offer and date filters.
+// ==========================================
+const applyFilters = (overrides = {}) => {
 
   const currentSearch =
     overrides.search !== undefined ? overrides.search : search;
@@ -123,11 +143,56 @@ useEffect(() => {
   const currentCategory =
     overrides.category !== undefined ? overrides.category : category;
 
-  const currentCondition =
-    overrides.condition !== undefined ? overrides.condition : condition;
+  const currentMinPrice =
+    overrides.minPrice !== undefined ? overrides.minPrice : minPrice;
 
-  const currentStatus =
-    overrides.status !== undefined ? overrides.status : status;
+  const currentMaxPrice =
+    overrides.maxPrice !== undefined ? overrides.maxPrice : maxPrice;
+
+  const currentSpecialOffers =
+    overrides.specialOffersOnly !== undefined
+      ? overrides.specialOffersOnly
+      : specialOffersOnly;
+
+  const currentStartDate =
+    overrides.startDate !== undefined ? overrides.startDate : startDate;
+
+  const currentEndDate =
+    overrides.endDate !== undefined ? overrides.endDate : endDate;
+
+  const currentSort =
+    overrides.sortBy !== undefined ? overrides.sortBy : sortBy;
+
+  // Validate that both rental dates are selected.
+  if (
+    (currentStartDate && !currentEndDate) ||
+    (!currentStartDate && currentEndDate)
+  ) {
+    setError("Please select both rental dates.");
+    return;
+  }
+
+  if (
+    currentStartDate &&
+    new Date(currentEndDate) <= new Date(currentStartDate)
+  ) {
+    setError("End date must be after the start date.");
+    return;
+  }
+
+  // Validate price range.
+  if (
+    currentMinPrice !== "" &&
+    currentMaxPrice !== "" &&
+    Number(currentMinPrice) > Number(currentMaxPrice)
+  ) {
+    setError("Minimum price cannot exceed maximum price.");
+    return;
+  }
+
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Ask the backend for customer-safe equipment in every filter request.
+  const filters = { customerView: "true" };
 
   if (currentSearch.trim()) {
     filters.search = currentSearch.trim();
@@ -137,16 +202,28 @@ useEffect(() => {
     filters.category = currentCategory;
   }
 
-  if (currentCondition) {
-    filters.condition = currentCondition;
+  if (currentMinPrice !== "") {
+    filters.minPrice = currentMinPrice;
   }
 
-  if (currentStatus) {
-    filters.status = currentStatus;
+  if (currentMaxPrice !== "") {
+    filters.maxPrice = currentMaxPrice;
   }
+
+  if (currentSpecialOffers) {
+    filters.specialOffers = "true";
+  }
+
+  if (currentStartDate && currentEndDate) {
+    filters.startDate = currentStartDate;
+    filters.endDate = currentEndDate;
+  }
+
+  filters.sortBy = currentSort;
 
   loadEquipment(filters);
 };
+// END MODIFICATION BY THASINDU
 
 
   const handleSearch = (e) => {
@@ -176,34 +253,45 @@ const handleCategorySelect = (categoryId) => {
 
 
 
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Reset all new catalogue filters.
   const handleClear = () => {
     setSearch("");
-    setCondition("");
-    setStatus("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSpecialOffersOnly(false);
+    setStartDate("");
+    setEndDate("");
+    setSortBy("featured");
 
     applyFilters({
       search: "",
-      condition: "",
-      status: "",
+      minPrice: "",
+      maxPrice: "",
+      specialOffersOnly: false,
+      startDate: "",
+      endDate: "",
+      sortBy: "featured",
     });
   };
 
 
-const getStatusClass = (itemStatus) => {
-  switch (itemStatus) {
-    case "AVAILABLE":
-      return "bg-green-50 text-green-700 ring-green-600/20";
-    case "RESERVED":
-      return "bg-yellow-50 text-yellow-700 ring-yellow-600/20";
-    case "RENTED":
-      return "bg-blue-50 text-blue-700 ring-blue-600/20";
-    case "MAINTENANCE":
-      return "bg-orange-50 text-orange-700 ring-orange-600/20";
-    case "DAMAGED":
-      return "bg-red-50 text-red-700 ring-red-600/20";
-    default:
-      return "bg-gray-50 text-gray-700 ring-gray-600/20";
+// MODIFIED BY: Thasindu
+// PURPOSE: Identify offers that are currently valid.
+const isOfferActive = (offer) => {
+  if (
+    !offer?.enabled ||
+    !["DISCOUNT", "BONUS"].includes(offer.type)
+  ) {
+    return false;
   }
+
+  const now = new Date();
+
+  return (
+    (!offer.startAt || new Date(offer.startAt) <= now) &&
+    (!offer.endAt || new Date(offer.endAt) >= now)
+  );
 };
 
 
@@ -217,6 +305,12 @@ const renderEquipmentCard = (item) => (
   >
     {/* Equipment Image */}
     <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+    {/* MODIFIED BY: Thasindu - Display active special offers */}
+    {isOfferActive(item.offer) && (
+      <div className="absolute left-3 top-3 z-10 rounded-full bg-orange-600 px-3 py-1.5 text-xs font-bold text-white shadow">
+        {item.offer.title || "Special Offer"}
+      </div>
+    )}
       {item.imageUrl ? (
         <img
           src={item.imageUrl}
@@ -261,22 +355,26 @@ const renderEquipmentCard = (item) => (
           <p className="text-xs text-gray-500">per day</p>
         </div>
 
-        <div className="text-right">
-          <p className="text-xs text-gray-500">Condition</p>
-          <p className="mt-1 text-sm font-semibold text-gray-900">
-            {item.condition}
-          </p>
-        </div>
+       
       </div>
 
       <button
         type="button"
-        onClick={() => navigate(`/customer/equipment/${item._id}`)}
+        // MODIFIED BY: Thasindu
+        // PURPOSE: Carry selected rental dates into equipment details.
+        onClick={() =>
+          navigate(`/customer/equipment/${item._id}`, {
+            state: {
+              startDate,
+              endDate,
+            },
+          })
+        }
         className="mt-5 w-full rounded-xl border border-gray-950 px-4 py-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-950 hover:text-white"
       >
-        {item.status === "AVAILABLE"
-          ? "View & Rent"
-          : "View Details"}
+       {["MAINTENANCE", "DAMAGED"].includes(item.status)
+        ? "View Details"
+        : "View & Rent"}
       </button>
     </div>
   </article>
@@ -457,13 +555,13 @@ group relative h-64 w-[calc((100%_-_1rem)/2)] shrink-0 snap-start sm:w-[calc((10
           
           <div
             ref={equipmentSectionRef}
-            className="mt-8 scroll-mt-24 lg:grid lg:grid-cols-[240px_1fr] lg:gap-8"
+            className="mt-8 scroll-mt-24 lg:grid lg:grid-cols-[280px_1fr] lg:gap-8"
           >
 
 
             {/* Left Filter Panel */}
             <aside className="mb-6 lg:mb-0">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm lg:sticky lg:top-24">
 
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-950">
@@ -479,76 +577,142 @@ group relative h-64 w-[calc((100%_-_1rem)/2)] shrink-0 snap-start sm:w-[calc((10
                   </button>
                 </div>
 
-                {/* Condition */}
-                <div className="mt-6 border-t border-gray-100 pt-5">
-                  <p className="text-sm font-bold uppercase tracking-wide text-gray-900">
-                    Condition
-                  </p>
-
-                  <div className="mt-3 space-y-2">
-                    {["EXCELLENT", "GOOD", "FAIR", "DAMAGED"].map((value) => (
-                      <label
-                        key={value}
-                        className="flex cursor-pointer items-center gap-3 text-sm text-gray-700"
-                      >
-                        <input
-                          type="radio"
-                          name="condition"
-                          value={value}
-                          checked={condition === value}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setCondition(value);
-                            applyFilters({ condition: value });
-                          }}
-                          className="h-4 w-4 accent-orange-600"
-                        />
-
-                        <span className="capitalize">
-                          {value.toLowerCase()}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                
 
                 {/* Availability */}
-                <div className="mt-6 border-t border-gray-100 pt-5">
+                {/* ==========================================
+                    NEW EQUIPMENT FILTER PANEL
+                    MODIFIED BY: Thasindu
+                    PURPOSE: Filter by rental price, offers and dates.
+                ========================================== */}
+
+                {/* PRICE RANGE */}
+                <div className="mt-3 border-t border-gray-100 pt-3">
+
                   <p className="text-sm font-bold uppercase tracking-wide text-gray-900">
-                    Availability
+                    Price Range
                   </p>
 
-                  <div className="mt-3 space-y-2">
-                    {[
-                      "AVAILABLE",
-                      "RESERVED",
-                      "RENTED",
-                      "MAINTENANCE",
-                    ].map((value) => (
-                      <label
-                        key={value}
-                        className="flex cursor-pointer items-center gap-3 text-sm text-gray-700"
-                      >
-                        <input
-                          type="radio"
-                          name="status"
-                          value={value}
-                          checked={status === value}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setStatus(value);
-                            applyFilters({ status: value });
-                          }}
-                          className="h-4 w-4 accent-orange-600"
-                        />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Daily rental price (LKR)
+                  </p>
 
-                        <span className="capitalize">
-                          {value.toLowerCase()}
-                        </span>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        Minimum
                       </label>
-                    ))}
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={minPrice}
+                        onChange={(e) => setMinPrice(e.target.value)}
+                        placeholder="Min"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        Maximum
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={maxPrice}
+                        onChange={(e) => setMaxPrice(e.target.value)}
+                        placeholder="Max"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                      />
+                    </div>
+
                   </div>
                 </div>
+
+
+                {/* SPECIAL OFFERS */}
+                <div className="mt-3 border-t border-gray-100 pt-3">
+
+                  <p className="text-sm font-bold uppercase tracking-wide text-gray-900">
+                    Special Offers
+                  </p>
+
+                  <label className="mt-3 flex cursor-pointer items-center gap-3 text-sm text-gray-700">
+
+                    <input
+                      type="checkbox"
+                      checked={specialOffersOnly}
+                      onChange={(e) => setSpecialOffersOnly(e.target.checked)}
+                      className="h-4 w-4 rounded accent-orange-600"
+                    />
+
+                    <span>
+                      Show special offers only
+                    </span>
+
+                  </label>
+                </div>
+
+
+                {/* RENTAL DATE AVAILABILITY */}
+                <div className="mt-3 border-t border-gray-100 pt-3">
+
+                  <p className="text-sm font-bold uppercase tracking-wide text-gray-900">
+                    Check Rental Dates
+                  </p>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        Start date
+                      </label>
+
+                      <input
+                        type="date"
+                        value={startDate}
+                        min={new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        ).toISOString().split("T")[0]}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        End date
+                      </label>
+
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate || new Date(
+                          Date.now() - new Date().getTimezoneOffset() * 60000
+                        ).toISOString().split("T")[0]}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* APPLY FILTERS */}
+                <button
+                  type="button"
+                  onClick={() => applyFilters()}
+                  className="mt-4 w-full rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-orange-700"
+                >
+                  Apply Filters
+                </button>
+
+                {/* END NEW FILTER PANEL BY THASINDU */}
 
             
 
@@ -573,11 +737,20 @@ group relative h-64 w-[calc((100%_-_1rem)/2)] shrink-0 snap-start sm:w-[calc((10
                   )}
                 </div>
 
-                <select className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-orange-500">
-                  <option>Sort by: Featured</option>
-                  <option>Price: Low to High</option>
-                  <option>Price: High to Low</option>
-                  <option>Name: A-Z</option>
+                {/* MODIFIED BY: Thasindu - Functional equipment sorting */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSortBy(value);
+                    applyFilters({ sortBy: value });
+                  }}
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-orange-500"
+                >
+                  <option value="featured">Sort by: Featured</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="name_asc">Name: A-Z</option>
                 </select>
 
               </div>
