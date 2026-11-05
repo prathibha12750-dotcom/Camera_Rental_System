@@ -542,14 +542,7 @@ const handleRentalRequest = async () => {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">
-                    Condition
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {equipment.condition}
-                  </p>
-                </div>
+                
 
                 <div className="rounded-xl bg-gray-50 p-4">
                   <p className="text-xs text-gray-500">
@@ -777,15 +770,7 @@ const handleRentalRequest = async () => {
                 </span>
               </div>
 
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Condition
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.condition}
-                </span>
-              </div>
+              
 
               <div className="flex justify-between gap-4 py-4">
                 <span className="text-sm text-gray-500">
