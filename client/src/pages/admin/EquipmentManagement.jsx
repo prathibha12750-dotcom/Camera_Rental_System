@@ -110,7 +110,6 @@ const EquipmentManagement = () => {
       serialNumber: "",
       rentalPricePerDay: "",
       securityDeposit: "",
-      condition: "GOOD",
       status: "AVAILABLE",
       description: "",
       imageUrl: "",
@@ -149,7 +148,6 @@ const resetEquipmentForm = () => {
     serialNumber: "",
     rentalPricePerDay: "",
     securityDeposit: "",
-    condition: "GOOD",
     status: "AVAILABLE",
     description: "",
     imageUrl: "",
@@ -174,7 +172,6 @@ const resetEquipmentForm = () => {
             serialNumber: item.serialNumber || "",
             rentalPricePerDay: item.rentalPricePerDay || "",
             securityDeposit: item.securityDeposit || "",
-            condition: item.condition || "GOOD",
             status: item.status || "AVAILABLE",
             description: item.description || "",
             imageUrl: item.imageUrl || "",
@@ -239,7 +236,6 @@ const resetEquipmentForm = () => {
       serialNumber: "",
       rentalPricePerDay: "",
       securityDeposit: "",
-      condition: "GOOD",
       status: "AVAILABLE",
       description: "",
       imageUrl: "",
@@ -449,21 +445,7 @@ const resetEquipmentForm = () => {
                         className="rounded-xl border border-gray-300 px-4 py-3"
                     />
 
-                    <select
-                        value={formData.condition}
-                        onChange={(e) =>
-                            setFormData({
-                                ...formData,
-                                condition: e.target.value,
-                            })
-                        }
-                        className="rounded-xl border border-gray-300 px-4 py-3"
-                    >
-                            <option value="EXCELLENT">Excellent</option>
-                            <option value="GOOD">Good</option>
-                            <option value="FAIR">Fair</option>
-                            <option value="DAMAGED">Damaged</option>
-                    </select>
+                    
 
                     <select
                         value={formData.status}
@@ -663,9 +645,7 @@ const resetEquipmentForm = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                     Category
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                    Condition
-                  </th>
+                  
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                     Status
                   </th>
@@ -715,9 +695,7 @@ const resetEquipmentForm = () => {
                       {item.category?.name || "—"}
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {item.condition}
-                    </td>
+                  
 
                     <td className="px-6 py-4">
                       <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
