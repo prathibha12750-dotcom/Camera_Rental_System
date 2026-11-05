@@ -385,11 +385,14 @@ const issueRental = async (req, res, next) => {
 
 // ============================================================
 // RETURN EQUIPMENT - ADMIN
+// MODIFIED BY: Thasindu
+// PURPOSE: Use a simple damaged/not-damaged assessment
+// when staff accept returned equipment.
 // ============================================================
 
 const returnRental = async (req, res, next) => {
   try {
-    const { condition, damageDescription, notes } = req.body;
+    const { isDamaged, damageDescription, notes } = req.body;
 
     const rental = await Rental.findById(req.params.id);
 
@@ -407,28 +410,16 @@ const returnRental = async (req, res, next) => {
       });
     }
 
-    if (!condition) {
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Require an explicit Yes/No damage assessment.
+    if (typeof isDamaged !== "boolean") {
       return res.status(400).json({
         success: false,
-        message: "Return condition is required",
+        message: "Please specify whether the equipment was damaged",
       });
     }
 
-    const allowedConditions = [
-      "EXCELLENT",
-      "GOOD",
-      "FAIR",
-      "DAMAGED",
-    ];
-
-    if (!allowedConditions.includes(condition)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid return condition",
-      });
-    }
-
-    if (condition === "DAMAGED" && !damageDescription) {
+    if (isDamaged && !damageDescription?.trim()) {
       return res.status(400).json({
         success: false,
         message: "Damage description is required for damaged equipment",
@@ -446,42 +437,49 @@ const returnRental = async (req, res, next) => {
 
     const returnedAt = new Date();
 
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Store the damage assessment in the return history.
     const returnRecord = await Return.create({
       rental: rental._id,
       equipment: equipment._id,
       customer: rental.customer,
       returnedAt,
-      condition,
-      damageDescription: damageDescription || "",
+      isDamaged,
+      damageDescription: isDamaged
+        ? damageDescription.trim()
+        : "",
       notes: notes || "",
       receivedBy: req.user.userId,
     });
 
-    // ======================================
-    // damagerecord connecting
-    // ======================================
+    // ==========================================
+    // CREATE DAMAGE RECORD WHEN NECESSARY
+    // ==========================================
 
     let damageRecord = null;
 
-    if (condition === "DAMAGED") {
+    if (isDamaged) {
       damageRecord = await DamageRecord.create({
         rental: rental._id,
         equipment: equipment._id,
         customer: rental.customer,
         returnRecord: returnRecord._id,
-        description: damageDescription,
+        description: damageDescription.trim(),
         reportedBy: req.user.userId,
       });
     }
 
-    // =========================================
+    // ==========================================
+    // UPDATE RENTAL AND EQUIPMENT STATUS
+    // ==========================================
 
     rental.status = "RETURNED";
     rental.returnedAt = returnedAt;
 
-    equipment.condition = condition;
-
-    if (condition === "DAMAGED") {
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Use equipment operational status instead
+    // of storing a separate equipment condition.
+    if (isDamaged) {
       equipment.status = "DAMAGED";
     } else {
       equipment.status = "AVAILABLE";
@@ -500,12 +498,13 @@ const returnRental = async (req, res, next) => {
         damageRecord,
       },
     });
+
   } catch (error) {
     next(error);
   }
 };
-// return equipment ends here
-// =========================================================
+
+// END RETURN EQUIPMENT MODIFICATION BY THASINDU
 
 
 // ==========================================================
@@ -516,9 +515,11 @@ const getAllDamageRecords = async (req, res, next) => {
   try {
     const damageRecords = await DamageRecord.find()
       .populate("customer", "name email")
+      // MODIFIED BY: Thasindu
+      // PURPOSE: Remove the deleted condition field from populated equipment.
       .populate(
         "equipment",
-        "name brand model serialNumber condition status"
+        "name brand model serialNumber status"
       )
       .populate("reportedBy", "name email")
       .populate("returnRecord")
@@ -593,10 +594,12 @@ const updateDamageRecordStatus = async (req, res, next) => {
       equipment.status = "MAINTENANCE";
     }
 
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Mark repaired equipment as available without
+    // restoring an obsolete condition value.
     if (status === "RESOLVED") {
       damageRecord.resolvedAt = new Date();
       equipment.status = "AVAILABLE";
-      equipment.condition = "GOOD";
     } else {
       damageRecord.resolvedAt = null;
     }
@@ -679,7 +682,7 @@ const getMyRentals = async (req, res, next) => {
     })
       .populate(
         "equipment",
-        "name brand model serialNumber rentalPricePerDay status condition"
+        "name brand model serialNumber rentalPricePerDay status"
       )
       .sort({ createdAt: -1 });
 
