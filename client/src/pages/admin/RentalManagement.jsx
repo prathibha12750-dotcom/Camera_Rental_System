@@ -21,9 +21,11 @@ const RentalManagement = () => {
 
   const [returningRental, setReturningRental] = useState(null);
 
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Store a simple damaged/not-damaged return assessment.
     const [returnData, setReturnData] = useState({
-    condition: "GOOD",
-    damageDescription: "",
+      isDamaged: false,
+      damageDescription: "",
     });
 
     const [showOverdueOnly, setShowOverdueOnly] = useState(false);
@@ -266,8 +268,10 @@ const handleIssue = async (rental) => {
 const openReturnForm = (rental) => {
   setReturningRental(rental);
 
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Reset the damage assessment whenever a return form opens.
   setReturnData({
-    condition: "GOOD",
+    isDamaged: false,
     damageDescription: "",
   });
 
@@ -280,8 +284,10 @@ const openReturnForm = (rental) => {
 const handleReturn = async () => {
   if (!returningRental) return;
 
+  // MODIFIED BY: Thasindu
+  // PURPOSE: Require a description only when damage is reported.
   if (
-    returnData.condition === "DAMAGED" &&
+    returnData.isDamaged &&
     !returnData.damageDescription.trim()
   ) {
     setError(
@@ -295,8 +301,10 @@ const handleReturn = async () => {
     setError("");
     setSuccess("");
 
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Send the Boolean damage assessment to the backend.
     await returnRental(returningRental._id, {
-      condition: returnData.condition,
+      isDamaged: returnData.isDamaged,
       damageDescription: returnData.damageDescription,
     });
 
@@ -304,8 +312,10 @@ const handleReturn = async () => {
 
     setReturningRental(null);
 
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Reset the return assessment after successful submission.
     setReturnData({
-      condition: "GOOD",
+      isDamaged: false,
       damageDescription: "",
     });
 
@@ -533,47 +543,83 @@ const getDamageStatusClass = (status) => {
 
                 <div className="mt-6 grid gap-4">
 
+                {/* ==========================================
+                    MODIFICATION: Simple Return Damage Assessment
+                    MODIFIED BY: Thasindu
+                    PURPOSE: Ask staff whether returned equipment is damaged.
+                ========================================== */}
+
                 <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Returned Condition
+                  <label className="mb-3 block text-sm font-semibold text-gray-700">
+                    Was the equipment returned damaged?
+                  </label>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4">
+                      <input
+                        type="radio"
+                        name="returnDamage"
+                        checked={returnData.isDamaged === false}
+                        onChange={() =>
+                          setReturnData({
+                            ...returnData,
+                            isDamaged: false,
+                            damageDescription: "",
+                          })
+                        }
+                        className="h-4 w-4 accent-orange-600"
+                      />
+
+                      <span className="font-medium text-gray-800">
+                        No damage
+                      </span>
                     </label>
 
-                    <select
-                    value={returnData.condition}
-                    onChange={(e) =>
-                        setReturnData({
-                        ...returnData,
-                        condition: e.target.value,
-                        })
-                    }
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3"
-                    >
-                    <option value="EXCELLENT">Excellent</option>
-                    <option value="GOOD">Good</option>
-                    <option value="FAIR">Fair</option>
-                    <option value="DAMAGED">Damaged</option>
-                    </select>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4">
+                      <input
+                        type="radio"
+                        name="returnDamage"
+                        checked={returnData.isDamaged === true}
+                        onChange={() =>
+                          setReturnData({
+                            ...returnData,
+                            isDamaged: true,
+                          })
+                        }
+                        className="h-4 w-4 accent-orange-600"
+                      />
+
+                      <span className="font-medium text-gray-800">
+                        Damaged
+                      </span>
+                    </label>
+
+                  </div>
                 </div>
 
-                {returnData.condition === "DAMAGED" && (
-                    <div>
+                {/* Show description only when damage is reported */}
+                {returnData.isDamaged && (
+                  <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
-                        Damage Description
+                      Damage Description
                     </label>
 
                     <textarea
-                        value={returnData.damageDescription}
-                        onChange={(e) =>
+                      value={returnData.damageDescription}
+                      onChange={(e) =>
                         setReturnData({
-                            ...returnData,
-                            damageDescription: e.target.value,
+                          ...returnData,
+                          damageDescription: e.target.value,
                         })
-                        }
-                        placeholder="Describe the damage..."
-                        className="min-h-28 w-full rounded-xl border border-gray-300 px-4 py-3"
+                      }
+                      placeholder="Describe the damage..."
+                      className="min-h-28 w-full rounded-xl border border-gray-300 px-4 py-3"
                     />
-                    </div>
+                  </div>
                 )}
+
+                {/* END MODIFICATION: Return Damage Assessment by Thasindu */}
 
                 <button
                     type="button"
