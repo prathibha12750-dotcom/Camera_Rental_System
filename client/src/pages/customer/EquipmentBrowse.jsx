@@ -174,9 +174,9 @@ const applyFilters = (overrides = {}) => {
 
   if (
     currentStartDate &&
-    new Date(currentEndDate) <= new Date(currentStartDate)
+    new Date(currentEndDate) < new Date(currentStartDate)
   ) {
-    setError("End date must be after the start date.");
+    setError("End date cannot be before the start date.");
     return;
   }
 
@@ -678,7 +678,7 @@ group relative h-64 w-[calc((100%_-_1rem)/2)] shrink-0 snap-start sm:w-[calc((10
                           Date.now() - new Date().getTimezoneOffset() * 60000
                         ).toISOString().split("T")[0]}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                        className="w-full rounded-lg border border-gray-300 px-1 py-1 text-[1px] outline-none focus:border-orange-500"
                       />
                     </div>
 
@@ -694,7 +694,7 @@ group relative h-64 w-[calc((100%_-_1rem)/2)] shrink-0 snap-start sm:w-[calc((10
                           Date.now() - new Date().getTimezoneOffset() * 60000
                         ).toISOString().split("T")[0]}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                        className="w-full rounded-lg border border-gray-300 px-1 py-1 text-[1px] outline-none focus:border-orange-500"
                       />
                     </div>
 
