@@ -1417,7 +1417,7 @@ const Home = () => {
 
             {[
               { id: "new", label: "New Arrivals", enabled: true },
-              { id: "new", label: "New Arrivals", enabled: true },
+              
               { id: "offers", label: "Special Offers", enabled: false },
             ].map((tab) => (
               <button
