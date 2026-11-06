@@ -261,7 +261,7 @@ const getAllEquipment = async (req, res, next) => {
       if (
         Number.isNaN(rentalStart.getTime()) ||
         Number.isNaN(rentalEnd.getTime()) ||
-        rentalStart >= rentalEnd
+        rentalStart > rentalEnd
       ) {
         return res.status(400).json({
           success: false,
@@ -307,17 +307,15 @@ const getAllEquipment = async (req, res, next) => {
     if (rentalStart && rentalEnd && equipment.length > 0) {
       const equipmentIds = equipment.map((item) => item._id);
 
-      // A rental occupies the half-open interval [startDate, endDate).
-      // Any partial, contained, or containing overlap is a conflict:
-      // existing start < requested end AND existing end > requested start.
       // MODIFIED BY: Thasindu
-      // PURPOSE: Exclude equipment with conflicting pending, confirmed, or active
-      // rentals, including rentals that overlap only part of the selected period.
+      // PURPOSE: Treat both selected calendar dates as occupied rental days.
+      // This also supports one-day bookings where startDate and endDate are equal.
+      // Any shared calendar day makes the requested periods overlap.
       const conflictingEquipmentIds = await Rental.distinct("equipment", {
         equipment: { $in: equipmentIds },
         status: { $in: ["PENDING", "CONFIRMED", "ACTIVE"] },
-        startDate: { $lt: rentalEnd },
-        endDate: { $gt: rentalStart },
+        startDate: { $lte: rentalEnd },
+        endDate: { $gte: rentalStart },
       });
 
       const conflictingIds = new Set(
