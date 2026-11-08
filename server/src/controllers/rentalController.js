@@ -1360,7 +1360,12 @@ const returnRental = async (req, res, next) => {
   try {
     validId(req.params.id);
 
-    const { condition, damageDescription, notes, accessories = [] } = req.body;
+    const {
+      condition,
+      damageDescription,
+      notes,
+      accessories = [],
+    } = req.body;
 
     if (!condition) {
       fail(400, "Return condition is required");
@@ -1370,30 +1375,44 @@ const returnRental = async (req, res, next) => {
       fail(400, "Invalid return condition");
     }
 
+
+    // ==========================================
+    // VALIDATE DAMAGE DESCRIPTION
+    // ==========================================
+
     const description = optionalText(
       damageDescription,
       "Damage description"
     );
+
+    // ==========================================
+    // VALIDATE RETURN INSPECTION NOTES
+    // ==========================================
+
     const cleanNotes = (() => {
-    if (notes === undefined || notes === null) {
-      return "";
-    }
+      if (notes === undefined || notes === null) {
+        return "";
+      }
 
-    if (typeof notes !== "string") {
-      fail(400, "Return inspection notes must be text.");
-    }
+      if (typeof notes !== "string") {
+        fail(400, "Return inspection notes must be text.");
+      }
 
-    const value = notes.trim();
+      const value = notes.trim();
 
-    if (value.length > 2000) {
-      fail(
-        400,
-        "Return inspection notes cannot exceed 2000 characters."
-      );
-    }
+      if (value.length > 2000) {
+        fail(
+          400,
+          "Return inspection notes cannot exceed 2000 characters."
+        );
+      }
 
-    return value;
-  })();
+      return value;
+    })();
+
+    // ==========================================
+    // REQUIRE DESCRIPTION FOR DAMAGED EQUIPMENT
+    // ==========================================
 
     if (condition === "DAMAGED" && !description) {
       fail(
@@ -1513,8 +1532,14 @@ const returnRental = async (req, res, next) => {
       };
     });
 
+    // ==========================================
+    // PROCESS EQUIPMENT RETURN ATOMICALLY
+    // ==========================================
+
     const result = await inTransaction(async (session) => {
-      const rental = await Rental.findById(req.params.id).session(session);
+      const rental = await Rental.findById(
+        req.params.id
+      ).session(session);
 
       if (!rental) {
         fail(404, "Rental not found");
@@ -1766,6 +1791,10 @@ const returnRental = async (req, res, next) => {
 
       equipment.condition = condition;
 
+      // ==========================================
+      // DETERMINE EQUIPMENT AVAILABILITY
+      // ==========================================
+
       const openMaintenance = await DamageRecord.exists({
         equipment: equipment._id,
         status: "MAINTENANCE",
@@ -1817,13 +1846,13 @@ const returnRental = async (req, res, next) => {
         notificationError
       );
     }
-
-
+    
     return res.status(200).json({
       success: true,
       message: "Equipment returned successfully",
       data: result,
     });
+
   } catch (error) {
     return handleError(error, res, next);
   }
@@ -1839,7 +1868,7 @@ const getAllDamageRecords = async (req, res, next) => {
       .populate("customer", "name email")
       .populate(
         "equipment",
-        "name brand model serialNumber condition status"
+        "name brand model serialNumber status condition"
       )
       .populate("reportedBy", "name email")
       .populate("returnRecord")
@@ -2046,12 +2075,17 @@ const updateDamageRecordStatus = async (req, res, next) => {
       }).session(session);
 
       if (activeRental) {
-        // Editing an old resolved record must not release issued equipment.
+        // Never release equipment that is currently rented.
         equipment.status = "RENTED";
       } else if (unresolved) {
-        equipment.status = maintenance ? "MAINTENANCE" : "DAMAGED";
+        // Keep equipment unavailable while damage remains unresolved.
+        equipment.status = maintenance
+          ? "MAINTENANCE"
+          : "DAMAGED";
+
         equipment.condition = "DAMAGED";
       } else if (!previouslyResolved) {
+        // Restore availability only when all damage is resolved.
         equipment.status = "AVAILABLE";
         equipment.condition = "GOOD";
       }
@@ -2131,7 +2165,7 @@ const getMyRentals = async (req, res, next) => {
     })
       .populate(
         "equipment",
-        "name brand model serialNumber rentalPricePerDay status condition"
+        "name brand model serialNumber rentalPricePerDay status"
       )
       .sort({ createdAt: -1 });
 

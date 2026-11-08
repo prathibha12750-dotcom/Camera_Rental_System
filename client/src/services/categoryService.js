@@ -1,19 +1,16 @@
-
 import api from "./api";
 
-// =====================================
+// ==========================================
 // GET ALL CATEGORIES
-// =====================================
-
+// ==========================================
 export const getAllCategories = async () => {
   const response = await api.get("/categories");
   return response.data;
 };
 
-// =====================================
-// CREATE CATEGORY
-// =====================================
-
+// ==========================================
+// CREATE CATEGORY - ADMIN
+// ==========================================
 export const createCategory = async (categoryData) => {
   const response = await api.post(
     "/categories",
@@ -23,10 +20,9 @@ export const createCategory = async (categoryData) => {
   return response.data;
 };
 
-// =====================================
-// UPDATE CATEGORY
-// =====================================
-
+// ==========================================
+// UPDATE CATEGORY - ADMIN
+// ==========================================
 export const updateCategory = async (categoryId, categoryData) => {
   const response = await api.put(
     `/categories/${categoryId}`,
@@ -36,10 +32,9 @@ export const updateCategory = async (categoryId, categoryData) => {
   return response.data;
 };
 
-// =====================================
-// DELETE CATEGORY
-// =====================================
-
+// ==========================================
+// DELETE CATEGORY - ADMIN
+// ==========================================
 export const deleteCategory = async (categoryId) => {
   const response = await api.delete(
     `/categories/${categoryId}`

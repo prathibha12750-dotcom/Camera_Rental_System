@@ -1,4 +1,3 @@
-import CategoryManagement from "../pages/admin/CategoryManagement";
 import AboutUs from "../pages/AboutUs";
 import Footer from "../components/Footer";
 import ContactUs from "../pages/ContactUs";
@@ -7,7 +6,7 @@ import ContactUs from "../pages/ContactUs";
  // REACT ROUTER
  // ==========================================
 
-import {
+import{
   BrowserRouter,
   Link,
   Navigate,
@@ -55,6 +54,7 @@ import EquipmentBrowse from "../pages/customer/EquipmentBrowse";
 import EquipmentDetails from "../pages/customer/EquipmentDetails";
 import MyRentals from "../pages/customer/MyRentals";
 import CustomerRentalDetails from "../pages/customer/CustomerRentalDetails";
+
 
 // ==========================================
 // PHOTOGRAPHER PAGES
@@ -116,6 +116,7 @@ import Notifications from "../pages/admin/Notifications";
 
 import EquipmentManagement from "../pages/admin/EquipmentManagement";
 import RentalManagement from "../pages/admin/RentalManagement";
+import CategoryManagement from "../pages/admin/CategoryManagement";
 
 // ==========================================
 // ROUTE GUARDS
@@ -235,6 +236,21 @@ const AppRoutes = () => {
         />
 
         {/* ==================================
+            PUBLIC EQUIPMENT BROWSING
+        ================================== */}
+
+        <Route
+          path="/customer/equipment"
+          element={<EquipmentBrowse />}
+        />
+
+        <Route
+          path="/customer/equipment/:id"
+          element={<EquipmentDetails />}
+        />
+
+
+        {/* ==================================
             PROTECTED ROUTES
         ================================== */}
 
@@ -298,21 +314,6 @@ const AppRoutes = () => {
               <Route
                 path="/customer/photographer-application"
                 element={<PhotographerApplication />}
-              />
-
-              {/* =============================
-                  CUSTOMER EQUIPMENT ROUTES
-                  Added by Thasindu
-              ============================= */}
-
-              <Route
-                path="/customer/equipment"
-                element={<EquipmentBrowse />}
-              />
-
-              <Route
-                path="/customer/equipment/:id"
-                element={<EquipmentDetails />}
               />
 
               {/* =============================
@@ -669,15 +670,20 @@ const AppRoutes = () => {
                   path="/admin/equipment"
                   element={<EquipmentManagement />}
                 />
+                    
+                {/* ==================================
+                    ADMIN CATEGORY MANAGEMENT
+                ================================== */}
 
-
-                {/* Category Management - Added by Abilash */}
                 <Route
                   path="/admin/categories"
                   element={<CategoryManagement />}
                 />
+                    
+                {/* ==================================
+                    ADMIN RENTAL MANAGEMENT
+                ================================== */}
 
-                {/* Rental Management - Added by Thasindu */}
                 <Route
                   path="/admin/rentals"
                   element={<RentalManagement />}

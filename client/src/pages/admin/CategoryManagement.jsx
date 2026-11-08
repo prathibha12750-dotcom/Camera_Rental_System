@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from "react";
 
-
 import {
   getAllCategories,
   createCategory,
@@ -9,10 +8,10 @@ import {
   deleteCategory,
 } from "../../services/categoryService";
 
-
 const emptyForm = {
   name: "",
   description: "",
+  imageUrl: "",
   status: "ACTIVE",
 };
 
@@ -24,8 +23,8 @@ const CategoryManagement = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
   const [formData, setFormData] = useState(emptyForm);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -36,7 +35,6 @@ const CategoryManagement = () => {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      setError("");
 
       const result = await getAllCategories();
 
@@ -44,7 +42,7 @@ const CategoryManagement = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-        "Failed to load categories."
+          "Failed to load categories."
       );
     } finally {
       setLoading(false);
@@ -82,6 +80,7 @@ const CategoryManagement = () => {
     setFormData({
       name: category.name || "",
       description: category.description || "",
+      imageUrl: category.imageUrl || "",
       status: category.status || "ACTIVE",
     });
 
@@ -106,6 +105,7 @@ const CategoryManagement = () => {
 
     const name = formData.name.trim();
     const description = formData.description.trim();
+    const imageUrl = formData.imageUrl.trim();
 
     if (name.length < 2 || name.length > 100) {
       setError("Category name must be 2–100 characters.");
@@ -117,6 +117,19 @@ const CategoryManagement = () => {
       return;
     }
 
+    if (imageUrl) {
+      try {
+        const url = new URL(imageUrl);
+
+        if (!["http:", "https:"].includes(url.protocol)) {
+          throw new Error("Invalid protocol");
+        }
+      } catch {
+        setError("Enter a valid HTTP or HTTPS image URL.");
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError("");
@@ -125,6 +138,7 @@ const CategoryManagement = () => {
       const payload = {
         name,
         description,
+        imageUrl,
         status: formData.status,
       };
 
@@ -144,48 +158,44 @@ const CategoryManagement = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-        "Failed to save category."
+          "Failed to save category."
       );
     } finally {
       setSaving(false);
     }
   };
 
-  
-// ========================================
-// DELETE CATEGORY
-// ========================================
+  // ========================================
+  // DELETE CATEGORY
+  // ========================================
 
-const handleDelete = async (category) => {
-  const confirmed = window.confirm(
-    `Are you sure you want to delete "${category.name}"?\n\n` +
-    "This action cannot be undone."
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    setDeletingId(category._id);
-    setError("");
-    setSuccess("");
-
-    await deleteCategory(category._id);
-
-    setSuccess("Category deleted successfully.");
-
-    await loadCategories();
-  } catch (err) {
-    setError(
-      err.response?.data?.message ||
-      "Failed to delete category."
+  const handleDelete = async (category) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${category.name}"?\n\n` +
+        "This action cannot be undone."
     );
-  } finally {
-    setDeletingId(null);
-  }
-};
 
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(category._id);
+      setError("");
+      setSuccess("");
+
+      await deleteCategory(category._id);
+
+      setSuccess("Category deleted successfully.");
+
+      await loadCategories();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Failed to delete category."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // ========================================
   // PAGE
@@ -193,7 +203,6 @@ const handleDelete = async (category) => {
 
   return (
     <div className="space-y-6">
-
       {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -202,7 +211,7 @@ const handleDelete = async (category) => {
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Manage equipment categories used in the system.
+            Manage equipment categories, images, and availability.
           </p>
         </div>
 
@@ -239,7 +248,6 @@ const handleDelete = async (category) => {
           </h2>
 
           <div className="grid gap-5 md:grid-cols-2">
-
             <div>
               <label
                 htmlFor="categoryName"
@@ -301,7 +309,45 @@ const handleDelete = async (category) => {
                 placeholder="Enter category description..."
               />
             </div>
+
+            <div className="md:col-span-2">
+              <label
+                htmlFor="categoryImageUrl"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
+                Category Image URL
+              </label>
+
+              <input
+                id="categoryImageUrl"
+                type="url"
+                name="imageUrl"
+                value={formData.imageUrl}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm"
+                placeholder="https://example.com/category.jpg"
+              />
+
+              <p className="mt-1 text-xs text-gray-500">
+                Optional image displayed for this category.
+              </p>
+            </div>
           </div>
+
+          {/* IMAGE PREVIEW */}
+          {formData.imageUrl && (
+            <div className="mt-5 max-w-md overflow-hidden rounded-xl border bg-gray-100">
+              <img
+                key={formData.imageUrl}
+                src={formData.imageUrl}
+                alt="Category preview"
+                className="h-48 w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <button
@@ -312,8 +358,8 @@ const handleDelete = async (category) => {
               {saving
                 ? "Saving..."
                 : editingId
-                ? "Update Category"
-                : "Create Category"}
+                  ? "Update Category"
+                  : "Create Category"}
             </button>
 
             <button
@@ -330,7 +376,6 @@ const handleDelete = async (category) => {
 
       {/* CATEGORY TABLE */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="font-semibold text-gray-900">
             Equipment Categories ({categories.length})
@@ -339,19 +384,22 @@ const handleDelete = async (category) => {
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-
             <thead className="bg-gray-50">
               <tr>
-                {["Name", "Description", "Status", "Action"].map(
-                  (heading) => (
-                    <th
-                      key={heading}
-                      className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500"
-                    >
-                      {heading}
-                    </th>
-                  )
-                )}
+                {[
+                  "Image",
+                  "Name",
+                  "Description",
+                  "Status",
+                  "Actions",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-500"
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
 
@@ -359,7 +407,7 @@ const handleDelete = async (category) => {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-6 py-8 text-center text-sm text-gray-500"
                   >
                     Loading categories...
@@ -368,7 +416,7 @@ const handleDelete = async (category) => {
               ) : categories.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-6 py-8 text-center text-sm text-gray-500"
                   >
                     No categories found.
@@ -377,6 +425,19 @@ const handleDelete = async (category) => {
               ) : (
                 categories.map((category) => (
                   <tr key={category._id}>
+                    <td className="px-6 py-4">
+                      {category.imageUrl ? (
+                        <img
+                          src={category.imageUrl}
+                          alt={category.name}
+                          className="h-14 w-20 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-20 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                    </td>
 
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {category.name}
@@ -398,41 +459,36 @@ const handleDelete = async (category) => {
                       </span>
                     </td>
 
-
                     <td className="px-6 py-4">
-                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4">
                         <button
-                        type="button"
-                        onClick={() => handleEditClick(category)}
-                        disabled={deletingId !== null}
-                        className="text-sm font-semibold text-orange-600 hover:text-orange-700 disabled:opacity-50"
+                          type="button"
+                          onClick={() => handleEditClick(category)}
+                          disabled={deletingId !== null}
+                          className="text-sm font-semibold text-orange-600 hover:text-orange-700 disabled:opacity-50"
                         >
-                        Edit
+                          Edit
                         </button>
 
                         <button
-                        type="button"
-                        onClick={() => handleDelete(category)}
-                        disabled={deletingId !== null}
-                        className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                          type="button"
+                          onClick={() => handleDelete(category)}
+                          disabled={deletingId !== null}
+                          className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
                         >
-                        {deletingId === category._id
+                          {deletingId === category._id
                             ? "Deleting..."
                             : "Delete"}
                         </button>
-                    </div>
+                      </div>
                     </td>
-
-
                   </tr>
                 ))
               )}
             </tbody>
-
           </table>
         </div>
       </div>
-
     </div>
   );
 };

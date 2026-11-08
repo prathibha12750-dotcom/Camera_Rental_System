@@ -14,33 +14,8 @@ const authorizeRoles = require("../middleware/authorizeRoles");
 
 const router = express.Router();
 
-// ==========================================
-// GET ALL EQUIPMENT
-// AUTHENTICATED USERS
-// ==========================================
-
-router.get(
-  "/",
-  authenticate,
-  getAllEquipment
-);
-
-// ==========================================
-// GET ONE EQUIPMENT
-// AUTHENTICATED USERS
-// ==========================================
-
-router.get(
-  "/:id",
-  authenticate,
-  getEquipmentById
-);
-
-// ==========================================
-// CREATE EQUIPMENT
-// ADMIN AND CLERK
-// ==========================================
-
+router.get("/", getAllEquipment);
+router.get("/:id", getEquipmentById);
 router.post(
   "/",
   authenticate,
@@ -49,10 +24,8 @@ router.post(
 );
 
 // ==========================================
-// UPDATE EQUIPMENT
-// ADMIN AND CLERK
+// UPDATE EQUIPMENT - ADMIN AND CLERK
 // ==========================================
-
 router.put(
   "/:id",
   authenticate,
@@ -61,10 +34,8 @@ router.put(
 );
 
 // ==========================================
-// DELETE EQUIPMENT
-// ADMIN ONLY
+// DELETE EQUIPMENT - STAFF ADMIN ONLY
 // ==========================================
-
 router.delete(
   "/:id",
   authenticate,

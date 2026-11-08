@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 
 import { useAuth } from "../../context/useAuth";
 
@@ -12,6 +16,21 @@ const dashboardRoutes = {
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const returnTo = location.state?.from;
+
+  const getRedirectPath = (role) => {
+    if (
+      role === "CUSTOMER" &&
+      typeof returnTo === "string" &&
+      returnTo.startsWith("/customer/equipment/")
+    ) {
+      return returnTo;
+    }
+
+    return dashboardRoutes[role] || "/";
+  };
 
   const {
     login,
@@ -65,12 +84,16 @@ const Login = () => {
       }
     }
 
-    navigate(
-      dashboardRoutes[user.role] || "/",
-      {
-        replace: true,
-      }
-    );
+    navigate(getRedirectPath(user.role), {
+  replace: true,
+  state:
+    user.role === "CUSTOMER"
+      ? {
+          startDate: location.state?.startDate,
+          endDate: location.state?.endDate,
+        }
+      : undefined,
+});
   }, [
     authLoading,
     isAuthenticated,
@@ -138,14 +161,17 @@ const Login = () => {
         }
       }
 
-      navigate(
-        dashboardRoutes[
-          loggedInUser.role
-        ] || "/",
-        {
-          replace: true,
+      navigate(getRedirectPath(loggedInUser.role), {
+  replace: true,
+  state:
+    loggedInUser.role === "CUSTOMER"
+      ? {
+          startDate: location.state?.startDate,
+          endDate: location.state?.endDate,
         }
-      );
+      : undefined,
+});
+
     } catch (error) {
       const message =
         error.response?.data?.message ||

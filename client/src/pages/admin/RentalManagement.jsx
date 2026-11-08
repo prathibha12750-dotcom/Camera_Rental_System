@@ -92,12 +92,10 @@ const RentalManagement = () => {
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState("");
 
-  // Reference used to scroll to the Deposit Management panel
   const depositSettlementRef = useRef(null);
-
   const rentalRecordsRef = useRef(null);
 
-  // Smoothly scroll to Deposit Management when a rental is selected.
+  // Scroll to Deposit Management when a rental is selected.
   useEffect(() => {
     if (!selectedDepositRental) return;
 
@@ -708,7 +706,6 @@ useEffect(() => {
     ) {
       return;
     }
-
     await runRentalAction(
       rental,
       completeRental,
@@ -1885,7 +1882,6 @@ const detailsField = (label, value) => (
                 <p className="text-3xl font-bold text-gray-950">
                   {loading ? "..." : item.count}
                 </p>
-
                 <p className="mt-2 text-sm text-gray-500">
                   {item.description}
                 </p>
@@ -1918,9 +1914,7 @@ const detailsField = (label, value) => (
             </button>
           </div>
 
-          {/* ==========================================
-              RENTAL STATUS QUICK FILTER TABS
-          ========================================== */}
+          {/* RENTAL STATUS QUICK FILTER TABS */}
 
           <div className="mt-6 border-b border-gray-200">
             <div className="flex flex-wrap gap-2 pb-4">
@@ -1957,59 +1951,53 @@ const detailsField = (label, value) => (
           </div>
 
           <div className="mt-5">
+            {/* SEARCH AND ADVANCED FILTERS */}
 
-          {/* ==========================================
-              SEARCH AND ADVANCED FILTERS
-          ========================================== */}
+            <div className="mt-5 space-y-4">
+              <label className="block max-w-2xl text-sm font-medium text-gray-700">
+                Search Rentals
 
-          <div className="mt-5 space-y-4">
-            {/* SEARCH - ALWAYS VISIBLE */}
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) =>
+                    updateFilter(setSearchTerm, event.target.value)
+                  }
+                  placeholder="Search customer, equipment, rental ID..."
+                  className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+              </label>
 
-            <label className="block max-w-2xl text-sm font-medium text-gray-700">
-              Search Rentals
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAdvancedFilters((previous) => !previous)
+                  }
+                  aria-expanded={showAdvancedFilters}
+                  aria-controls="rental-advanced-filters"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                >
+                  <span>Advanced Filters</span>
 
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={(event) =>
-                  updateFilter(setSearchTerm, event.target.value)
-                }
-                placeholder="Search customer, equipment, rental ID..."
-                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-              />
-            </label>
+                  {(dateFrom || dateTo) && (
+                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">
+                      Active
+                    </span>
+                  )}
 
-            {/* ADVANCED FILTER TOGGLE */}
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setShowAdvancedFilters((previous) => !previous)
-                }
-                aria-expanded={showAdvancedFilters}
-                aria-controls="rental-advanced-filters"
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
-              >
-                <span>Advanced Filters</span>
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block transition-transform ${
+                      showAdvancedFilters ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▼
+                  </span>
+                </button>
 
                 {(dateFrom || dateTo) && (
-                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">
-                    Active
-                  </span>
-                )}
 
-                <span
-                  aria-hidden="true"
-                  className={`inline-block transition-transform ${
-                    showAdvancedFilters ? "rotate-180" : ""
-                  }`}
-                >
-                  ▼
-                </span>
-              </button>
-
-              {(dateFrom || dateTo) && (
                 <button
                   type="button"
                   onClick={() => {

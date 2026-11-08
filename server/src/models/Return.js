@@ -26,11 +26,24 @@ const returnSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    condition: {
-      type: String,
-      enum: ["EXCELLENT", "GOOD", "FAIR", "DAMAGED"],
+    // ==========================================
+    // MODIFICATION: Simplified Return Damage Assessment
+    // MODIFIED BY: Thasindu
+    // PURPOSE: Record whether equipment was damaged
+    // when it was returned, without multiple condition levels.
+    // ==========================================
+    isDamaged: {
+      type: Boolean,
       required: true,
     },
+
+    damageDescription: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: "",
+    },
+    // END MODIFICATION: Return Damage Assessment
 
     damageDescription: {
       type: String,

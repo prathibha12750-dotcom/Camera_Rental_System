@@ -1,12 +1,38 @@
-
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
 import { getEquipmentById } from "../../services/equipmentService";
 import {
   checkAvailability,
   createRentalRequest,
   getRentalCalendar,
 } from "../../services/rentalService";
+
+const getStatusStyle = (status) => {
+  switch (status) {
+    case "AVAILABLE":
+      return "bg-green-100 text-green-700 border-green-200";
+
+    case "RESERVED":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+
+    case "RENTED":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+
+    case "MAINTENANCE":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+
+    case "DAMAGED":
+      return "bg-red-100 text-red-700 border-red-200";
+
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+};
 
 const COLOMBO = "Asia/Colombo";
 
@@ -77,27 +103,57 @@ const periodHasBlockedDay = (start, end, periods) => {
 
 export default function EquipmentDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const {
+  user,
+  isAuthenticated,
+  loading: authLoading,
+} = useAuth();
 
   const [equipment, setEquipment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // ==========================================
+  // IMAGE GALLERY
+  // ==========================================
+
+  const [activeImage, setActiveImage] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  // ==========================================
+  // RENTAL AVAILABILITY CALENDAR
+  // ==========================================
+
   const [calendar, setCalendar] = useState(null);
-  const [calendarLoading, setCalendarLoading] =
-    useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const [calendarError, setCalendarError] = useState("");
+
   const [month, setMonth] = useState(
     todayKey().slice(0, 7)
   );
 
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // ==========================================
+  // RENTAL DATES
+  // ==========================================
+
+  const [startDate, setStartDate] = useState(
+    location.state?.startDate || ""
+  );
+
+  const [endDate, setEndDate] = useState(
+    location.state?.endDate || ""
+  );
+
+  // ==========================================
+  // AVAILABILITY CHECK
+  // ==========================================
 
   const [availability, setAvailability] = useState(null);
-  const [availabilityError, setAvailabilityError] =
-    useState("");
+  const [availabilityError, setAvailabilityError] = useState("");
   const [checking, setChecking] = useState(false);
-
   const [requesting, setRequesting] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
@@ -112,9 +168,11 @@ export default function EquipmentDetails() {
       .then(([equipmentResult, calendarResult]) => {
         if (cancelled) return;
 
-        setEquipment(
-          equipmentResult?.data?.equipment || null
-        );
+      setEquipment(
+        equipmentResult?.equipment ||
+        equipmentResult?.data?.equipment ||
+        null
+      );
         setCalendar(calendarResult?.data || null);
       })
       .catch((err) => {
@@ -136,6 +194,50 @@ export default function EquipmentDetails() {
       cancelled = true;
     };
   }, [id]);
+
+  // ==========================================
+  // IMAGE GALLERY
+  // ==========================================
+
+  const images =
+    equipment?.images?.length > 0
+      ? equipment.images
+      : equipment?.imageUrl
+        ? [equipment.imageUrl]
+        : [];
+
+  // Automatically change gallery images.
+  useEffect(() => {
+    if (images.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setActiveImage((current) =>
+        current >= images.length - 1 ? 0 : current + 1
+      );
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  const handlePreviousImage = () => {
+    if (images.length === 0) return;
+
+    setActiveImage((current) =>
+      current === 0 ? images.length - 1 : current - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    if (images.length === 0) return;
+
+    setActiveImage((current) =>
+      current >= images.length - 1 ? 0 : current + 1
+    );
+  };
+
+  // ==========================================
+  // RENTAL AVAILABILITY CALENDAR
+  // ==========================================
 
   const reloadCalendar = async () => {
     setCalendarLoading(true);
@@ -200,20 +302,37 @@ export default function EquipmentDetails() {
     setEndDate(day);
   };
 
+  // ==========================================
+  // CHECK RENTAL AVAILABILITY
+  // ==========================================
+
   const handleCheckAvailability = async () => {
     if (!startDate || !endDate) {
       setAvailabilityError(
-        "Select both a start date and an end date."
+        "Please select both start and end dates."
+      );
+      return;
+    }
+
+    if (startDate < todayKey() || startDate >= endDate) {
+      setAvailabilityError(
+        "Choose a valid rental period with the end date after the start date."
       );
       return;
     }
 
     if (
-      startDate < todayKey() ||
-      startDate >= endDate
+      !calendar ||
+      calendar.blocked ||
+      periodHasBlockedDay(
+        startDate,
+        endDate,
+        calendar.unavailablePeriods || []
+      )
     ) {
+      setAvailability(null);
       setAvailabilityError(
-        "Choose a future rental period with the end date after the start date."
+        "The selected rental period contains unavailable dates. Please choose another period."
       );
       return;
     }
@@ -236,21 +355,75 @@ export default function EquipmentDetails() {
     } catch (err) {
       setAvailabilityError(
         err.response?.data?.message ||
-          "Failed to check availability."
+          "Failed to check equipment availability."
       );
     } finally {
       setChecking(false);
     }
   };
 
+  // ==========================================
+  // SUBMIT RENTAL REQUEST
+  // ==========================================
+
   const handleRentalRequest = async () => {
-    if (!availability?.available || requesting) return;
+    if (authLoading || requesting) return;
+
+    // Guests must log in before requesting rentals.
+    if (!isAuthenticated) {
+      navigate("/login", {
+        state: {
+          from: `/customer/equipment/${id}`,
+          startDate,
+          endDate,
+        },
+      });
+      return;
+    }
+
+    // Only customer accounts can submit requests.
+    if (user?.role !== "CUSTOMER") {
+      setRequestError(
+        "Only customer accounts can request equipment rentals."
+      );
+      return;
+    }
+
+    if (
+      !startDate ||
+      !endDate ||
+      !availability?.available
+    ) {
+      setRequestError(
+        "Please select rental dates and check availability first."
+      );
+      return;
+    }
 
     setRequesting(true);
     setRequestError("");
     setRequestMessage("");
 
     try {
+      // Recheck availability before submitting.
+      const latestAvailability = await checkAvailability({
+        equipmentId: id,
+        startDate,
+        endDate,
+      });
+
+      setAvailability(latestAvailability);
+
+      if (!latestAvailability?.available) {
+        setRequestError(
+          latestAvailability?.message ||
+            "Equipment is no longer available for the selected dates."
+        );
+
+        await reloadCalendar();
+        return;
+      }
+
       const result = await createRentalRequest({
         equipmentId: id,
         startDate,
@@ -272,6 +445,7 @@ export default function EquipmentDetails() {
         err.response?.data?.message ||
           "Failed to submit rental request."
       );
+
       setAvailability(null);
       await reloadCalendar();
     } finally {
@@ -308,130 +482,449 @@ export default function EquipmentDetails() {
 
   if (loading) {
     return (
-      <main className="p-8 text-gray-600">
-        Loading equipment details and calendar...
+      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="animate-pulse space-y-6">
+            <div className="h-6 w-32 rounded bg-gray-200" />
+            <div className="h-12 w-96 rounded bg-gray-200" />
+
+            <div className="grid gap-8 lg:grid-cols-2">
+              <div className="h-[500px] rounded-3xl bg-gray-200" />
+              <div className="h-[500px] rounded-3xl bg-gray-200" />
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
+
+  // ------------------------------------------
+  // ERROR
+  // ------------------------------------------
 
   if (error) {
     return (
-      <main className="p-8 text-red-700">{error}</main>
-    );
-  }
-
-  if (!equipment) {
-    return (
-      <main className="p-8">
-        Equipment not found.
+      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+            {error}
+          </div>
+        </div>
       </main>
     );
   }
 
+  // ------------------------------------------
+  // NOT FOUND
+  // ------------------------------------------
+
+  if (!equipment) {
+    return (
+      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-gray-600">
+            Equipment not found.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const currentImage = images[activeImage];
+
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
-      <div className="mx-auto max-w-5xl">
-        <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-          Equipment Rental
-        </p>
 
-        <h1 className="mt-2 text-3xl font-bold text-gray-950">
-          {equipment.name}
-        </h1>
+    <>
+      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+        <div className="mx-auto max-w-7xl">
 
-        <p className="mt-2 text-gray-600">
-          {equipment.brand} {equipment.model}
-        </p>
+          {/* Back button */}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="mb-6 flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-gray-950"
+          >
+            ← Back to Equipment
+          </button>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-950">
-              Equipment Information
-            </h2>
+          {/* Page header */}
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-600">
+              Equipment Rental
+            </p>
 
-            <div className="mt-5 space-y-3 text-sm">
-              <p>
-                <strong>Category:</strong>{" "}
-                {equipment.category?.name || "N/A"}
-              </p>
-              <p>
-                <strong>Brand:</strong> {equipment.brand}
-              </p>
-              <p>
-                <strong>Model:</strong> {equipment.model}
-              </p>
-              <p>
-                <strong>Condition:</strong>{" "}
-                {equipment.condition}
-              </p>
-              <p>
-                <strong>Status:</strong>{" "}
-                {equipment.status}
-              </p>
-              <p>
-                <strong>Security Deposit:</strong> LKR{" "}
-                {Number(
-                  equipment.securityDeposit || 0
-                ).toLocaleString()}
-              </p>
+            <h1 className="mt-2 text-4xl font-bold tracking-tight text-gray-950">
+              {equipment.name}
+            </h1>
+
+            <p className="mt-2 text-lg text-gray-500">
+              {equipment.brand} {equipment.model}
+            </p>
+          </div>
+
+          {/* Main Product Section */}
+          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+
+            {/* =========================================
+                IMAGE GALLERY
+            ========================================== */}
+
+            <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+
+              {/* Main image */}
+              <div
+                className="group relative flex aspect-[4/3] cursor-zoom-in items-center justify-center overflow-hidden rounded-2xl bg-gray-100"
+                onClick={() => {
+                  if (currentImage) {
+                    setShowImageModal(true);
+                  }
+                }}
+              >
+                {currentImage ? (
+                  <img
+                    src={currentImage}
+                    alt={equipment.name}
+                    className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="text-center">
+                    <div className="text-7xl text-gray-300">
+                      ◇
+                    </div>
+
+                    <p className="mt-3 text-sm font-medium text-gray-400">
+                      No Equipment Image
+                    </p>
+                  </div>
+                )}
+
+                {/* Status */}
+                <div
+                  className={`absolute left-5 top-5 rounded-full border px-4 py-2 text-xs font-bold shadow-sm ${getStatusStyle(
+                    equipment.status
+                  )}`}
+                >
+                  {equipment.status}
+                </div>
+
+                {/* Zoom indicator */}
+                {currentImage && (
+                  <div className="absolute bottom-5 right-5 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                    Click to enlarge
+                  </div>
+                )}
+
+                {/* Previous */}
+                {images.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePreviousImage();
+                    }}
+                    className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-gray-800 shadow-md transition hover:bg-white"
+                  >
+                    ‹
+                  </button>
+                )}
+
+                {/* Next */}
+                {images.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-gray-800 shadow-md transition hover:bg-white"
+                  >
+                    ›
+                  </button>
+                )}
+              </div>
+
+              {/* Thumbnails */}
+              {images.length > 0 && (
+                <div className="mt-4 flex gap-3 overflow-x-auto">
+                  {images.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => setActiveImage(index)}
+                      className={`h-20 w-24 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                        activeImage === index
+                          ? "border-orange-500"
+                          : "border-gray-200 hover:border-gray-400"
+                      }`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${equipment.name} ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-950">
-              Rental Information
+            {/* =========================================
+                PRODUCT INFORMATION
+            ========================================== */}
+
+            <div className="rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
+
+              {/* Category */}
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  {equipment.category?.name || "Equipment"}
+                </span>
+
+                <span
+                  className={`rounded-full border px-4 py-2 text-xs font-bold ${getStatusStyle(
+                    equipment.status
+                  )}`}
+                >
+                  {equipment.status}
+                </span>
+              </div>
+
+              {/* Product title */}
+              <h2 className="mt-6 text-3xl font-bold text-gray-950">
+                {equipment.name}
+              </h2>
+
+              <p className="mt-1 text-gray-500">
+                {equipment.brand} {equipment.model}
+              </p>
+
+              {/* Price */}
+              <div className="mt-8 border-y border-gray-100 py-6">
+                <p className="text-sm font-medium text-gray-500">
+                  Rental price
+                </p>
+
+                <div className="mt-1 flex items-end gap-2">
+                  <span className="text-4xl font-bold text-orange-600">
+                    LKR{" "}
+                    {equipment.rentalPricePerDay?.toLocaleString()}
+                  </span>
+
+                  <span className="mb-1 text-sm text-gray-500">
+                    / day
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm text-gray-500">
+                  Security deposit:{" "}
+                  <span className="font-semibold text-gray-800">
+                    LKR{" "}
+                    {equipment.securityDeposit?.toLocaleString()}
+                  </span>
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="mt-6">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-950">
+                  Description
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-gray-600">
+                  {equipment.description ||
+                    "No description available for this equipment."}
+                </p>
+              </div>
+
+              {/* Quick specifications */}
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Brand
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {equipment.brand}
+                  </p>
+                </div>
+                
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Model
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {equipment.model}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Category
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {equipment.category?.name || "N/A"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Condition
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {equipment.condition || "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* =========================================
+              RENTAL SECTION
+          ========================================== */}
+
+          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
+                  Rental
+                </p>
+
+                <h2 className="mt-1 text-2xl font-bold text-gray-950">
+                  Check Availability
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Select your rental period to check whether this equipment is available.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-orange-50 px-4 py-3 text-sm">
+                <span className="text-gray-500">
+                  Daily rate
+                </span>
+
+                <span className="ml-2 font-bold text-orange-600">
+                  LKR{" "}
+                  {equipment.rentalPricePerDay?.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* =========================================
+              EQUIPMENT DETAILS
+          ========================================== */}
+
+          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
+
+            <h2 className="text-2xl font-bold text-gray-950">
+              Equipment Specifications
             </h2>
 
-            <p className="mt-5 text-sm text-gray-500">
-              Rental price
-            </p>
+            <div className="mt-6 divide-y divide-gray-100">
 
-            <p className="text-3xl font-bold text-orange-600">
-              LKR{" "}
-              {Number(
-                equipment.rentalPricePerDay || 0
-              ).toLocaleString()}{" "}
-              <span className="text-base font-normal text-gray-500">
-                / day
-              </span>
-            </p>
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Equipment Name
+                </span>
 
-            <p className="mt-6 text-sm leading-6 text-gray-600">
-              {equipment.description ||
-                "No description available."}
-            </p>
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.name}
+                </span>
+              </div>
 
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-semibold text-gray-950">
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Brand
+                </span>
+
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.brand}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Model
+                </span>
+
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.model}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Category
+                </span>
+
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.category?.name || "N/A"}
+                </span>
+              </div>
+
+             
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Availability
+                </span>
+
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.status}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4 py-4">
+                <span className="text-sm text-gray-500">
+                  Serial Number
+                </span>
+
+                <span className="text-right text-sm font-semibold text-gray-900">
+                  {equipment.serialNumber || "Not available"}
+                </span>
+              </div>
+
+            </div>
+          </div>
+
+          {/* =========================================
+              RENTAL AVAILABILITY CALENDAR
+          ========================================== */}
+
+          <section className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
+            <div className="mb-6">
+              <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
+                Rental Calendar
+              </p>
+
+              <h2 className="mt-1 text-2xl font-bold text-gray-950">
                 Select Rental Dates
-              </h3>
+              </h2>
 
               <p className="mt-2 text-sm text-gray-500">
-                Select the start date, then select an
-                end date. Unavailable and past dates
-                cannot be selected.
+                Select your start date and then your end date.
+                Unavailable and past dates cannot be selected.
               </p>
+            </div>
 
-              <div className="mt-4 flex items-center justify-between">
-                <button
-                  type="button"
-                  aria-label="Previous month"
-                  disabled={
-                    month <= todayKey().slice(0, 7)
-                  }
-                  onClick={() =>
-                    setMonth((value) =>
-                      shiftMonth(value, -1)
-                    )
-                  }
-                  className="rounded-lg border px-3 py-2 disabled:opacity-30"
-                >
-                  ←
-                </button>
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                aria-label="Previous month"
+                disabled={month <= todayKey().slice(0, 7)}
+                onClick={() =>
+                  setMonth((value) => shiftMonth(value, -1))
+                }
+                className="rounded-lg border px-3 py-2 disabled:opacity-30"
+              >
+                ←
+              </button>
 
-                <span className="font-semibold">
-                  {monthLabel(month)}
-                </span>
+              <span className="font-semibold">
+                {monthLabel(month)}
+              </span>
 
                 <button
                   type="button"
@@ -649,16 +1142,72 @@ export default function EquipmentDetails() {
                   {requestMessage}
                 </p>
               )}
-
+              
               {requestError && (
                 <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
                   {requestError}
                 </p>
               )}
-            </div>
           </section>
         </div>
-      </div>
-    </main>
+      </main>
+      
+      {/* =========================================
+          FULLSCREEN IMAGE VIEWER
+      ========================================== */}
+
+      {showImageModal && currentImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5"
+          onClick={() => setShowImageModal(false)}
+          role="presentation"
+        >
+          <button
+            type="button"
+            aria-label="Close image viewer"
+            onClick={() => setShowImageModal(false)}
+            className="absolute right-6 top-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:bg-white/20"
+          >
+            ×
+          </button>
+
+          {images.length > 1 && (
+            <button
+              type="button"
+              aria-label="Previous image"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePreviousImage();
+              }}
+              className="absolute left-5 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20"
+            >
+              ‹
+            </button>
+          )}
+
+          <img
+            src={currentImage}
+            alt={equipment.name}
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {images.length > 1 && (
+            <button
+              type="button"
+              aria-label="Next image"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNextImage();
+              }}
+              className="absolute right-5 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20"
+            >
+              ›
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }
+

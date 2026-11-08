@@ -18,6 +18,14 @@ const categorySchema = new mongoose.Schema(
       default: "",
     },
 
+    
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE"],
