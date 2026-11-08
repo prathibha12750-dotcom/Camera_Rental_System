@@ -1,4 +1,3 @@
-
 import api from "./api";
 
 // ==========================================
@@ -24,9 +23,9 @@ export const createCategory = async (categoryData) => {
 // ==========================================
 // UPDATE CATEGORY - ADMIN
 // ==========================================
-export const updateCategory = async (id, categoryData) => {
+export const updateCategory = async (categoryId, categoryData) => {
   const response = await api.put(
-    `/categories/${id}`,
+    `/categories/${categoryId}`,
     categoryData
   );
 
@@ -36,9 +35,9 @@ export const updateCategory = async (id, categoryData) => {
 // ==========================================
 // DELETE CATEGORY - ADMIN
 // ==========================================
-export const deleteCategory = async (id) => {
+export const deleteCategory = async (categoryId) => {
   const response = await api.delete(
-    `/categories/${id}`
+    `/categories/${categoryId}`
   );
 
   return response.data;

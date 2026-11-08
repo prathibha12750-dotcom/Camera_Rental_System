@@ -24,8 +24,13 @@ const paymentSchema = new mongoose.Schema(
         },
         paymentStatus: {
             type: String,
-            enum: ["COMPLETED", "REFUNDED"],
-            default: "COMPLETED"
+            enum: [
+                "PENDING_VERIFICATION",
+                "COMPLETED",
+                "REJECTED",
+                "REFUNDED",
+            ],
+            default: "COMPLETED",
         },
         paymentDate: {
             type: Date,
@@ -36,10 +41,71 @@ const paymentSchema = new mongoose.Schema(
             trim: true,
             maxlength: [500, "Notes cannot exceed 500 charcters"],
         },
+        // ==========================================
+        // CUSTOMER PAYMENT RECEIPT
+        // ==========================================
+
+        paymentReference: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+            default: null,
+        },
+
+        receiptUrl: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        submittedAt: {
+            type: Date,
+            default: null,
+        },
+
+        // ==========================================
+        // CLERK PAYMENT VERIFICATION
+        // ==========================================
+
+        verifiedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+
+        verifiedAt: {
+            type: Date,
+            default: null,
+        },
+
+        rejectionReason: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: null,
+        },
+
     },
     {
         timestamps: true,
     }
 );
 
-module.exports = mongoose.model("Payment", paymentSchema);
+// ==========================================
+// PREVENT DUPLICATE PENDING RECEIPTS
+// ==========================================
+
+paymentSchema.index(
+  { invoice: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      paymentStatus: "PENDING_VERIFICATION",
+    },
+    name: "unique_pending_payment_per_invoice",
+  }
+);
+
+module.exports =
+  mongoose.models.Payment ||
+  mongoose.model("Payment", paymentSchema);

@@ -4,3 +4,6 @@ node_modules/
 .env.development
 .env.production
 npm-debug.log*
+uploads/subscription-receipts/*
+# Private rental agreement documents
+/storage/rental-agreements/

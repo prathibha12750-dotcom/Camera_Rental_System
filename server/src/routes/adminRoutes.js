@@ -2,11 +2,30 @@ const express = require("express");
 
 const {
   createPhotographer,
-  getCustomers, //imported by abilash
+  createClerk,
+  getCustomers,
+  getCustomerById,
+  getCustomerActivityHistory,
+  updateCustomerStatus,
+  deleteCustomer,
   getPhotographerApplications,
   getPhotographerApplicationById,
+  getPhotographerById,
+  getPhotographerBookingHistory,
   reviewPhotographerApplication,
+  updateStaffAccountStatus,
+  getStaffAccounts,
+  getClerkById,
+  getClerkWorkHistory,
 } = require("../controllers/adminController");
+
+
+//added by abilash
+// FR-085: System activity monitoring
+const {
+  getActivityLogs,
+} = require("../controllers/auditLogController");
+//ended by abilash
 
 
 // imports by Abilash starts here
@@ -23,6 +42,14 @@ const {
     getAllPayments,
 } = require("../controllers/paymentController");
 
+
+//added by abilash
+const {
+  getBillingReceiptByPayment,
+} = require("../controllers/billingReceiptController");
+//ended by abilash
+
+
 const {
   createDeposit,
   getDepositByInvoice,
@@ -38,19 +65,40 @@ const {
 const {
     createNotification,
     getNotificationByUser,
+    getMyNotifications,
     markNotificationAsRead,
 } = require("../controllers/notificationController");
 
+
 const {
   getDailyRevenue,
-  getMonthlyRevenue
+  getMonthlyRevenue,
+  getRentalReport,
+  getEquipmentReport,
+  getPhotographerReport,
+
+  //added by abilash
+  getRevenueTrend,
+  //ended by abilash
 } = require("../controllers/reportController");
+
 
 const {
     getDashboardStats,
 } = require("../controllers/dashboardController");
 
 // imports by Abilash ends here
+
+const {
+  getAllSubscriptionPayments,
+  getSubscriptionPaymentsForVerification,
+  approveSubscriptionPayment,
+  rejectSubscriptionPayment,
+  viewSubscriptionPaymentReceipt,
+  getPhotographersSubscriptionOverview,
+} = require(
+  "../controllers/photographerSubscriptionController"
+);
 
 
 const authenticate = require("../middleware/authenticate");
@@ -84,8 +132,74 @@ router.get(
 router.post(
   "/photographers",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createPhotographer
+);
+
+router.get(
+  "/photographers/subscriptions",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  getPhotographersSubscriptionOverview
+);
+
+// ==========================================
+// GET PHOTOGRAPHER DETAILS
+// CLERK AND STAFF_ADMIN
+// ==========================================
+
+router.get(
+  "/photographers/:id",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getPhotographerById
+);
+
+// ==========================================
+// GET PHOTOGRAPHER BOOKING HISTORY
+// CLERK AND STAFF_ADMIN
+// ==========================================
+
+router.get(
+  "/photographers/:id/history",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getPhotographerBookingHistory
+);
+
+
+// ==========================================
+// CREATE CLERK ACCOUNT
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.post(
+  "/clerks",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  createClerk
+);  
+
+ // ==========================================
+ // CLERK DETAILS AND WORK HISTORY
+ // STAFF ADMIN ONLY
+ // ==========================================
+
+router.get(
+  "/clerks/:id",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getClerkById
+);
+
+router.get(
+  "/clerks/:id/history",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getClerkWorkHistory
 );
 
 // Abilash routes starts here
@@ -98,9 +212,50 @@ router.post(
 router.get(
   "/customers",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getCustomers
 );
+
+// ==========================================
+// GET CUSTOMER DETAILS BY ID
+// CLERK AND ADMIN
+// GET /api/admin/customers/:id
+// ==========================================
+
+router.get(
+  "/customers/:id",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getCustomerById
+);
+
+// ==========================================
+// GET CUSTOMER BOOKING AND RENTAL HISTORY
+// ADMIN AND CLERK
+// GET /api/admin/customers/:id/history
+// ==========================================
+
+router.get(
+  "/customers/:id/history",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getCustomerActivityHistory
+);
+
+
+// ==========================================
+// UPDATE CUSTOMER ACCOUNT STATUS
+// ADMIN AND CLERK
+// PATCH /api/admin/customers/:id/status
+// ==========================================
+
+router.patch(
+  "/customers/:id/status",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  updateCustomerStatus
+);
+
 
 // ==========================================
 // CREATE INVOICE
@@ -122,7 +277,7 @@ router.post(
 router.get(
   "/invoices",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   getInvoices
 );
 
@@ -134,7 +289,7 @@ router.get(
 router.get(
   "/invoices/:id",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getInvoiceById
 );
 
@@ -146,23 +301,47 @@ router.get(
 router.post(
   "/payments",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createPayment
 );
 
 // ===========================================
 // GET PAYMENTS FOR AN INVOICE
-// GET /api/admi/payments/invoice/:invoiceId
+// GET /api/admin/payments/invoice/:invoiceId
 // ===========================================
 
 router.get(
   "/payments/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPaymentsByInvoice
 );
 
-router.get("/payments", getAllPayments);
+// ==========================================
+// GET ALL PAYMENTS
+// GET /api/admin/payments
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/payments",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getAllPayments
+);
+
+// ==========================================
+// GET BILLING RECEIPT BY PAYMENT
+// GET /api/admin/billing-receipts/payment/:paymentId
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/billing-receipts/payment/:paymentId",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getBillingReceiptByPayment
+);
 
 // ==========================================
 // RECORD SECURITY DEPOSIT
@@ -172,7 +351,7 @@ router.get("/payments", getAllPayments);
 router.post(
   "/deposits",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   createDeposit
 );
 
@@ -184,13 +363,13 @@ router.post(
 router.get(
   "/deposits/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK","STAFF_ADMIN"),
   getDepositByInvoice
 );
 
 // ==========================================
 // GET SINGLE DEPOSIT
-// GET /aoi/admin/deposits/:depositId
+// GET /api/admin/deposits/:depositId
 // ==========================================
 
 router.get(
@@ -208,7 +387,7 @@ router.get(
 router.post(
   "/refunds",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   createRefund
 );
 
@@ -220,7 +399,7 @@ router.post(
 router.get(
   "/refunds/invoice/:invoiceId",
   authenticate,
-  authorizeRoles("STAFF_ADMIN"),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getRefundsByInvoice
 );
 
@@ -248,6 +427,20 @@ router.post(
   authorizeRoles("STAFF_ADMIN"),
   createNotification
 );
+
+
+ // ==========================================
+ // GET MY NOTIFICATIONS - ADMIN
+ // GET /api/admin/notifications
+ // ==========================================
+
+ router.get(
+   "/notifications",
+   authenticate,
+   authorizeRoles("STAFF_ADMIN"),
+   getMyNotifications
+ );
+
 
 // ==========================================
 // GET USER NOTIFICATION
@@ -297,6 +490,43 @@ router.get(
     getMonthlyRevenue
 );
 
+
+//added by abilash
+// Revenue Analytics - Last Six Months
+// GET /api/admin/reports/revenue/trend
+
+router.get(
+  "/reports/revenue/trend",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRevenueTrend
+);
+
+//ended by abilash
+
+
+router.get(
+  "/reports/rentals",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getRentalReport
+);
+
+router.get(
+  "/reports/equipment",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getEquipmentReport
+);
+
+router.get(
+  "/reports/photographers",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getPhotographerReport
+);
+
+
 // ==========================================
 // ADMIN DASHBOARD
 // GET /api/admin/dashboard
@@ -319,9 +549,7 @@ router.get(
 router.get(
   "/photographer-applications",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPhotographerApplications
 );
 
@@ -329,9 +557,7 @@ router.get(
 router.get(
   "/photographer-applications/:id",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   getPhotographerApplicationById
 );
 
@@ -339,11 +565,120 @@ router.get(
 router.patch(
   "/photographer-applications/:id/status",
   authenticate,
-  authorizeRoles(
-    "STAFF_ADMIN"
-  ),
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
   reviewPhotographerApplication
 );
+
+// ==========================================
+// ENABLE / DISABLE CLERK OR PHOTOGRAPHER
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.patch(
+  "/users/:userId/status",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  updateStaffAccountStatus
+);
+
+// ==========================================
+// GET CLERK / PHOTOGRAPHER ACCOUNTS
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/staff-accounts",
+  authenticate,
+  authorizeRoles("CLERK", "STAFF_ADMIN"),
+  getStaffAccounts
+);
+
+// ==========================================
+// GET ALL SUBSCRIPTION PAYMENTS
+// STAFF_ADMIN ONLY
+// ==========================================
+
+router.get(
+  "/subscription-payments",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getAllSubscriptionPayments
+);
+
+router.get(
+  "/subscription-payments/verification",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  getSubscriptionPaymentsForVerification
+);
+
+router.patch(
+  "/subscription-payments/:paymentId/approve",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  approveSubscriptionPayment
+);
+
+router.patch(
+  "/subscription-payments/:paymentId/reject",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  rejectSubscriptionPayment
+);
+
+router.get(
+  "/subscription-payments/:paymentId/receipt",
+  authenticate,
+  authorizeRoles(
+    "CLERK",
+    "STAFF_ADMIN"
+  ),
+  viewSubscriptionPaymentReceipt
+);
+
+router.get(
+  "/clerk/notifications",
+  authenticate,
+  authorizeRoles("CLERK"),
+  getMyNotifications
+);
+
+router.patch(
+  "/clerk/notifications/:notificationId/read",
+  authenticate,
+  authorizeRoles("CLERK"),
+  markNotificationAsRead
+);
+
+// ==========================================
+// DELETE CUSTOMER ACCOUNT - ADMIN ONLY
+// ==========================================
+router.delete(
+  "/customers/:id",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  deleteCustomer
+);
+
+//added by abilash
+// FR-085: Admin can monitor system activities
+router.get(
+  "/activity-logs",
+  authenticate,
+  authorizeRoles("STAFF_ADMIN"),
+  getActivityLogs
+);
+//ended by abilash
+
 
 
 module.exports = router;

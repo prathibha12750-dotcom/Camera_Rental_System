@@ -43,6 +43,26 @@ const {
   "../controllers/photographerNotificationController"
 );
 
+const {
+  getMyInvoices,
+} = require("../controllers/invoiceController");
+
+const {
+  getMyPayments,
+} = require("../controllers/paymentController");
+
+const {
+  getMyRefunds,
+} = require("../controllers/refundController");
+
+const {
+  submitRentalPaymentReceipt,
+} = require("../controllers/rentalPaymentController");
+
+const uploadRentalPaymentReceipt = require(
+  "../middleware/uploadRentalPaymentReceipt"
+);
+
 const authenticate = require("../middleware/authenticate");
 const authorizeRoles = require("../middleware/authorizeRoles");
 
@@ -200,5 +220,54 @@ router.patch(
   markNotificationAsRead
 );
 
+// ==========================================
+// CUSTOMER INVOICES
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/invoices",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyInvoices
+);
+
+
+// ==========================================
+// CUSTOMER PAYMENTS
+// CUSTOMER ONLY
+// ==========================================
+
+router.get(
+  "/payments",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyPayments
+);
+
+// ==========================================
+// CUSTOMER REFUNDS
+// CUSTOMER ONLY - READ ONLY
+// ==========================================
+
+router.get(
+  "/refunds",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  getMyRefunds
+);
+
+// ==========================================
+// CUSTOMER RENTAL PAYMENT RECEIPT
+// CUSTOMER ONLY
+// ==========================================
+
+router.post(
+  "/rental-payments/submit",
+  authenticate,
+  authorizeRoles("CUSTOMER"),
+  uploadRentalPaymentReceipt,
+  submitRentalPaymentReceipt
+);
 
 module.exports = router;

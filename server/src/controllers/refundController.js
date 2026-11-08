@@ -1,144 +1,25 @@
+const mongoose = require("mongoose");
 const Refund = require("../models/refund");
-const Deposit = require("../models/deposit");
-const Invoice = require("../models/invoice");
 
-// =============================================
-// RECORD SECURITY DEPOSIT REFUND
+// ==========================================
+// CREATE REFUND - LEGACY ENDPOINT DISABLED
 // POST /api/admin/refunds
-// =============================================
+// ==========================================
 
-const createRefund = async(req, res, next) => {
-    try {
-        const {
-            deposit,
-            amount,
-            refundMethod,
-            notes,
-        } = req.body;
+// Refund creation must use the verified settlement
+// workflow with separate refund preparation and
+// payout confirmation.
+//
+// Direct refund creation is intentionally disabled
+// to prevent bypassing deposit settlement checks.
 
-        // ----------------------------------------
-        // 1. Validate require fields
-        // ----------------------------------------
-
-        if(!deposit){
-            return res.status(400).json({
-                success: false,
-                message: "Deposit ID is required",
-            });
-        }
-
-        if(amount === undefined || amount === null){
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount is required",
-            });
-        }
-
-        if(amount <= 0){
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount must be greater that zero",
-            });
-        }
-
-        if(!refundMethod){
-            return res.status(400).json({
-                success: false,
-                message: "Refund method is required",
-            });
-        }
-
-        // ----------------------------------------
-        // 2. Find deposit
-        // ----------------------------------------
-
-        const existingDeposit = await Deposit.findById(deposit);
-
-        if(!existingDeposit){
-            return res.status(404).json({
-                success: false,
-                message: "Deposit not found",
-            });
-        }
-
-        // ----------------------------------------
-        // 3. Check deposit status
-        // ----------------------------------------
-
-        if(existingDeposit.status !== "HELD"){
-            return res.status(400).json({
-                success: false,
-                message: "Only HELD deposits can be refunded",
-            });
-        }
-
-        // ----------------------------------------
-        // 4. Check refund amount
-        // ----------------------------------------
-
-        if(amount > existingDeposit.amount){
-            return res.status(400).json({
-                success: false,
-                message: "Refund amount cannot exceed the deposit amount"
-            });
-        }
-
-        // ----------------------------------------
-        // 5. Find Invoice
-        // ----------------------------------------
-
-        const existingInvoice = await Invoice.findById(
-            existingDeposit.invoice,
-        );
-        
-        if(!existingInvoice){
-            return res.status(404).json({
-                success: false,
-                message: "Invoice not found",
-            });
-        }
-
-        // ----------------------------------------
-        // 6. Create refund record
-        // ----------------------------------------
-
-        const refund = await Refund.create({
-            deposit: existingDeposit._id,
-            invoice: existingInvoice._id,
-            customer: existingDeposit.customer,
-            amount,
-            refundMethod,
-            status: "COMPLETED",
-            notes,
-        });
-
-        // --------------------------------------
-        // 7. Update deposit status
-        // --------------------------------------
-
-        existingDeposit.status = "REFUNDED";
-
-        await existingDeposit.save();
-
-        
-
-        // ----------------------------------------
-        // 8. Return response
-        // ----------------------------------------
-
-        return res.status(201).json({
-            success: true,
-            message: "Security deposit refunded successfully",
-            data: {
-                refund,
-            },
-        })
-
-
-    } catch(error){
-        next(error);
-    } 
-}
+const createRefund = async (req, res) => {
+  return res.status(409).json({
+    success: false,
+    message:
+      "Direct refund creation is disabled. Refunds must use the verified settlement workflow with separate refund preparation and payout confirmation.",
+  });
+};
 
 // ===========================================
 // GET REFUNDS FOR AN INVOICE
@@ -148,6 +29,13 @@ const createRefund = async(req, res, next) => {
 const getRefundsByInvoice = async (req, res, next) => {
     try{
         const {invoiceId} = req.params;
+        
+        if (!mongoose.isValidObjectId(invoiceId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid invoice ID",
+            });
+        }
 
         const refunds = await Refund.find({
             invoice: invoiceId,
@@ -178,6 +66,13 @@ const getRefundById = async (req, res, next) => {
     try{
         const {refundId} = req.params;
 
+        if (!mongoose.isValidObjectId(refundId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid refund ID",
+            });
+        }
+
         const refund = await Refund.findById(refundId)
             .populate("customer", "name email")
             .populate("deposit", "amount status depositDate")
@@ -202,8 +97,51 @@ const getRefundById = async (req, res, next) => {
     }
 }
 
+// ==========================================
+// GET MY REFUNDS
+// CUSTOMER ONLY - READ ONLY
+// GET /api/customer/refunds
+// ==========================================
+
+const getMyRefunds = async (req, res, next) => {
+  try {
+    const customerId = req.user.userId;
+
+    const refunds = await Refund.find({
+      customer: customerId,
+    })
+      .populate(
+        "invoice",
+        "invoiceNumber rental securityDeposit"
+      )
+      .populate(
+        "deposit",
+        "amount status depositDate"
+      )
+      .select(
+        "deposit invoice customer amount refundMethod " +
+        "status notes refundDate confirmedAt " +
+        "payoutReference createdAt updatedAt"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer refunds retrieved successfully",
+      data: {
+        refunds,
+        count: refunds.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
     createRefund,
     getRefundById,
-    getRefundsByInvoice
+    getRefundsByInvoice,
+    getMyRefunds,
 };

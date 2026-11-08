@@ -18,6 +18,10 @@ const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const customerRoutes = require("./routes/customerRoutes");
 const photographerRoutes = require("./routes/photographerRoutes");
+const contactRoutes = require("./routes/contactRoutes");
+const rentalAgreementRoutes = require("./routes/rentalAgreementRoutes");
+
+const bankDetailsRoutes = require("./routes/bankDetailsRoutes");
 
 const app = express();
 
@@ -29,20 +33,31 @@ const app = express();
 
 app.use(helmet());
 
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:4173",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5174",
+    origin: allowedOrigins,
     credentials: true,
   })
 );
-
 
 // ==========================================
 // BODY PARSER
 // ==========================================
 
-app.use(express.json());
+app.use(
+  "/api/contact",
+  express.json({ limit: "20kb" })
+);
 
+app.use(express.json());
 
 // ==========================================
 // RATE LIMITING
@@ -82,6 +97,7 @@ app.use("/api/customer", customerRoutes);
 
 app.use("/api/photographer", photographerRoutes);
 
+app.use("/api/contact", contactRoutes);
 
 // ======================================================================================
 // routes connects by thasindu
@@ -97,7 +113,7 @@ app.use("/api/categories", categoryRoutes);//connect the category routes by thas
 // End of the routes connects by thasindu
 // ======================================================================================
 
-
+app.use("/api/rental-agreements", rentalAgreementRoutes);
 
 // ==========================================
 // ERROR HANDLER
@@ -105,5 +121,6 @@ app.use("/api/categories", categoryRoutes);//connect the category routes by thas
 
 app.use(errorHandler);
 
+app.use("/api/payment-instructions", bankDetailsRoutes);
 
 module.exports = app;

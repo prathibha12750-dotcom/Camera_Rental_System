@@ -1,5 +1,8 @@
 const User = require("../models/User");
 const Payment = require("../models/payment");
+const Equipment = require("../models/Equipment");
+const Rental = require("../models/Rental");
+const Booking = require("../models/Booking");
 
 // ================================
 // ADMIN DASHBOARD STATISTICS
@@ -23,6 +26,50 @@ const getDashboardStats = async (req, res, next) => {
         const totalPhotographers = await User.countDocuments({
             role: "PHOTOGRAPHER",
         });
+
+        const totalEquipment = await Equipment.countDocuments();
+
+        const activeRentals = await Rental.countDocuments({
+            status: "ACTIVE",
+        });
+
+
+        //added by abilash
+        // Count overdue equipment returns only.
+        // Confirmed but unissued rentals are excluded.
+        const overdueRentals = await Rental.countDocuments({
+            status: "ACTIVE",
+            endDate: { $lt: new Date() },
+            returnedAt: null,
+        });
+        //ended by abilash
+
+
+        const upcomingPhotographerBookings = await Booking.countDocuments({
+            date: { $gte: new Date() },
+            status: { $in: ["REQUESTED", "CONFIRMED"] },
+        });
+
+        // Total clerks
+        const totalClerks = await User.countDocuments({
+            role: "CLERK",
+        });
+
+        // Available equipment
+        const availableEquipment = await Equipment.countDocuments({
+            status: "AVAILABLE",
+        });
+
+        // Damaged equipment
+        const damagedEquipment = await Equipment.countDocuments({
+            status: "DAMAGED",
+        });
+
+        // Equipment under maintenance
+        const equipmentUnderMaintenance =
+            await Equipment.countDocuments({
+                status: "MAINTENANCE",
+            });
 
         // -------------------------------
         // 3. Total payments
@@ -90,14 +137,19 @@ const getDashboardStats = async (req, res, next) => {
             data: {
                 totalCustomers,
                 totalPhotographers,
+                totalClerks,
+
+                totalEquipment,
+                availableEquipment,
+                damagedEquipment,
+                equipmentUnderMaintenance,
+
+                activeRentals,
+                overdueRentals,
+                upcomingPhotographerBookings,
+
                 totalPayments,
                 monthlyRevenue,
-
-                //These will be added after member 1,2 finishes
-                totalEquipment: null,
-                activeRentals: null,
-                overdueRentals: null,
-                upcomingPhotographerBookings: null,
             
             }
         });

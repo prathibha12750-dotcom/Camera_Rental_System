@@ -25,16 +25,28 @@ const PasswordChangeRoute = () => {
     );
   }
 
-  if (
-    user?.role === "PHOTOGRAPHER" &&
-    user?.mustChangePassword
-  ) {
-    return (
-      <Navigate
-        to="/photographer/change-password"
-        replace
-      />
-    );
+  // ==========================================
+  // FORCE TEMPORARY PASSWORD CHANGE
+  // ==========================================
+
+  if (user?.mustChangePassword) {
+    if (user?.role === "PHOTOGRAPHER") {
+      return (
+        <Navigate
+          to="/photographer/change-password"
+          replace
+        />
+      );
+    }
+
+    if (user?.role === "CLERK") {
+      return (
+        <Navigate
+          to="/clerk/change-password"
+          replace
+        />
+      );
+    }
   }
 
   return <Outlet />;

@@ -50,6 +50,36 @@ const damageRecordSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // ==========================================
+    // DAMAGE DEDUCTION APPROVAL
+    // ==========================================
+
+    // Approval is separate from resolving the damage.
+    deductionApprovalStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: "PENDING",
+    },
+
+    // Amount authorized for deduction from the deposit.
+    approvedDeductionAmount: {
+      type: Number,
+      min: [0, "Approved deduction cannot be negative"],
+      default: 0,
+    },
+
+    // Staff Admin who approved or rejected the deduction.
+    deductionReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    deductionReviewedAt: {
+      type: Date,
+      default: null,
+    },
+
     reportedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

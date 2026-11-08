@@ -90,11 +90,26 @@ const CustomerBookings = () => {
     setHistoryPage,
   ] = useState(1);
 
-  const [searchParams] =
-    useSearchParams();
+  const [searchParams] = useSearchParams();
 
+  // Booking ID from notifications
   const highlightedBookingId =
     searchParams.get("booking");
+
+  // Booking category selected from Customer Dashboard
+  const requestedFilter =
+    searchParams.get("filter");
+
+  const allowedFilters = [
+    "upcoming",
+    "pending",
+    "completed",
+  ];
+
+  const activeBookingFilter =
+    allowedFilters.includes(requestedFilter)
+      ? requestedFilter
+      : "all";
 
 
   // ==========================================
@@ -339,62 +354,60 @@ const CustomerBookings = () => {
         }
       );
 
+      // ==========================================
+      // BOOKING HISTORY
+      // ==========================================
 
-  const bookingHistory =
-    bookings
-      .filter(
-        (booking) => {
+      const bookingHistory = bookings
+        .filter((booking) => {
+          const bookingDate = getBookingDateString(booking.date);
 
-          const bookingDate =
-            getBookingDateString(
-              booking.date
-            );
+          const activeStatus = [
+            "REQUESTED",
+            "CONFIRMED",
+          ].includes(booking.status);
 
+          return !(bookingDate >= today && activeStatus);
+        })
+        .sort((a, b) => {
+          const dateDifference = getBookingDateString(
+            b.date
+          ).localeCompare(getBookingDateString(a.date));
 
-          const activeStatus =
-            [
-              "REQUESTED",
-              "CONFIRMED",
-            ].includes(
-              booking.status
-            );
-
-
-          return !(
-            bookingDate >= today &&
-            activeStatus
-          );
-
-        }
-      )
-      .sort(
-        (a, b) => {
-
-          const dateDifference =
-            getBookingDateString(
-              b.date
-            ).localeCompare(
-              getBookingDateString(
-                a.date
-              )
-            );
-
-
-          if (
-            dateDifference !== 0
-          ) {
+          if (dateDifference !== 0) {
             return dateDifference;
           }
 
-
-          return (
-            b.startTime || ""
-          ).localeCompare(
+          return (b.startTime || "").localeCompare(
             a.startTime || ""
           );
+        });
 
-        }
-      );
+  // ==========================================
+  // DASHBOARD BOOKING FILTERS
+  // ==========================================
+
+  const filteredUpcomingBookings =
+    activeBookingFilter === "pending"
+      ? upcomingBookings.filter(
+          (booking) => booking.status === "REQUESTED"
+        )
+      : activeBookingFilter === "completed"
+        ? []
+        : upcomingBookings;
+
+  const filteredBookingHistory =
+    activeBookingFilter === "completed"
+      ? bookingHistory.filter(
+          (booking) => booking.status === "COMPLETED"
+        )
+      : activeBookingFilter === "pending"
+        ? bookingHistory.filter(
+            (booking) => booking.status === "REQUESTED"
+          )
+        : activeBookingFilter === "upcoming"
+          ? []
+          : bookingHistory;
 
 
       // ==========================================
@@ -403,35 +416,27 @@ const CustomerBookings = () => {
 
       const upcomingTotalPages =
         Math.ceil(
-          upcomingBookings.length /
-            BOOKINGS_PER_PAGE
+          filteredUpcomingBookings.length / BOOKINGS_PER_PAGE
         );
 
       const historyTotalPages =
         Math.ceil(
-          bookingHistory.length /
-            BOOKINGS_PER_PAGE
+          filteredBookingHistory.length / BOOKINGS_PER_PAGE
         );
 
-
-    // ==========================================
+// ==========================================
 // NOTIFICATION-LINKED BOOKING PAGE
 // ==========================================
 
 const highlightedUpcomingIndex =
-  upcomingBookings.findIndex(
-    (booking) =>
-      booking._id ===
-      highlightedBookingId
+  filteredUpcomingBookings.findIndex(
+    (booking) => booking._id === highlightedBookingId
   );
 
 const highlightedHistoryIndex =
-  bookingHistory.findIndex(
-    (booking) =>
-      booking._id ===
-      highlightedBookingId
+  filteredBookingHistory.findIndex(
+    (booking) => booking._id === highlightedBookingId
   );
-
 
 const highlightedUpcomingPage =
   highlightedUpcomingIndex >= 0
@@ -473,36 +478,25 @@ const normalHistoryPage =
     )
   );
 
-
 const safeUpcomingPage =
   highlightedUpcomingPage ??
   normalUpcomingPage;
-
 
 const safeHistoryPage =
   highlightedHistoryPage ??
   normalHistoryPage;
 
-
 const paginatedUpcomingBookings =
-  upcomingBookings.slice(
-    (safeUpcomingPage - 1) *
-      BOOKINGS_PER_PAGE,
-
-    safeUpcomingPage *
-      BOOKINGS_PER_PAGE
+  filteredUpcomingBookings.slice(
+    (safeUpcomingPage - 1) * BOOKINGS_PER_PAGE,
+    safeUpcomingPage * BOOKINGS_PER_PAGE
   );
-
 
 const paginatedBookingHistory =
-  bookingHistory.slice(
-    (safeHistoryPage - 1) *
-      BOOKINGS_PER_PAGE,
-
-    safeHistoryPage *
-      BOOKINGS_PER_PAGE
+  filteredBookingHistory.slice(
+    (safeHistoryPage - 1) * BOOKINGS_PER_PAGE,
+    safeHistoryPage * BOOKINGS_PER_PAGE
   );
-
 
 // ==========================================
 // SCROLL TO NOTIFICATION BOOKING
@@ -1962,7 +1956,7 @@ useEffect(() => {
               font-semibold
               text-gray-950
             ">
-              {upcomingBookings.length}
+              {filteredUpcomingBookings.length}
             </span>
 
             {" "}Upcoming
@@ -2000,7 +1994,7 @@ useEffect(() => {
               font-semibold
               text-gray-950
             ">
-              {bookingHistory.length}
+              {filteredBookingHistory.length}
             </span>
 
             {" "}History
@@ -2037,7 +2031,7 @@ useEffect(() => {
         {/* ==================================
             UPCOMING BOOKINGS
         ================================== */}
-
+        {activeBookingFilter !== "completed" && (
         <section
           ref={upcomingSectionRef}
           className="
@@ -2071,10 +2065,9 @@ useEffect(() => {
                 text-gray-500
               ">
 
-                {upcomingBookings.length}{" "}
+                {filteredUpcomingBookings.length}
 
-                {upcomingBookings.length ===
-                1
+                {filteredUpcomingBookings.length === 1
                   ? "active upcoming booking"
                   : "active upcoming bookings"}
 
@@ -2085,8 +2078,7 @@ useEffect(() => {
           </div>
 
 
-          {upcomingBookings.length ===
-          0 ? (
+          {filteredUpcomingBookings.length === 0 ? (
 
             <div className="
               rounded-2xl
@@ -2287,12 +2279,12 @@ useEffect(() => {
           )}
 
         </section>
-
+        )}
 
         {/* ==================================
             BOOKING HISTORY
         ================================== */}
-
+        {activeBookingFilter !== "upcoming" && (
         <section
           ref={historySectionRef}
           className="
@@ -2330,8 +2322,7 @@ useEffect(() => {
           </div>
 
 
-          {bookingHistory.length ===
-          0 ? (
+          {filteredBookingHistory.length === 0 ? (
 
             <div className="
               rounded-2xl
@@ -2507,7 +2498,7 @@ useEffect(() => {
           )}
 
         </section>
-
+        )}
           </>
 
         )}

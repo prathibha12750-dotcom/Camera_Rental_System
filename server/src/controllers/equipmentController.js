@@ -3,9 +3,6 @@
 const Equipment = require("../models/Equipment");
 
 const Category = require("../models/Category");
-
-// MODIFIED BY: Thasindu
-// PURPOSE: Check existing rental dates when filtering equipment availability.
 const Rental = require("../models/Rental");
 
 // ==========================================
@@ -22,12 +19,11 @@ const createEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
+      condition,
       status,
       description,
       imageUrl,
       images,
-      // MODIFIED BY: Thasindu
-      // PURPOSE: Accept optional promotional information.
       offer,
     } = req.body;
 
@@ -43,10 +39,10 @@ const createEquipment = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // VALIDATE SPECIAL OFFER
+    // ==========================================
 
-
-    // MODIFIED BY: Thasindu
-    // PURPOSE: Reject invalid offer payloads during equipment creation.
     if (
       offer !== undefined &&
       (!offer || typeof offer !== "object" || Array.isArray(offer))
@@ -57,6 +53,20 @@ const createEquipment = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // PROTECT DAMAGE MANAGEMENT WORKFLOW
+    // ==========================================
+
+    if (
+      req.user.role === "CLERK" &&
+      condition === "DAMAGED"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Record equipment damage through the Damage & Maintenance workflow.",
+      });
+    }
 
     const equipment = await Equipment.create({
       name,
@@ -66,12 +76,14 @@ const createEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
-      status,
+      condition,
+      status:
+        req.user.role === "CLERK"
+          ? "AVAILABLE"
+          : status || "AVAILABLE",
       description,
       imageUrl,
       images: Array.isArray(images) ? images : [],
-      // MODIFIED BY: Thasindu
-      // PURPOSE: Save offer metadata with newly created equipment.
       ...(offer !== undefined ? { offer } : {}),
     });
 
@@ -395,19 +407,14 @@ const updateEquipment = async (req, res, next) => {
       serialNumber,
       rentalPricePerDay,
       securityDeposit,
+      condition,
       status,
       description,
       imageUrl,
       images,
-      // MODIFIED BY: Thasindu
-      // PURPOSE: Read admin-edited promotion data.
       offer,
       
     } = req.body;
-
-
-    console.log("BACKEND RECEIVED IMAGES:", images);
-    console.log("BACKEND REQUEST BODY:", req.body);
 
     if (category !== undefined) {
       const categoryExists = await Category.findOne({
@@ -435,7 +442,56 @@ const updateEquipment = async (req, res, next) => {
     if (securityDeposit !== undefined) {
       equipment.securityDeposit = securityDeposit;
     }
-    if (status !== undefined) equipment.status = status;
+
+    // ==========================================
+    // PROTECT DAMAGE MANAGEMENT WORKFLOW
+    // ==========================================
+
+    if (
+      req.user.role === "CLERK" &&
+      condition === "DAMAGED" &&
+      condition !== equipment.condition
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Record equipment damage through the Damage & Maintenance workflow.",
+      });
+    }
+
+    // ==========================================
+    // UPDATE EQUIPMENT CONDITION
+    // ==========================================
+
+    if (condition !== undefined) {
+      const protectedStatuses = ["DAMAGED", "MAINTENANCE"];
+
+      if (
+        protectedStatuses.includes(equipment.status) &&
+        condition !== equipment.condition
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Equipment condition cannot be changed while damage or maintenance is unresolved. Complete the damage or maintenance workflow first.",
+        });
+      }
+
+      equipment.condition = condition;
+    }
+
+    // ==========================================
+    // UPDATE EQUIPMENT STATUS
+    // STAFF ADMIN ONLY
+    // ==========================================
+
+    if (
+      status !== undefined &&
+      req.user.role === "STAFF_ADMIN"
+    ) {
+      equipment.status = status;
+    }
+
     if (description !== undefined) equipment.description = description;
     if (imageUrl !== undefined) equipment.imageUrl = imageUrl;
 
@@ -467,10 +523,6 @@ const updateEquipment = async (req, res, next) => {
     }
 
     // END MODIFICATION: Update Equipment Special Offer by Thasindu
-
-
-
-  console.log("IMAGES BEFORE SAVE:", equipment.images);
 
     await equipment.save();
 

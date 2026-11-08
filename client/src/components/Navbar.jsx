@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import UserAvatar from "./UserAvatar";
 import NotificationBell from "./NotificationBell";
+
+import {
+  LayoutDashboard,
+  UserRound,
+  CalendarDays,
+  Camera,
+  ReceiptText,
+  LogOut,
+  ChevronRight,
+} from "lucide-react";
 
 const Navbar = () => {
   const {
@@ -14,9 +24,43 @@ const Navbar = () => {
 
   const navigate = useNavigate();
 
+const location = useLocation();
+
+const isActive = (path) => {
+  if (path === "/" || path === "/customer") {
+    return location.pathname === path;
+  }
+
+  return (
+    location.pathname === path ||
+    location.pathname.startsWith(`${path}/`)
+  );
+};
+
+const navLinkClass = (path) =>
+  `relative rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+    isActive(path)
+      ? "bg-orange-50 text-orange-700"
+      : "text-gray-600 hover:bg-gray-50 hover:text-orange-600"
+  }`;
+
+const accountLinkClass = (path) =>
+  `flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+    isActive(path)
+      ? "bg-orange-50 font-semibold text-orange-700"
+      : "text-gray-700 hover:bg-gray-50 hover:text-orange-600"
+  }`;
+
+const closeNavigationMenus = () => {
+  setAccountOpen(false);
+  setSearchOpen(false);
+  setMobileMenuOpen(false);
+};
+
   const [accountOpen, setAccountOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const accountRef = useRef(null);
   const searchRef = useRef(null);
@@ -94,7 +138,7 @@ const Navbar = () => {
         term.includes(keyword)
       )
     ) {
-      window.location.href = "/#equipment";
+      window.location.href = "/customer/equipment";
     } else if (
       photographerKeywords.some((keyword) =>
         term.includes(keyword)
@@ -175,23 +219,21 @@ const Navbar = () => {
             to="/"
             className="flex items-center gap-3"
           >
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-xs font-black text-white shadow-sm">
-              SCR
-            </div>
+            <img
+              src="/scr-logo.jpg"
+              alt="Southern Camera Rent"
+              className="h-14 w-auto object-contain"
+            />
 
             <div className="hidden sm:block">
-
               <p className="text-sm font-black tracking-tight text-gray-950">
-                Southern Camera Rental
+                Southern Camera Rent
               </p>
 
               <p className="text-[11px] text-gray-500">
                 Equipment & Photographer Services
               </p>
-
             </div>
-
           </Link>
 
 
@@ -202,6 +244,43 @@ const Navbar = () => {
 
           <div className="flex items-center gap-2 lg:gap-5">
 
+      {/* MOBILE MENU TOGGLE */}
+      <button
+        type="button"
+        aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+        aria-expanded={mobileMenuOpen}
+        aria-controls="scr-mobile-navigation"
+        onClick={() => {
+          setMobileMenuOpen((previous) => !previous);
+          setAccountOpen(false);
+          setSearchOpen(false);
+        }}
+        className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-orange-50 hover:text-orange-600 lg:hidden"
+      >
+        {mobileMenuOpen ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-6 w-6"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-6 w-6"
+            aria-hidden="true"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        )}
+      </button>
 
       {/* ==========================================
           DESKTOP NAVIGATION
@@ -214,14 +293,14 @@ const Navbar = () => {
         user?.role === "CUSTOMER" ? (
           <Link
             to="/"
-            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+            className={navLinkClass("/")}
           >
             Home
           </Link>
         ) : (
           <a
             href="/#discover"
-            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+            className={navLinkClass("/")}
           >
             Discover
           </a>
@@ -231,49 +310,39 @@ const Navbar = () => {
         {/* Equipment */}
         <a
           href="/customer/equipment"
-          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+          className={navLinkClass("/customer/equipment")}
         >
           Equipment
         </a>
 
 
+
         {/* Photographers */}
         <Link
           to="/photographers"
-          className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
+          onClick={closeNavigationMenus}
+          className={navLinkClass("/photographers")}
         >
           Photographers
         </Link>
 
+        {/* About Us */}
+        <Link
+          to="/about"
+          className={navLinkClass("/about")}
+        >
+          About Us
+        </Link>
 
-        {/* Customer / Guest specific links */}
-        {isAuthenticated && user?.role === "CUSTOMER" ? (
-          <>
-            <Link
-              to="/customer/bookings"
-              className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-            >
-              My Bookings
-            </Link>
-
-            <Link
-              to="/customer/rentals"
-              className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-            >
-              My Rentals
-            </Link>
-          </>
-        ) : (
-          <a
-            href="/#how-it-works"
-            className="text-sm font-semibold text-gray-600 transition hover:text-orange-600"
-          >
-            How It Works
-          </a>
-        )}
+        {/* Contact Us */}
+        <Link
+          to="/contact"
+          className={navLinkClass("/contact")}
+        >
+          Contact Us
+        </Link>
 
     </nav>
-
 
 
             {/* ==========================================
@@ -373,7 +442,7 @@ const Navbar = () => {
                     <div className="mt-2 flex flex-wrap gap-2">
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -383,7 +452,7 @@ const Navbar = () => {
                       </a>
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -393,7 +462,7 @@ const Navbar = () => {
                       </a>
 
                       <a
-                        href="/#equipment"
+                        href="/customer/equipment"
                         onClick={() =>
                           setSearchOpen(false)
                         }
@@ -488,7 +557,7 @@ const Navbar = () => {
               {/* Account Dropdown */}
               {accountOpen && (
 
-                <div className="absolute right-0 top-12 w-64 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+                <div className="absolute right-0 top-12 z-50 w-72 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
 
                   {loading ? (
 
@@ -534,45 +603,55 @@ const Navbar = () => {
 
                           </div>
 
-
-                          {/* ==================================
-                              CUSTOMER LINKS
-                          ================================== */}
-
+                          {/* CUSTOMER LINKS */}
                           <div className="p-2">
+                            {[
+                              {
+                                label: "Dashboard",
+                                path: "/customer",
+                                Icon: LayoutDashboard,
+                              },
+                              {
+                                label: "My Profile",
+                                path: "/customer/profile",
+                                Icon: UserRound,
+                              },
+                              {
+                                label: "My Bookings",
+                                path: "/customer/bookings",
+                                Icon: CalendarDays,
+                              },
+                              {
+                                label: "My Rentals",
+                                path: "/customer/rentals",
+                                Icon: Camera,
+                              },
+                              {
+                                label: "Invoices & Payments",
+                                path: "/customer/billing",
+                                Icon: ReceiptText,
+                              },
+                            ].map(({ label, path, Icon }) => (
+                              <Link
+                                key={path}
+                                to={path}
+                                onClick={closeNavigationMenus}
+                                className={`${accountLinkClass(path)} group gap-3`}
+                              >
+                                <Icon
+                                  size={17}
+                                  strokeWidth={1.8}
+                                  className="shrink-0"
+                                />
 
-                            <Link
-                              to="/customer"
-                              onClick={() =>
-                                setAccountOpen(false)
-                              }
-                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
-                            >
-                              Dashboard
-                            </Link>
+                                <span className="flex-1">{label}</span>
 
-
-                            <Link
-                              to="/customer/profile"
-                              onClick={() =>
-                                setAccountOpen(false)
-                              }
-                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
-                            >
-                              My Profile
-                            </Link>
-
-
-                            <Link
-                              to="/customer/bookings"
-                              onClick={() =>
-                                setAccountOpen(false)
-                              }
-                              className="flex rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-orange-600"
-                            >
-                              My Bookings
-                            </Link>
-
+                                <ChevronRight
+                                  size={14}
+                                  className="text-gray-300 opacity-0 transition-opacity group-hover:opacity-100"
+                                />
+                              </Link>
+                            ))}
                           </div>
 
 {/* ==================================
@@ -581,27 +660,32 @@ const Navbar = () => {
 
 <div className="border-t border-gray-100 p-2">
 
-  <Link
-    to="/customer/photographer-application"
-    onClick={() =>
-      setAccountOpen(false)
-    }
-    className="group flex rounded-xl px-3 py-2.5 transition hover:bg-orange-50"
-  >
+<Link
+  to="/customer/photographer-application"
+  onClick={closeNavigationMenus}
+  className="group flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-orange-50"
+>
+  <Camera
+    size={18}
+    strokeWidth={1.8}
+    className="shrink-0 text-orange-600"
+  />
 
-    <div>
+  <div className="min-w-0 flex-1">
+    <p className="text-sm font-semibold text-gray-800 group-hover:text-orange-700">
+      Become a Photographer
+    </p>
 
-      <p className="text-sm font-medium text-gray-700 transition group-hover:text-orange-700">
-        Become a Photographer
-      </p>
+    <p className="mt-0.5 text-xs text-gray-400">
+      Join our photographer network
+    </p>
+  </div>
 
-      <p className="mt-0.5 text-xs text-gray-400">
-        Apply to join our photographer network
-      </p>
-
-    </div>
-
-  </Link>
+  <ChevronRight
+    size={15}
+    className="text-gray-300"
+  />
+</Link>
 
 </div>
 
@@ -611,14 +695,14 @@ const Navbar = () => {
                           ================================== */}
 
                           <div className="border-t border-gray-100 p-2">
-
-                            <button
-                              type="button"
-                              onClick={handleLogout}
-                              className="flex w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
-                            >
-                              Logout
-                            </button>
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                          >
+                            <LogOut size={17} strokeWidth={1.8} />
+                            <span>Logout</span>
+                          </button>
 
                           </div>
 
@@ -678,6 +762,57 @@ const Navbar = () => {
           </div>
 
         </div>
+
+        {/* MOBILE NAVIGATION */}
+        {mobileMenuOpen && (
+          <div
+            id="scr-mobile-navigation"
+            className="border-t border-gray-100 bg-white px-5 py-4 shadow-lg lg:hidden"
+          >
+            <div className="mx-auto flex max-w-7xl flex-col gap-1">
+              <Link
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Home
+              </Link>
+
+              <a
+                href="/customer/equipment"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Equipment
+              </a>
+
+              <Link
+                to="/photographers"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Photographers
+              </Link>
+
+              <Link
+                to="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                About Us
+              </Link>
+
+              <Link
+                to="/contact"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+              >
+                Contact Us
+              </Link>
+
+            </div>
+          </div>
+        )}
 
       </nav>
     </>

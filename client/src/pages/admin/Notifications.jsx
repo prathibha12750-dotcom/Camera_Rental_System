@@ -21,46 +21,6 @@ const Notifications = () => {
   const [success, setSuccess] = useState("");
 
   // ==========================================
-  // FETCH USERS
-  // ==========================================
-
-  const fetchUsers = async () => {
-    try {
-      setLoadingUsers(true);
-      setError("");
-
-      /*
-       * There is currently no dedicated "all users" endpoint
-       * in the admin backend.
-       *
-       * We therefore combine the existing customer endpoint
-       * with the invoices endpoint to obtain known customers.
-       */
-
-      const response = await api.get("/admin/customers");
-
-      setUsers(response.data?.data?.customers || []);
-    } catch (error) {
-      const status = error.response?.status;
-
-      if (status === 401) {
-        setError("Your session has expired. Please log in again.");
-      } else if (status === 403) {
-        setError(
-          "You do not have permission to manage notifications."
-        );
-      } else {
-        setError(
-          error.response?.data?.message ||
-            "Failed to load users."
-        );
-      }
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  // ==========================================
   // FETCH NOTIFICATIONS FOR USER
   // ==========================================
 
@@ -97,9 +57,54 @@ const Notifications = () => {
   // INITIAL LOAD
   // ==========================================
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+useEffect(() => {
+  let cancelled = false;
+
+  const loadInitialUsers = async () => {
+    try {
+      const response = await api.get("/admin/customers");
+
+      if (cancelled) {
+        return;
+      }
+
+      setUsers(
+        response.data?.data?.customers || []
+      );
+    } catch (error) {
+      if (cancelled) {
+        return;
+      }
+
+      const status = error.response?.status;
+
+      if (status === 401) {
+        setError(
+          "Your session has expired. Please log in again."
+        );
+      } else if (status === 403) {
+        setError(
+          "You do not have permission to manage notifications."
+        );
+      } else {
+        setError(
+          error.response?.data?.message ||
+            "Failed to load users."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingUsers(false);
+      }
+    }
+  };
+
+  loadInitialUsers();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   // ==========================================
   // USER CHANGE

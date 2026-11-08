@@ -1,19 +1,107 @@
-
-import { useAuth } from "../../context/useAuth";
 import { useEffect, useState } from "react";
-
-import { getEquipmentById } from "../../services/equipmentService";
-import {
-  checkAvailability,
-  createRentalRequest,
-} from "../../services/rentalService";
 import {
   useParams,
   useNavigate,
   useLocation,
 } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
+import { getEquipmentById } from "../../services/equipmentService";
+import {
+  checkAvailability,
+  createRentalRequest,
+  getRentalCalendar,
+} from "../../services/rentalService";
 
-const EquipmentDetails = () => {
+const getStatusStyle = (status) => {
+  switch (status) {
+    case "AVAILABLE":
+      return "bg-green-100 text-green-700 border-green-200";
+
+    case "RESERVED":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+
+    case "RENTED":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+
+    case "MAINTENANCE":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+
+    case "DAMAGED":
+      return "bg-red-100 text-red-700 border-red-200";
+
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+};
+
+const COLOMBO = "Asia/Colombo";
+
+const dateKey = (date) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: COLOMBO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const value = (type) =>
+    parts.find((part) => part.type === type)?.value;
+
+  return `${value("year")}-${value("month")}-${value("day")}`;
+};
+
+const todayKey = () => dateKey(new Date());
+
+const addDays = (key, days) => {
+  const date = new Date(`${key}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const monthLabel = (month) =>
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString(
+    "en-GB",
+    {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }
+  );
+
+const shiftMonth = (month, delta) => {
+  const [year, m] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, m - 1 + delta, 1));
+  return date.toISOString().slice(0, 7);
+};
+
+const isBlockedDay = (day, periods) =>
+  periods.some(({ startDate, endDate }) => {
+    // Both start and end dates are unavailable.
+    // The customer can keep the equipment until
+    // 6:00 PM on the selected end date.
+    const start = dateKey(new Date(startDate));
+    const end = dateKey(new Date(endDate));
+
+    return day >= start && day <= end;
+  });
+
+const periodHasBlockedDay = (start, end, periods) => {
+  // Include the selected return date because
+  // the equipment remains reserved until 6:00 PM.
+  for (
+    let day = start;
+    day <= end;
+    day = addDays(day, 1)
+  ) {
+    if (isBlockedDay(day, periods)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+export default function EquipmentDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,11 +116,29 @@ const EquipmentDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Image gallery
+  // ==========================================
+  // IMAGE GALLERY
+  // ==========================================
+
   const [activeImage, setActiveImage] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
 
-  // Rental dates
+  // ==========================================
+  // RENTAL AVAILABILITY CALENDAR
+  // ==========================================
+
+  const [calendar, setCalendar] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarError, setCalendarError] = useState("");
+
+  const [month, setMonth] = useState(
+    todayKey().slice(0, 7)
+  );
+
+  // ==========================================
+  // RENTAL DATES
+  // ==========================================
+
   const [startDate, setStartDate] = useState(
     location.state?.startDate || ""
   );
@@ -40,80 +146,165 @@ const EquipmentDetails = () => {
   const [endDate, setEndDate] = useState(
     location.state?.endDate || ""
   );
-  const [availability, setAvailability] = useState(null);
-  const [checking, setChecking] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState("");
 
-  // Rental request
+  // ==========================================
+  // AVAILABILITY CHECK
+  // ==========================================
+
+  const [availability, setAvailability] = useState(null);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [checking, setChecking] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
-    const loadEquipment = async () => {
-      try {
-        setLoading(true);
-        setError("");
+    let cancelled = false;
 
-        const result = await getEquipmentById(id);
+    Promise.all([
+      getEquipmentById(id),
+      getRentalCalendar(id),
+    ])
+      .then(([equipmentResult, calendarResult]) => {
+        if (cancelled) return;
 
-        setEquipment(result?.data?.equipment || null);
-      } catch (err) {
-        setError(
-          err.response?.data?.message ||
-            "Failed to load equipment details"
-        );
-      } finally {
-        setLoading(false);
-      }
+      setEquipment(
+        equipmentResult?.equipment ||
+        equipmentResult?.data?.equipment ||
+        null
+      );
+        setCalendar(calendarResult?.data || null);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            err.response?.data?.message ||
+              "Failed to load equipment or rental calendar."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setCalendarLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
     };
-
-    loadEquipment();
   }, [id]);
 
- // ------------------------------------------
-// IMAGE GALLERY
-// ------------------------------------------
+  // ==========================================
+  // IMAGE GALLERY
+  // ==========================================
 
-const images =
-  equipment?.images?.length > 0
-    ? equipment.images
-    : equipment?.imageUrl
-      ? [equipment.imageUrl]
-      : [];
+  const images =
+    equipment?.images?.length > 0
+      ? equipment.images
+      : equipment?.imageUrl
+        ? [equipment.imageUrl]
+        : [];
 
-// Automatically switch images every 4 seconds
-useEffect(() => {
-  if (images.length <= 1) return;
+  // Automatically change gallery images.
+  useEffect(() => {
+    if (images.length <= 1) return;
 
-  const interval = setInterval(() => {
+    const interval = setInterval(() => {
+      setActiveImage((current) =>
+        current >= images.length - 1 ? 0 : current + 1
+      );
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  const handlePreviousImage = () => {
+    if (images.length === 0) return;
+
     setActiveImage((current) =>
-      current === images.length - 1 ? 0 : current + 1
+      current === 0 ? images.length - 1 : current - 1
     );
-  }, 4000);
+  };
 
-  return () => clearInterval(interval);
-}, [images.length, activeImage]);
+  const handleNextImage = () => {
+    if (images.length === 0) return;
 
-const handlePreviousImage = () => {
-  if (images.length === 0) return;
+    setActiveImage((current) =>
+      current >= images.length - 1 ? 0 : current + 1
+    );
+  };
 
-  setActiveImage((current) =>
-    current === 0 ? images.length - 1 : current - 1
-  );
-};
+  // ==========================================
+  // RENTAL AVAILABILITY CALENDAR
+  // ==========================================
 
-const handleNextImage = () => {
-  if (images.length === 0) return;
+  const reloadCalendar = async () => {
+    setCalendarLoading(true);
+    setCalendarError("");
 
-  setActiveImage((current) =>
-    current === images.length - 1 ? 0 : current + 1
-  );
-};
+    try {
+      const result = await getRentalCalendar(id);
+      setCalendar(result?.data || null);
+      return result?.data || null;
+    } catch (err) {
+      setCalendarError(
+        err.response?.data?.message ||
+          "Could not refresh unavailable dates."
+      );
+      return null;
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
-  // ------------------------------------------
-  // AVAILABILITY
-  // ------------------------------------------
+  const resetCheck = () => {
+    setAvailability(null);
+    setAvailabilityError("");
+    setRequestError("");
+    setRequestMessage("");
+  };
+
+  const selectDay = (day) => {
+    if (
+      !calendar ||
+      calendar.blocked ||
+      day < todayKey() ||
+      isBlockedDay(
+        day,
+        calendar.unavailablePeriods || []
+      )
+    ) {
+      return;
+    }
+
+    resetCheck();
+
+    if (!startDate || endDate || day <= startDate) {
+      setStartDate(day);
+      setEndDate("");
+      return;
+    }
+
+    if (
+      periodHasBlockedDay(
+        startDate,
+        day,
+        calendar.unavailablePeriods || []
+      )
+    ) {
+      setAvailabilityError(
+        "The selected period crosses unavailable dates. Choose another end date."
+      );
+      return;
+    }
+
+    setEndDate(day);
+  };
+
+  // ==========================================
+  // CHECK RENTAL AVAILABILITY
+  // ==========================================
 
   const handleCheckAvailability = async () => {
     if (!startDate || !endDate) {
@@ -123,20 +314,33 @@ const handleNextImage = () => {
       return;
     }
 
-    if (new Date(endDate) < new Date(startDate)) {
+    if (startDate < todayKey() || startDate >= endDate) {
       setAvailabilityError(
-        "End date cannot be before start date."
+        "Choose a valid rental period with the end date after the start date."
       );
       return;
     }
 
-    try {
-      setChecking(true);
-      setAvailabilityError("");
+    if (
+      !calendar ||
+      calendar.blocked ||
+      periodHasBlockedDay(
+        startDate,
+        endDate,
+        calendar.unavailablePeriods || []
+      )
+    ) {
       setAvailability(null);
-      setRequestMessage("");
-      setRequestError("");
+      setAvailabilityError(
+        "The selected rental period contains unavailable dates. Please choose another period."
+      );
+      return;
+    }
 
+    setChecking(true);
+    resetCheck();
+
+    try {
       const result = await checkAvailability({
         equipmentId: id,
         startDate,
@@ -144,125 +348,137 @@ const handleNextImage = () => {
       });
 
       setAvailability(result);
+
+      if (!result?.available) {
+        await reloadCalendar();
+      }
     } catch (err) {
       setAvailabilityError(
         err.response?.data?.message ||
-          "Failed to check availability"
+          "Failed to check equipment availability."
       );
     } finally {
       setChecking(false);
     }
   };
 
-  // ------------------------------------------
-  // RENTAL REQUEST
-  // ------------------------------------------
+  // ==========================================
+  // SUBMIT RENTAL REQUEST
+  // ==========================================
 
-  
-const handleRentalRequest = async () => {
-  // Wait until authentication state is ready
-  if (authLoading || requesting) return;
+  const handleRentalRequest = async () => {
+    if (authLoading || requesting) return;
 
-  // Redirect guests to login
-  if (!isAuthenticated) {
-    navigate("/login", {
-      state: {
-        from: `/customer/equipment/${id}`,
-        startDate,
-        endDate,
-      },
-    });
-    return;
-  }
+    // Guests must log in before requesting rentals.
+    if (!isAuthenticated) {
+      navigate("/login", {
+        state: {
+          from: `/customer/equipment/${id}`,
+          startDate,
+          endDate,
+        },
+      });
+      return;
+    }
 
-  // Only customers can request rentals
-  if (user?.role !== "CUSTOMER") {
-    setRequestError(
-      "Only customer accounts can request equipment rentals."
-    );
-    return;
-  }
-
-  // Make sure dates are selected
-  if (!startDate || !endDate || !availability?.available) {
-    setRequestError(
-      "Please select dates and check availability first."
-    );
-    return;
-  }
-
-  try {
-    setRequesting(true);
-    setRequestMessage("");
-    setRequestError("");
-
-    // Recheck availability before submitting
-    const latestAvailability = await checkAvailability({
-      equipmentId: id,
-      startDate,
-      endDate,
-    });
-
-    setAvailability(latestAvailability);
-
-    if (!latestAvailability?.available) {
+    // Only customer accounts can submit requests.
+    if (user?.role !== "CUSTOMER") {
       setRequestError(
-        latestAvailability?.message ||
-          "Equipment is no longer available for the selected dates."
+        "Only customer accounts can request equipment rentals."
       );
       return;
     }
 
-    const result = await createRentalRequest({
-      equipmentId: id,
-      startDate,
-      endDate,
-    });
+    if (
+      !startDate ||
+      !endDate ||
+      !availability?.available
+    ) {
+      setRequestError(
+        "Please select rental dates and check availability first."
+      );
+      return;
+    }
 
-    setRequestMessage(
-      result.message ||
-        "Rental request submitted successfully."
-    );
-  } catch (err) {
-    setRequestError(
-      err.response?.data?.message ||
-        "Failed to submit rental request."
-    );
-  } finally {
-    setRequesting(false);
-  }
-};
+    setRequesting(true);
+    setRequestError("");
+    setRequestMessage("");
 
+    try {
+      // Recheck availability before submitting.
+      const latestAvailability = await checkAvailability({
+        equipmentId: id,
+        startDate,
+        endDate,
+      });
 
-  // ------------------------------------------
-  // STATUS STYLE
-  // ------------------------------------------
+      setAvailability(latestAvailability);
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case "AVAILABLE":
-        return "bg-green-100 text-green-700 border-green-200";
+      if (!latestAvailability?.available) {
+        setRequestError(
+          latestAvailability?.message ||
+            "Equipment is no longer available for the selected dates."
+        );
 
-      case "RESERVED":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+        await reloadCalendar();
+        return;
+      }
 
-      case "RENTED":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+      const result = await createRentalRequest({
+        equipmentId: id,
+        startDate,
+        endDate,
+      });
 
-      case "MAINTENANCE":
-        return "bg-orange-100 text-orange-700 border-orange-200";
+      setRequestMessage(
+        result?.message ||
+          "Rental request submitted successfully."
+      );
 
-      case "DAMAGED":
-        return "bg-red-100 text-red-700 border-red-200";
+      setAvailability(null);
+      setStartDate("");
+      setEndDate("");
 
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+      await reloadCalendar();
+    } catch (err) {
+      setRequestError(
+        err.response?.data?.message ||
+          "Failed to submit rental request."
+      );
+
+      setAvailability(null);
+      await reloadCalendar();
+    } finally {
+      setRequesting(false);
     }
   };
 
-  // ------------------------------------------
-  // LOADING
-  // ------------------------------------------
+  const firstWeekday = new Date(
+    `${month}-01T00:00:00Z`
+  ).getUTCDay();
+
+  const daysInMonth = new Date(
+    Date.UTC(
+      Number(month.slice(0, 4)),
+      Number(month.slice(5, 7)),
+      0
+    )
+  ).getUTCDate();
+
+  const days = Array.from(
+    { length: firstWeekday + daysInMonth },
+    (_, index) =>
+      index < firstWeekday
+        ? null
+        : `${month}-${String(
+            index - firstWeekday + 1
+          ).padStart(2, "0")}`
+  );
+
+  const periods = calendar?.unavailablePeriods || [];
+
+  const inputStyle =
+    "rounded-xl border border-gray-300 px-4 py-3";
 
   if (loading) {
     return (
@@ -317,6 +533,7 @@ const handleRentalRequest = async () => {
   const currentImage = images[activeImage];
 
   return (
+
     <>
       <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
         <div className="mx-auto max-w-7xl">
@@ -330,7 +547,7 @@ const handleRentalRequest = async () => {
             ← Back to Equipment
           </button>
 
-          {/* Header */}
+          {/* Page header */}
           <div className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-600">
               Equipment Rental
@@ -532,7 +749,7 @@ const handleRentalRequest = async () => {
                     {equipment.brand}
                   </p>
                 </div>
-
+                
                 <div className="rounded-xl bg-gray-50 p-4">
                   <p className="text-xs text-gray-500">
                     Model
@@ -542,14 +759,21 @@ const handleRentalRequest = async () => {
                   </p>
                 </div>
 
-                
-
                 <div className="rounded-xl bg-gray-50 p-4">
                   <p className="text-xs text-gray-500">
                     Category
                   </p>
                   <p className="mt-1 font-semibold text-gray-900">
                     {equipment.category?.name || "N/A"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Condition
+                  </p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {equipment.condition || "N/A"}
                   </p>
                 </div>
               </div>
@@ -561,7 +785,6 @@ const handleRentalRequest = async () => {
           ========================================== */}
 
           <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
-
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
@@ -588,134 +811,6 @@ const handleRentalRequest = async () => {
                 </span>
               </div>
             </div>
-
-            <div className="mt-7 grid gap-5 md:grid-cols-2">
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Start Date
-                </label>
-
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setAvailability(null);
-                    setRequestMessage("");
-                    setRequestError("");
-                    setAvailabilityError("");
-                  }}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  End Date
-                </label>
-
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setAvailability(null);
-                    setRequestMessage("");
-                    setRequestError("");
-                    setAvailabilityError("");
-                  }}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleCheckAvailability}
-              disabled={checking}
-              className="mt-5 w-full rounded-xl bg-gray-950 px-5 py-4 font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {checking
-                ? "Checking Availability..."
-                : "Check Availability"}
-            </button>
-
-            {/* Availability */}
-            {availability && (
-              <div
-                className={`mt-5 rounded-2xl border p-5 ${
-                  availability.available
-                    ? "border-green-200 bg-green-50"
-                    : "border-red-200 bg-red-50"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="text-xl">
-                    {availability.available ? "✓" : "!"}
-                  </div>
-
-                  <div>
-                    <p
-                      className={`font-bold ${
-                        availability.available
-                          ? "text-green-700"
-                          : "text-red-700"
-                      }`}
-                    >
-                      {availability.available
-                        ? "Equipment Available"
-                        : "Equipment Unavailable"}
-                    </p>
-
-                    <p
-                      className={`mt-1 text-sm ${
-                        availability.available
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {availability.available
-                        ? "This equipment can be rented for your selected dates."
-                        : availability.message ||
-                          "Equipment is not available for these dates."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {availabilityError && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
-                {availabilityError}
-              </div>
-            )}
-
-            {/* Request button */}
-            {availability?.available && (
-              <button
-                type="button"
-                onClick={handleRentalRequest}
-                disabled={requesting || authLoading}
-                className="mt-5 w-full rounded-xl bg-orange-600 px-5 py-4 font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {requesting
-                  ? "Submitting Rental Request..."
-                  : "Request Rental"}
-              </button>
-            )}
-
-            {requestMessage && (
-              <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
-                ✓ {requestMessage}
-              </div>
-            )}
-
-            {requestError && (
-              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-                {requestError}
-              </div>
-            )}
           </div>
 
           {/* =========================================
@@ -770,8 +865,7 @@ const handleRentalRequest = async () => {
                 </span>
               </div>
 
-              
-
+             
               <div className="flex justify-between gap-4 py-4">
                 <span className="text-sm text-gray-500">
                   Availability
@@ -795,20 +889,282 @@ const handleRentalRequest = async () => {
             </div>
           </div>
 
+          {/* =========================================
+              RENTAL AVAILABILITY CALENDAR
+          ========================================== */}
+
+          <section className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
+            <div className="mb-6">
+              <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
+                Rental Calendar
+              </p>
+
+              <h2 className="mt-1 text-2xl font-bold text-gray-950">
+                Select Rental Dates
+              </h2>
+
+              <p className="mt-2 text-sm text-gray-500">
+                Select your start date and then your end date.
+                Unavailable and past dates cannot be selected.
+              </p>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                aria-label="Previous month"
+                disabled={month <= todayKey().slice(0, 7)}
+                onClick={() =>
+                  setMonth((value) => shiftMonth(value, -1))
+                }
+                className="rounded-lg border px-3 py-2 disabled:opacity-30"
+              >
+                ←
+              </button>
+
+              <span className="font-semibold">
+                {monthLabel(month)}
+              </span>
+
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() =>
+                    setMonth((value) =>
+                      shiftMonth(value, 1)
+                    )
+                  }
+                  className="rounded-lg border px-3 py-2"
+                >
+                  →
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs">
+                {[
+                  "Su", "Mo", "Tu", "We",
+                  "Th", "Fr", "Sa",
+                ].map((day) => (
+                  <span
+                    key={day}
+                    className="py-2 font-semibold text-gray-500"
+                  >
+                    {day}
+                  </span>
+                ))}
+
+                {days.map((day, index) => {
+                  if (!day) {
+                    return (
+                      <span
+                        key={`blank-${index}`}
+                      />
+                    );
+                  }
+
+                  const past = day < todayKey();
+                  const blocked =
+                    calendar?.blocked ||
+                    isBlockedDay(day, periods);
+
+                  const disabled =
+                    calendarLoading ||
+                    !calendar ||
+                    past ||
+                    blocked;
+
+                  const selected =
+                    day === startDate ||
+                    day === endDate;
+
+                  const between =
+                    startDate &&
+                    endDate &&
+                    day > startDate &&
+                    day < endDate;
+
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() =>
+                        selectDay(day)
+                      }
+                      title={
+                        past
+                          ? "Past date"
+                          : blocked
+                          ? "Unavailable"
+                          : "Available"
+                      }
+                      className={`rounded-lg py-2 text-sm ${
+                        selected
+                          ? "bg-orange-600 font-bold text-white"
+                          : between
+                          ? "bg-orange-100 text-orange-800"
+                          : disabled
+                          ? "bg-gray-100 text-gray-400 line-through"
+                          : "bg-white text-gray-900 hover:bg-orange-50"
+                      } ${
+                        disabled
+                          ? "cursor-not-allowed"
+                          : "cursor-pointer"
+                      }`}
+                    >
+                      {Number(day.slice(-2))}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
+                <span>■ Available</span>
+                <span className="text-gray-400">
+                  ■ Unavailable / past
+                </span>
+                <span className="text-orange-600">
+                  ■ Selected
+                </span>
+              </div>
+
+              {calendar?.message && (
+                <p className="mt-3 text-sm font-medium text-red-700">
+                  {calendar.message}
+                </p>
+              )}
+
+              {calendarError && (
+                <p className="mt-3 text-sm text-red-700">
+                  {calendarError}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={reloadCalendar}
+                disabled={calendarLoading}
+                className="mt-3 text-sm font-semibold text-orange-700 underline disabled:opacity-50"
+              >
+                Refresh unavailable dates
+              </button>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Start Date
+                  <input
+                    type="text"
+                    readOnly
+                    value={startDate}
+                    placeholder="Select on calendar"
+                    className={`mt-2 w-full ${inputStyle}`}
+                  />
+                </label>
+
+                <label className="text-sm font-medium text-gray-700">
+                  End Date
+                  <input
+                    type="text"
+                    readOnly
+                    value={endDate}
+                    placeholder="Select on calendar"
+                    className={`mt-2 w-full ${inputStyle}`}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                  resetCheck();
+                }}
+                className="mt-3 text-sm font-semibold text-gray-600 underline"
+              >
+                Clear selection
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCheckAvailability}
+                disabled={
+                  checking ||
+                  calendarLoading ||
+                  !calendar ||
+                  calendar.blocked ||
+                  !startDate ||
+                  !endDate
+                }
+                className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {checking
+                  ? "Checking..."
+                  : "Check Availability"}
+              </button>
+
+              {availabilityError && (
+                <p className="mt-4 text-sm text-red-600">
+                  {availabilityError}
+                </p>
+              )}
+
+              {availability && (
+                <p
+                  className={`mt-4 rounded-xl p-4 text-sm ${
+                    availability.available
+                      ? "bg-green-50 text-green-700"
+                      : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  {availability.message ||
+                    (availability.available
+                      ? "Equipment is available."
+                      : "Equipment is unavailable.")}
+                </p>
+              )}
+
+              {availability?.available && (
+                <button
+                  type="button"
+                  onClick={handleRentalRequest}
+                  disabled={requesting}
+                  className="mt-4 w-full rounded-xl bg-orange-600 px-4 py-3 font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {requesting
+                    ? "Submitting Request..."
+                    : "Request Rental"}
+                </button>
+              )}
+
+              {requestMessage && (
+                <p className="mt-4 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+                  {requestMessage}
+                </p>
+              )}
+              
+              {requestError && (
+                <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+                  {requestError}
+                </p>
+              )}
+          </section>
         </div>
       </main>
-
+      
       {/* =========================================
-          FULL SCREEN IMAGE VIEWER
+          FULLSCREEN IMAGE VIEWER
       ========================================== */}
 
       {showImageModal && currentImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5"
           onClick={() => setShowImageModal(false)}
+          role="presentation"
         >
           <button
             type="button"
+            aria-label="Close image viewer"
             onClick={() => setShowImageModal(false)}
             className="absolute right-6 top-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:bg-white/20"
           >
@@ -818,6 +1174,7 @@ const handleRentalRequest = async () => {
           {images.length > 1 && (
             <button
               type="button"
+              aria-label="Previous image"
               onClick={(e) => {
                 e.stopPropagation();
                 handlePreviousImage();
@@ -838,6 +1195,7 @@ const handleRentalRequest = async () => {
           {images.length > 1 && (
             <button
               type="button"
+              aria-label="Next image"
               onClick={(e) => {
                 e.stopPropagation();
                 handleNextImage();
@@ -851,7 +1209,5 @@ const handleRentalRequest = async () => {
       )}
     </>
   );
-};
-
-export default EquipmentDetails;
+}
 

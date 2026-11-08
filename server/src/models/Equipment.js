@@ -1,14 +1,4 @@
 const mongoose = require("mongoose");
-
-
-
-// ==========================================
-// MODIFICATION: Equipment Special Offers Schema
-// MODIFIED BY: Thasindu
-// PURPOSE: Allow admins to configure discounts
-// and free bonuses with optional validity dates.
-// ==========================================
-
 const offerSchema = new mongoose.Schema(
   {
     enabled: {
@@ -86,8 +76,6 @@ offerSchema.pre("validate", function () {
 
 // END MODIFICATION: Equipment Special Offers Schema by Thasindu
 
-
-
 const equipmentSchema = new mongoose.Schema(
   {
     name: {
@@ -135,7 +123,30 @@ const equipmentSchema = new mongoose.Schema(
       min: [0, "Security deposit cannot be negative"],
     },
 
-    
+
+    // ==========================================
+    // OVERDUE PENALTY POLICY
+    // ==========================================
+
+    // Percentage of the daily rental price charged
+    // for each started 24-hour overdue period.
+    overduePenaltyRate: {
+      type: Number,
+      default: 20,
+      required: true,
+      min: [0, "Overdue penalty rate cannot be negative"],
+      max: [100, "Overdue penalty rate cannot exceed 100%"],
+    },
+
+    // ==========================================
+    // PHYSICAL EQUIPMENT CONDITION
+    // ==========================================
+
+    condition: {
+      type: String,
+      enum: ["EXCELLENT", "GOOD", "FAIR", "DAMAGED"],
+      default: "GOOD",
+    },
 
     status: {
       type: String,
@@ -154,28 +165,31 @@ const equipmentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
-
+    
     imageUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    images: [
+      {
         type: String,
         trim: true,
-        default: "",
       },
+    ],
 
-      images: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
+    offer: {
+      type: offerSchema,
+      default: () => ({}),
+    },
 
-
-      // MODIFIED BY: Thasindu
-      // PURPOSE: Store optional promotional information on equipment.
-      offer: {
-        type: offerSchema,
-        default: () => ({}),
-      },
-
+    rentalScheduleVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
   },
   {
     timestamps: true,
