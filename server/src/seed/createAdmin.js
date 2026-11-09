@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: "./server/.env" });
 
 const bcrypt = require("bcryptjs");
 
@@ -10,7 +10,7 @@ const createAdmin = async () => {
   try {
     await connectDB();
 
-    const adminEmail = (process.env.ADMIN_EMAIL || "admin@camera-system.com").trim().toLowerCase();
+    const adminEmail = "admin@camera-system.com";
 
     // Check if admin already exists
     const existingAdmin = await User.findOne({
@@ -23,14 +23,8 @@ const createAdmin = async () => {
     }
 
     // Hash admin password
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    if (!adminPassword) {
-      throw new Error("ADMIN_PASSWORD is not configured in the environment");
-    }
-
     const passwordHash = await bcrypt.hash(
-      adminPassword,
+      "Admin@12345",
       12
     );
 

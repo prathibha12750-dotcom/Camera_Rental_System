@@ -1,23 +1,135 @@
-import {
+import AboutUs from "../pages/AboutUs";
+import Footer from "../components/Footer";
+import ContactUs from "../pages/ContactUs";
+
+ // ==========================================
+ // REACT ROUTER
+ // ==========================================
+
+import{
   BrowserRouter,
   Link,
+  Navigate,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
+// ==========================================
+// LAYOUTS
+// ==========================================
+
+import AppLayout from "../components/AppLayout";
 import Navbar from "../components/Navbar";
+import AdminLayout from "../components/admin/AdminLayout";
+
+// ==========================================
+// PUBLIC PAGES
+// ==========================================
 
 import Home from "../pages/Home";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Unauthorized from "../pages/Unauthorized";
 
+// ==========================================
+// CUSTOMER PAGES
+// ==========================================
+
 import CustomerHome from "../pages/customer/CustomerHome";
+import CustomerProfile from "../pages/customer/CustomerProfile";
+import PhotographerListing from "../pages/customer/PhotographerListing";
+import PhotographerDetails from "../pages/customer/PhotographerDetails";
+import PhotographerBooking from "../pages/customer/PhotographerBooking";
+import CustomerBookings from "../pages/customer/CustomerBookings";
+import PhotographerApplication from "../pages/customer/PhotographerApplication";
+import CustomerBilling from "../pages/customer/CustomerBilling";
+
+// ==========================================
+// CUSTOMER EQUIPMENT / RENTAL PAGES
+// Added by Thasindu
+// ==========================================
+
+import EquipmentBrowse from "../pages/customer/EquipmentBrowse";
+import EquipmentDetails from "../pages/customer/EquipmentDetails";
+import MyRentals from "../pages/customer/MyRentals";
+import CustomerRentalDetails from "../pages/customer/CustomerRentalDetails";
+
+
+// ==========================================
+// PHOTOGRAPHER PAGES
+// ==========================================
+
 import PhotographerHome from "../pages/photographer/PhotographerHome";
+import PhotographerProfile from "../pages/photographer/PhotographerProfile";
+import PhotographerPortfolio from "../pages/photographer/PhotographerPortfolio";
+import PhotographerAvailability from "../pages/photographer/PhotographerAvailability";
+import PhotographerBookings from "../pages/photographer/PhotographerBookings";
+import PhotographerChangePassword from "../pages/photographer/PhotographerChangePassword";
+import PhotographerSubscription from "../pages/photographer/PhotographerSubscription";
+
+// ==========================================
+// CLERK PAGES
+// ==========================================
+
+import ClerkHome from "../pages/clerk/ClerkHome";
+import ClerkChangePassword from "../pages/clerk/ClerkChangePassword";
+import ClerkPaymentVerification from "../pages/clerk/ClerkPaymentVerification";
+import ClerkEquipment from "../pages/clerk/ClerkEquipment";
+import DamageMaintenance from "../pages/clerk/DamageMaintenance";
+
+// ==========================================
+// COMBINED PHOTOGRAPHER SUBSCRIPTION MANAGEMENT
+// ==========================================
+
+import PhotographerSubscriptionManagement from "../pages/admin/PhotographerSubscriptionManagement";
+
+// ==========================================
+// ADMIN PAGES
+// ==========================================
+
 import AdminHome from "../pages/admin/AdminHome";
+
+ //added by abilash
+import ActivityLogs from "../pages/admin/ActivityLogs";
+//ended by abilash
+
+ //added by abilash
+import AdminProfile from "../pages/admin/AdminProfile";
+//ended by abilash
+import AdminPhotographerApplications from "../pages/admin/AdminPhotographerApplications";
+import Users from "../pages/admin/Users";
+import CustomerDetails from "../pages/admin/CustomerDetails";
+import AdminPhotographerDetails from "../pages/admin/PhotographerDetails";
+import ClerkDetails from "../pages/admin/ClerkDetails";
+import Invoices from "../pages/admin/Invoices";
+import Payments from "../pages/admin/Payments";
+import Deposits from "../pages/admin/Deposits";
+import Refunds from "../pages/admin/Refunds";
+import Reports from "../pages/admin/Reports";
+import Notifications from "../pages/admin/Notifications";
+
+// ==========================================
+// ADMIN EQUIPMENT / RENTAL PAGES
+// Added by Thasindu
+// ==========================================
+
+import EquipmentManagement from "../pages/admin/EquipmentManagement";
+import RentalManagement from "../pages/admin/RentalManagement";
+import CategoryManagement from "../pages/admin/CategoryManagement";
+
+// ==========================================
+// ROUTE GUARDS
+// ==========================================
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
+import PasswordChangeRoute from "./PasswordChangeRoute";
+import PhotographerSubscriptionRoute from "./PhotographerSubscriptionRoute";
+
+// ==========================================
+// 404 PAGE
+// ==========================================
 
 const NotFound = () => {
   return (
@@ -26,10 +138,16 @@ const NotFound = () => {
         <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
           404 error
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-gray-950">Page not found</h1>
+
+        <h1 className="mt-2 text-3xl font-bold text-gray-950">
+          Page not found
+        </h1>
+
         <p className="mt-4 leading-7 text-gray-600">
-          The page you are looking for does not exist or may have been moved.
+          The page you are looking for does not exist or may
+          have been moved.
         </p>
+
         <Link
           to="/"
           className="mt-8 inline-flex rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white transition hover:bg-orange-700"
@@ -41,14 +159,53 @@ const NotFound = () => {
   );
 };
 
+const PublicFooter = () => {
+  const { pathname } = useLocation();
+
+  const publicPaths = [
+    "/",
+    "/about",
+    "/photographers",
+    "/login",
+    "/register",
+    "/contact",
+  ];
+
+  const showFooter =
+    publicPaths.includes(pathname) ||
+    pathname.startsWith("/photographers/");
+
+  return showFooter ? <Footer /> : null;
+};
+
+// ==========================================
+// APPLICATION ROUTES
+// ==========================================
+
 const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Navbar />
 
       <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Home />} />
+
+        {/* ==================================
+            PUBLIC ROUTES
+        ================================== */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+        <Route
+          path="/about"
+          element={<AboutUs />}
+        />
+
+        <Route 
+          path="/contact" 
+          element={<ContactUs />}
+        />
 
         <Route
           path="/login"
@@ -65,59 +222,487 @@ const AppRoutes = () => {
           element={<Unauthorized />}
         />
 
-        {/* Protected Routes */}
+        {/* ==================================
+            PUBLIC PHOTOGRAPHER DISCOVERY
+        ================================== */}
+        <Route
+          path="/photographers"
+          element={<PhotographerListing />}
+        />
+
+        <Route
+          path="/photographers/:id"
+          element={<PhotographerDetails />}
+        />
+
+        {/* ==================================
+            PUBLIC EQUIPMENT BROWSING
+        ================================== */}
+
+        <Route
+          path="/customer/equipment"
+          element={<EquipmentBrowse />}
+        />
+
+        <Route
+          path="/customer/equipment/:id"
+          element={<EquipmentDetails />}
+        />
+
+
+        {/* ==================================
+            PROTECTED ROUTES
+        ================================== */}
+
         <Route element={<ProtectedRoute />}>
+          {/* =================================
+              AUTHENTICATED APPLICATION SHELL
+          ================================= */}
 
-          {/* Customer Routes */}
-          <Route
-            element={
-              <RoleRoute
-                allowedRoles={["CUSTOMER"]}
-              />
-            }
-          >
+          <Route element={<AppLayout />}>
+            {/* ===============================
+                CUSTOMER ROUTES
+            =============================== */}
+
             <Route
-              path="/customer"
-              element={<CustomerHome />}
-            />
-          </Route>
+              element={
+                <RoleRoute
+                  allowedRoles={["CUSTOMER"]}
+                />
+              }
+            >
+              {/* Customer Dashboard */}
 
-          {/* Photographer Routes */}
-          <Route
-            element={
-              <RoleRoute
-                allowedRoles={["PHOTOGRAPHER"]}
+              <Route
+                path="/customer"
+                element={<CustomerHome />}
               />
-            }
-          >
-            <Route
-              path="/photographer"
-              element={<PhotographerHome />}
-            />
-          </Route>
 
-          {/* Staff Admin Routes */}
-          <Route
-            element={
-              <RoleRoute
-                allowedRoles={["STAFF_ADMIN"]}
+              {/* Customer Profile */}
+
+              <Route
+                path="/customer/profile"
+                element={<CustomerProfile />}
               />
-            }
-          >
-            <Route
-              path="/admin"
-              element={<AdminHome />}
-            />
-          </Route>
 
+              {/* Photographer Discovery */}
+
+              <Route
+                path="/customer/photographers"
+                element={<PhotographerListing />}
+              />
+
+              <Route
+                path="/customer/photographers/:id"
+                element={<PhotographerDetails />}
+              />
+
+              <Route
+                path="/customer/photographers/:id/book"
+                element={<PhotographerBooking />}
+              />
+
+              {/* Customer Photographer Bookings */}
+
+              <Route
+                path="/customer/bookings"
+                element={<CustomerBookings />}
+              />
+
+              {/* Photographer Application */}
+
+              <Route
+                path="/customer/photographer-application"
+                element={<PhotographerApplication />}
+              />
+
+              {/* =============================
+                  CUSTOMER RENTAL ROUTES
+                  Added by Thasindu
+              ============================= */}
+
+              <Route
+                path="/customer/rentals"
+                element={<MyRentals />}
+              />
+
+              <Route
+                path="/customer/rentals/:rentalId"
+                element={<CustomerRentalDetails />}
+              />
+
+              {/* Customer Invoices & Payments */}
+
+              <Route
+                path="/customer/billing"
+                element={<CustomerBilling />}
+              />
+            </Route>
+
+            {/* ===============================
+                PHOTOGRAPHER ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={["PHOTOGRAPHER"]}
+                />
+              }
+            >
+              {/* Photographer Password Change */}
+
+              <Route
+                path="/photographer/change-password"
+                element={<PhotographerChangePassword />}
+              />
+
+              {/* Photographer Subscription Page */}
+
+              <Route
+                path="/photographer/subscription"
+                element={<PhotographerSubscription />}
+              />
+
+              {/* Subscription access protection */}
+
+              <Route
+                element={<PhotographerSubscriptionRoute />}
+              >
+                {/* Password change protection */}
+
+                <Route
+                  element={<PasswordChangeRoute />}
+                >
+                  <Route
+                    path="/photographer"
+                    element={<PhotographerHome />}
+                  />
+
+                  <Route
+                    path="/photographer/profile"
+                    element={<PhotographerProfile />}
+                  />
+
+                  <Route
+                    path="/photographer/portfolio"
+                    element={<PhotographerPortfolio />}
+                  />
+
+                  <Route
+                    path="/photographer/availability"
+                    element={<PhotographerAvailability />}
+                  />
+
+                  <Route
+                    path="/photographer/bookings"
+                    element={<PhotographerBookings />}
+                  />
+                </Route>
+              </Route>
+            </Route>
+
+            {/* ===============================
+                CLERK ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={["CLERK"]}
+                />
+              }
+            >
+              {/* Clerk User Management */}
+
+              <Route
+                path="/clerk/users"
+                element={<Users />}
+              />
+
+              <Route
+                path="/clerk/customers/:customerId"
+                element={<CustomerDetails />}
+              />
+
+              <Route
+                path="/clerk/photographers/:photographerId"
+                element={<AdminPhotographerDetails />}
+              />
+
+              {/* Clerk Password Change */}
+
+              <Route
+                path="/clerk/change-password"
+                element={<ClerkChangePassword />}
+              />
+
+              {/* Protected Clerk Pages */}
+
+              <Route
+                element={<PasswordChangeRoute />}
+              >
+                {/* Clerk Dashboard */}
+
+                <Route
+                  path="/clerk"
+                  element={<ClerkHome />}
+                />
+
+                {/* Clerk Rental Management */}
+
+                <Route
+                  path="/clerk/rentals"
+                  element={<RentalManagement />}
+                />
+
+                {/* Clerk Payment Verification */}
+
+                <Route
+                  path="/clerk/payment-verification"
+                  element={<ClerkPaymentVerification />}
+                />
+
+                {/* ==========================================
+                    CLERK PAYMENT MANAGEMENT
+                    Record payments and view payment history
+                ========================================== */}
+
+                <Route
+                  path="/clerk/payments"
+                  element={<Payments />}
+                />
+
+                {/* Clerk Equipment Management */}
+
+                <Route
+                  path="/clerk/equipment"
+                  element={<ClerkEquipment />}
+                />
+
+                {/* Clerk Photographer Applications */}
+
+                <Route
+                  path="/clerk/photographer-applications"
+                  element={<AdminPhotographerApplications />}
+                />
+
+                {/* Clerk Deposits */}
+
+                <Route
+                  path="/clerk/deposits"
+                  element={<Deposits />}
+                />
+
+                {/* Clerk Refunds */}
+
+                <Route
+                  path="/clerk/refunds"
+                  element={<Refunds />}
+                />
+
+                {/* Clerk Damage & Maintenance */}
+
+                <Route
+                  path="/clerk/damage-maintenance"
+                  element={<DamageMaintenance />}
+                />
+
+                {/* ==================================
+                    COMBINED SUBSCRIPTION MANAGEMENT
+                ================================== */}
+
+                <Route
+                  path="/photographer-subscriptions"
+                  element={
+                    <PhotographerSubscriptionManagement />
+                  }
+                />
+
+                {/* Old Payment Page URL:
+                    Open Payment Verification tab */}
+
+                <Route
+                  path="/subscription-payments"
+                  element={
+                    <PhotographerSubscriptionManagement
+                      initialTab="verification"
+                    />
+                  }
+                />
+
+                {/* Optional Clerk-prefixed aliases */}
+
+                <Route
+                  path="/clerk/photographer-subscriptions"
+                  element={
+                    <Navigate
+                      to="/photographer-subscriptions"
+                      replace
+                    />
+                  }
+                />
+
+                <Route
+                  path="/clerk/subscription-payments"
+                  element={
+                    <Navigate
+                      to="/subscription-payments"
+                      replace
+                    />
+                  }
+                />
+              </Route>
+            </Route>
+
+            {/* ===============================
+                STAFF ADMIN ROUTES
+            =============================== */}
+
+            <Route
+              element={
+                <RoleRoute
+                  allowedRoles={["STAFF_ADMIN"]}
+                />
+              }
+            >
+              <Route element={<AdminLayout />}>
+                {/* Admin Dashboard */}
+
+                <Route
+                  path="/admin"
+                  element={<AdminHome />}
+                />
+
+                {/* Admin Activity Logs - Added by Abilash */}
+                <Route
+                  path="/admin/activity-logs"
+                  element={<ActivityLogs />}
+                />
+
+                {/* Admin Profile - Added by Abilash */}
+                <Route
+                  path="/admin/profile"
+                  element={<AdminProfile />}
+                />
+
+                {/* User Management */}
+
+                <Route
+                  path="/admin/users"
+                  element={<Users />}
+                />
+
+                <Route
+                  path="/admin/customers/:customerId"
+                  element={<CustomerDetails />}
+                />
+
+                <Route
+                  path="/admin/photographers/:photographerId"
+                  element={<AdminPhotographerDetails />}
+                />
+
+                <Route
+                  path="/admin/clerks/:clerkId"
+                  element={<ClerkDetails />}
+                />
+
+                {/* Invoice Management */}
+
+                <Route
+                  path="/admin/invoices"
+                  element={<Invoices />}
+                />
+
+                {/* Payment Management */}
+
+                <Route
+                  path="/admin/payments"
+                  element={<Payments />}
+                />
+
+                {/* Admin Rental Payment Verification */}
+
+                <Route
+                  path="/admin/payment-verification"
+                  element={<ClerkPaymentVerification />}
+                />
+
+                {/* Deposit Management */}
+
+                <Route
+                  path="/admin/deposits"
+                  element={<Deposits />}
+                />
+
+                {/* Refund Management */}
+
+                <Route
+                  path="/admin/refunds"
+                  element={<Refunds />}
+                />
+
+                {/* Reports */}
+
+                <Route
+                  path="/admin/reports"
+                  element={<Reports />}
+                />
+
+                {/* Notifications */}
+
+                <Route
+                  path="/admin/notifications"
+                  element={<Notifications />}
+                />
+
+                {/* Photographer Applications */}
+
+                <Route
+                  path="/admin/photographer-applications"
+                  element={<AdminPhotographerApplications />}
+                />
+
+                {/* Equipment Management */}
+
+                <Route
+                  path="/admin/equipment"
+                  element={<EquipmentManagement />}
+                />
+                    
+                {/* ==================================
+                    ADMIN CATEGORY MANAGEMENT
+                ================================== */}
+
+                <Route
+                  path="/admin/categories"
+                  element={<CategoryManagement />}
+                />
+                    
+                {/* ==================================
+                    ADMIN RENTAL MANAGEMENT
+                ================================== */}
+
+                <Route
+                  path="/admin/rentals"
+                  element={<RentalManagement />}
+                />
+              </Route>
+            </Route>
+          </Route>
         </Route>
 
-        {/* 404 */}
+        {/* ==================================
+            404 PAGE
+        ================================== */}
+
         <Route
           path="*"
           element={<NotFound />}
         />
       </Routes>
+      <PublicFooter />
     </BrowserRouter>
   );
 };

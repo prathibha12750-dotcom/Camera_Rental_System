@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["CUSTOMER", "PHOTOGRAPHER", "STAFF_ADMIN"],
+      enum: ["CUSTOMER", "PHOTOGRAPHER", "CLERK", "STAFF_ADMIN"],
       required: true,
       default: "CUSTOMER",
     },
@@ -37,10 +37,25 @@ const userSchema = new mongoose.Schema(
       enum: ["ACTIVE", "INACTIVE"],
       default: "ACTIVE",
     },
+
+    disabledReason: {
+      type: String,
+      enum: [
+        "NONE",
+        "ADMIN_DISABLED",
+        "SUBSCRIPTION_EXPIRED",
+      ],
+      default: "NONE",
+    },
+
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);

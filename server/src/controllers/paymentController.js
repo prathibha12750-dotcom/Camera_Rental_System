@@ -1,0 +1,388 @@
+const Payment = require("../models/payment");
+const Invoice = require("../models/invoice");
+const User = require("../models/User");
+const Notification = require("../models/notification");
+
+ //added by abilash
+ const PhotographerNotification = require("../models/photographerNotification");
+ //ended by abilash
+ 
+ //added by abilash
+ const BillingReceipt = require("../models/billingReceipt");
+ //ended by abilash
+ 
+//added by abilash
+// FR-085: System activity audit logging
+const { logActivity } = require("../services/auditLogService");
+//ended by abilash
+
+
+
+
+const updateInvoicePaymentStatus = async (invoiceId) => {
+    // Get invoice
+    const invoice = await Invoice.findById(invoiceId);
+
+    if(!invoice){
+        throw new Error("Invoice not found");
+    }
+
+    //Get all completed payments for this invoice
+    const payments = await Payment.find({
+        invoice: invoiceId,
+        paymentStatus: "COMPLETED",
+    });
+
+    //Calculate total paid amount
+    const totalPaid = Math.round(
+        payments.reduce(
+            (sum, payment) => sum + Number(payment.amount || 0),
+            0
+        ) * 100
+    ) / 100;
+
+    const invoiceTotal = Math.round(
+        Number(invoice.totalAmount) * 100
+    ) / 100;
+
+    //Determine payment status
+    let paymentStatus;
+
+    if(totalPaid <= 0){
+        paymentStatus = "PENDING";
+    }else if(totalPaid < invoiceTotal){
+        paymentStatus = "PARTIALLY_PAID";
+    }else{
+        paymentStatus = "PAID";
+    }
+
+    //update invoice
+    invoice.paymentStatus = paymentStatus;
+
+    await invoice.save();
+
+    return {
+        paymentStatus,
+        totalPaid,
+        totalAmount: invoice.totalAmount
+    };
+
+}
+
+
+
+
+// =====================================
+// CREATE PAYMENT
+// POST /api/admin/payments
+// =====================================
+
+const createPayment = async (req, res, next) => {
+    try {
+        const {
+            invoice,
+            amount,
+            paymentMethod,
+            note,
+        } = req.body;
+
+        // -----------------------------------
+        // 1. Validate required fields
+        // -----------------------------------
+
+        if(!invoice){
+            return res.status(400).json({
+                success: false,
+                message: "Invoice ID is required",
+            });
+        }
+
+        if(amount === undefined || amount === null){
+            return res.status(400).json({
+                success: false,
+                message: "Payment amount is required",
+            });
+        }
+
+        if(amount <= 0){
+            return res.status(400).json({
+                success: false,
+                message: "Payment amount must be greater than zero",
+            });
+        }
+
+        if(!paymentMethod){
+            return res.status(400).json({
+                success: false,
+                message: "Payment method is required",
+            });
+        }
+
+        //---------------------------------------
+        // 2. Find invoices
+        //---------------------------------------
+
+        const existingInvoice = await Invoice.findById(invoice);
+
+        if(!existingInvoice){
+            return res.status(404).json({
+                success: false,
+                message: "Invoice not found",
+            });
+        }
+
+        // ---------------------------------------
+        // Validate remaining invoice balance
+        // ---------------------------------------
+
+        const completedPayments = await Payment.find({
+            invoice: existingInvoice._id,
+            paymentStatus: "COMPLETED",
+        });
+
+        const totalPaidCents = completedPayments.reduce(
+            (sum, payment) =>
+                sum + Math.round(Number(payment.amount) * 100),
+            0
+        );
+
+        const invoiceTotalCents = Math.round(
+            Number(existingInvoice.totalAmount) * 100
+        );
+
+        const remainingCents = Math.max(
+            0,
+            invoiceTotalCents - totalPaidCents
+        );
+
+        const paymentCents = Math.round(Number(amount) * 100);
+
+        if (
+            !Number.isFinite(Number(amount)) ||
+            paymentCents <= 0 ||
+            Math.abs(Number(amount) * 100 - paymentCents) > 0.000001
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Enter a valid payment amount with at most two decimal places.",
+            });
+        }
+
+        if (paymentCents > remainingCents) {
+            return res.status(400).json({
+                success: false,
+                message: `Payment exceeds the remaining balance of LKR ${(remainingCents / 100).toFixed(2)}.`,
+            });
+        }
+
+        //---------------------------------------
+        // 3. Find customer
+        //---------------------------------------
+
+        const customer = await User.findById(
+            existingInvoice.customer
+        );
+
+        if(!customer){
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found",
+            });
+        }
+
+        //----------------------------------------
+        // 4. Create payment
+        //----------------------------------------
+
+        const payment = await Payment.create({
+            invoice: existingInvoice._id,
+            customer: customer._id,
+            amount,
+            paymentMethod,
+            note,
+        });
+
+        //----------------------------------------
+        // 5. Update invoice payment status
+        //----------------------------------------
+
+        await updateInvoicePaymentStatus(existingInvoice._id);
+
+        
+
+        //added by abilash
+
+        // FR-167: Generate a billing receipt after payment recording.
+        const receiptNumber =
+            `RCP-${payment._id.toString().toUpperCase()}`;
+
+        let billingReceipt = null;
+
+        try {
+            billingReceipt = await BillingReceipt.create({
+                receiptNumber,
+                invoice: existingInvoice._id,
+                payment: payment._id,
+                customer: customer._id,
+                amount: payment.amount,
+                paymentMethod: payment.paymentMethod,
+                issuedAt: payment.paymentDate,
+            });
+        } catch (receiptError) {
+            console.error(
+                `Failed to create billing receipt for payment ${payment._id}:`,
+                receiptError
+            );
+        }
+
+        //ended by abilash
+
+
+
+        //----------------------------------------
+        // 6. Create payment notification
+        //----------------------------------------
+
+
+        //added by abilash
+
+        // FR-149: Notify the customer after payment is recorded.
+        try {
+            await PhotographerNotification.create({
+                user: customer._id,
+                title: "Payment Recorded",
+                message:
+                    `A payment of LKR ${payment.amount} ` +
+                    `has been recorded for your invoice ${existingInvoice.invoiceNumber}.`,
+                type: "PAYMENT_RECORDED",
+                read: false,
+            });
+        } catch (notificationError) {
+            // A notification failure must not make a saved payment appear failed.
+            console.error(
+                "Failed to create payment notification:",
+                notificationError
+            );
+        }
+
+        //ended by abilash
+
+        
+        //added by abilash
+        // FR-085: Record the successful payment activity
+        await logActivity({
+            actor: req.user.userId,
+            actorRole: req.user.role,
+            action: "PAYMENT_CREATED",
+            entityType: "Payment",
+            entityId: payment._id,
+            outcome: "SUCCESS",
+            message:
+                `Payment recorded for invoice ${existingInvoice.invoiceNumber} ` +
+                `by ${req.user.role}`,
+        });
+        //ended by abilash
+
+
+        //----------------------------------------
+        // 7. Return response
+        //----------------------------------------
+
+        return res.status(201).json({
+            success: true,
+            message: "Payment recorded successfully",
+            data: {
+                payment,
+            },
+        });
+    } catch(error){
+        next(error)
+    }
+}
+
+
+// =======================================
+// GET PAYMENTS FOR AN INVOICE
+// GET /api/admin/payments/inovice/:invoiceId
+// =======================================
+        
+const getPaymentsByInvoice = async (req, res, next) => {
+    try {
+        const {invoiceId} = req.params;
+
+        const payments = await Payment.find({
+            invoice: invoiceId,
+        }).populate("customer", "name email").sort({createdAt: -1});
+
+        return res.status(200).json({
+            success: true,
+            message: "Payments retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch(error){
+        next(error);
+    }
+}
+
+const getAllPayments = async (req, res, next) => {
+    try {
+        const payments = await Payment.find()
+            .populate("customer", "name email")
+            .populate(
+                "invoice",
+                "invoiceNumber serviceDetails serviceAmount securityDeposit totalAmount paymentStatus"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "All payments retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch(error) {
+        next(error);
+    }
+};
+
+// =======================================
+// GET MY PAYMENTS
+// GET /api/customer/payments
+// CUSTOMER ONLY
+// =======================================
+
+const getMyPayments = async (req, res, next) => {
+    try {
+        const customerId = req.user.userId;
+
+        const payments = await Payment.find({
+            customer: customerId,
+        })
+            .populate(
+                "invoice",
+                "invoiceNumber serviceDetails serviceAmount securityDeposit totalAmount paymentStatus"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer payment history retrieved successfully",
+            data: {
+                payments,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = {
+    createPayment,
+    getPaymentsByInvoice,
+    getAllPayments,
+    getMyPayments,
+    updateInvoicePaymentStatus,
+};

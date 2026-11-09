@@ -1,3 +1,13 @@
+// ==========================================================
+//Routes added by thasindu nayanajith
+
+const equipmentRoutes = require("./routes/equipmentRoutes"); //Connect the equipment routes
+const rentalRoutes = require("./routes/rentalRoutes");//connect the rental routes
+const categoryRoutes = require("./routes/categoryRoutes");//coonect the category routes
+
+//end of the routes by thasindu
+// ===========================================================
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -6,27 +16,48 @@ const rateLimit = require("express-rate-limit");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const errorHandler = require("./middleware/errorHandler");
+const customerRoutes = require("./routes/customerRoutes");
+const photographerRoutes = require("./routes/photographerRoutes");
+const contactRoutes = require("./routes/contactRoutes");
+const rentalAgreementRoutes = require("./routes/rentalAgreementRoutes");
+
+const bankDetailsRoutes = require("./routes/bankDetailsRoutes");
 
 const app = express();
+
+//const app = express();
+
+
 
 // SECURITY MIDDLEWARE
 
 app.use(helmet());
 
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:4173",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5174",
+    origin: allowedOrigins,
     credentials: true,
   })
 );
-
 
 // ==========================================
 // BODY PARSER
 // ==========================================
 
-app.use(express.json());
+app.use(
+  "/api/contact",
+  express.json({ limit: "20kb" })
+);
 
+app.use(express.json());
 
 // ==========================================
 // RATE LIMITING
@@ -62,6 +93,27 @@ app.use("/api/auth", authLimiter, authRoutes);
 
 app.use("/api/admin", adminRoutes);
 
+app.use("/api/customer", customerRoutes);
+
+app.use("/api/photographer", photographerRoutes);
+
+app.use("/api/contact", contactRoutes);
+
+// ======================================================================================
+// routes connects by thasindu
+// ======================================================================================
+
+app.use("/api/equipment", equipmentRoutes); //Connect the equipment routes by thasindu
+
+app.use("/api/rentals", rentalRoutes);//connect the rental routes by thasindu
+
+app.use("/api/categories", categoryRoutes);//connect the category routes by thasindu
+
+// ======================================================================================
+// End of the routes connects by thasindu
+// ======================================================================================
+
+app.use("/api/rental-agreements", rentalAgreementRoutes);
 
 // ==========================================
 // ERROR HANDLER
@@ -69,5 +121,6 @@ app.use("/api/admin", adminRoutes);
 
 app.use(errorHandler);
 
+app.use("/api/payment-instructions", bankDetailsRoutes);
 
 module.exports = app;
