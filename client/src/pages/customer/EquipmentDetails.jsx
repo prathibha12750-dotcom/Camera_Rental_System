@@ -1,9 +1,11 @@
+
 import { useEffect, useState } from "react";
 import {
   useParams,
   useNavigate,
   useLocation,
 } from "react-router-dom";
+
 import { useAuth } from "../../context/useAuth";
 import { getEquipmentById } from "../../services/equipmentService";
 import {
@@ -12,27 +14,9 @@ import {
   getRentalCalendar,
 } from "../../services/rentalService";
 
-const getStatusStyle = (status) => {
-  switch (status) {
-    case "AVAILABLE":
-      return "bg-green-100 text-green-700 border-green-200";
-
-    case "RESERVED":
-      return "bg-yellow-100 text-yellow-700 border-yellow-200";
-
-    case "RENTED":
-      return "bg-blue-100 text-blue-700 border-blue-200";
-
-    case "MAINTENANCE":
-      return "bg-orange-100 text-orange-700 border-orange-200";
-
-    case "DAMAGED":
-      return "bg-red-100 text-red-700 border-red-200";
-
-    default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
-  }
-};
+// ============================================================
+// DATE HELPERS - SRI LANKA TIME
+// ============================================================
 
 const COLOMBO = "Asia/Colombo";
 
@@ -58,48 +42,130 @@ const addDays = (key, days) => {
   return date.toISOString().slice(0, 10);
 };
 
+const shiftMonth = (month, delta) => {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(
+    Date.UTC(year, number - 1 + delta, 1)
+  )
+    .toISOString()
+    .slice(0, 7);
+};
+
 const monthLabel = (month) =>
   new Date(`${month}-01T00:00:00Z`).toLocaleDateString(
     "en-GB",
+    { month: "long", year: "numeric", timeZone: "UTC" }
+  );
+
+const displayDate = (key) => {
+  if (!key) return "Not selected";
+
+  return new Date(`${key}T00:00:00Z`).toLocaleDateString(
+    "en-GB",
     {
-      month: "long",
+      day: "numeric",
+      month: "short",
       year: "numeric",
       timeZone: "UTC",
     }
   );
+};
 
-const shiftMonth = (month, delta) => {
-  const [year, m] = month.split("-").map(Number);
-  const date = new Date(Date.UTC(year, m - 1 + delta, 1));
-  return date.toISOString().slice(0, 7);
+const rentalDays = (start, end) => {
+  if (!start || !end || end <= start) return 0;
+
+  const difference =
+    Date.parse(`${end}T00:00:00Z`) -
+    Date.parse(`${start}T00:00:00Z`);
+
+  return Math.round(difference / 86400000);
 };
 
 const isBlockedDay = (day, periods) =>
   periods.some(({ startDate, endDate }) => {
-    // Both start and end dates are unavailable.
-    // The customer can keep the equipment until
-    // 6:00 PM on the selected end date.
     const start = dateKey(new Date(startDate));
     const end = dateKey(new Date(endDate));
 
+    // Both dates are unavailable, including the return date.
     return day >= start && day <= end;
   });
 
 const periodHasBlockedDay = (start, end, periods) => {
-  // Include the selected return date because
-  // the equipment remains reserved until 6:00 PM.
   for (
     let day = start;
     day <= end;
     day = addDays(day, 1)
   ) {
-    if (isBlockedDay(day, periods)) {
-      return true;
-    }
+    if (isBlockedDay(day, periods)) return true;
   }
 
   return false;
 };
+
+const formatMoney = (value) => {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) return "LKR —";
+
+  return `LKR ${amount.toLocaleString("en-LK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const getStatusStyle = (status) => {
+  switch (status) {
+    case "AVAILABLE":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "RESERVED":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "RENTED":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    case "MAINTENANCE":
+      return "border-orange-200 bg-orange-50 text-orange-700";
+    case "DAMAGED":
+      return "border-red-200 bg-red-50 text-red-700";
+    default:
+      return "border-gray-200 bg-gray-100 text-gray-700";
+  }
+};
+
+// ============================================================
+// REUSABLE UI
+// ============================================================
+
+const SectionHeading = ({ eyebrow, title, description }) => (
+  <div>
+    {eyebrow && (
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">
+        {eyebrow}
+      </p>
+    )}
+
+    <h2 className="mt-1 text-xl font-bold tracking-tight text-gray-950 sm:text-2xl">
+      {title}
+    </h2>
+
+    {description && (
+      <p className="mt-2 text-sm leading-6 text-gray-500">
+        {description}
+      </p>
+    )}
+  </div>
+);
+
+const DetailRow = ({ label, value }) => (
+  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3.5 last:border-b-0">
+    <span className="text-sm text-gray-500">{label}</span>
+    <span className="max-w-[65%] break-words text-right text-sm font-semibold text-gray-900">
+      {value || "Not specified"}
+    </span>
+  </div>
+);
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
 export default function EquipmentDetails() {
   const { id } = useParams();
@@ -107,26 +173,21 @@ export default function EquipmentDetails() {
   const location = useLocation();
 
   const {
-  user,
-  isAuthenticated,
-  loading: authLoading,
-} = useAuth();
+    user,
+    isAuthenticated,
+    loading: authLoading,
+  } = useAuth();
 
+  // Equipment
   const [equipment, setEquipment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ==========================================
-  // IMAGE GALLERY
-  // ==========================================
-
+  // Gallery
   const [activeImage, setActiveImage] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
 
-  // ==========================================
-  // RENTAL AVAILABILITY CALENDAR
-  // ==========================================
-
+  // Calendar
   const [calendar, setCalendar] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [calendarError, setCalendarError] = useState("");
@@ -135,10 +196,7 @@ export default function EquipmentDetails() {
     todayKey().slice(0, 7)
   );
 
-  // ==========================================
-  // RENTAL DATES
-  // ==========================================
-
+  // Rental dates
   const [startDate, setStartDate] = useState(
     location.state?.startDate || ""
   );
@@ -147,16 +205,21 @@ export default function EquipmentDetails() {
     location.state?.endDate || ""
   );
 
-  // ==========================================
-  // AVAILABILITY CHECK
-  // ==========================================
-
+  // Availability and request
   const [availability, setAvailability] = useState(null);
   const [availabilityError, setAvailabilityError] = useState("");
   const [checking, setChecking] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
+
+  // Description expansion
+  const [descriptionExpanded, setDescriptionExpanded] =
+    useState(false);
+
+  // ============================================================
+  // LOAD EQUIPMENT AND CALENDAR
+  // ============================================================
 
   useEffect(() => {
     let cancelled = false;
@@ -168,26 +231,27 @@ export default function EquipmentDetails() {
       .then(([equipmentResult, calendarResult]) => {
         if (cancelled) return;
 
-      setEquipment(
-        equipmentResult?.equipment ||
-        equipmentResult?.data?.equipment ||
-        null
-      );
+        setEquipment(
+          equipmentResult?.equipment ||
+            equipmentResult?.data?.equipment ||
+            null
+        );
+
         setCalendar(calendarResult?.data || null);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err.response?.data?.message ||
-              "Failed to load equipment or rental calendar."
-          );
-        }
+        if (cancelled) return;
+
+        setError(
+          err.response?.data?.message ||
+            "Failed to load equipment or rental calendar."
+        );
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-          setCalendarLoading(false);
-        }
+        if (cancelled) return;
+
+        setLoading(false);
+        setCalendarLoading(false);
       });
 
     return () => {
@@ -195,9 +259,9 @@ export default function EquipmentDetails() {
     };
   }, [id]);
 
-  // ==========================================
-  // IMAGE GALLERY
-  // ==========================================
+  // ============================================================
+  // GALLERY
+  // ============================================================
 
   const images =
     equipment?.images?.length > 0
@@ -206,21 +270,20 @@ export default function EquipmentDetails() {
         ? [equipment.imageUrl]
         : [];
 
-  // Automatically change gallery images.
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || showImageModal) return;
 
     const interval = setInterval(() => {
       setActiveImage((current) =>
         current >= images.length - 1 ? 0 : current + 1
       );
-    }, 4000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [images.length]);
+  }, [images.length, showImageModal]);
 
   const handlePreviousImage = () => {
-    if (images.length === 0) return;
+    if (!images.length) return;
 
     setActiveImage((current) =>
       current === 0 ? images.length - 1 : current - 1
@@ -228,16 +291,16 @@ export default function EquipmentDetails() {
   };
 
   const handleNextImage = () => {
-    if (images.length === 0) return;
+    if (!images.length) return;
 
     setActiveImage((current) =>
       current >= images.length - 1 ? 0 : current + 1
     );
   };
 
-  // ==========================================
-  // RENTAL AVAILABILITY CALENDAR
-  // ==========================================
+  // ============================================================
+  // CALENDAR REFRESH
+  // ============================================================
 
   const reloadCalendar = async () => {
     setCalendarLoading(true);
@@ -264,6 +327,10 @@ export default function EquipmentDetails() {
     setRequestError("");
     setRequestMessage("");
   };
+
+  // ============================================================
+  // DATE SELECTION
+  // ============================================================
 
   const selectDay = (day) => {
     if (
@@ -294,7 +361,7 @@ export default function EquipmentDetails() {
       )
     ) {
       setAvailabilityError(
-        "The selected period crosses unavailable dates. Choose another end date."
+        "Your selected period crosses unavailable dates. Please choose another end date."
       );
       return;
     }
@@ -302,9 +369,15 @@ export default function EquipmentDetails() {
     setEndDate(day);
   };
 
-  // ==========================================
-  // CHECK RENTAL AVAILABILITY
-  // ==========================================
+  const clearDates = () => {
+    setStartDate("");
+    setEndDate("");
+    resetCheck();
+  };
+
+  // ============================================================
+  // CHECK AVAILABILITY
+  // ============================================================
 
   const handleCheckAvailability = async () => {
     if (!startDate || !endDate) {
@@ -332,7 +405,7 @@ export default function EquipmentDetails() {
     ) {
       setAvailability(null);
       setAvailabilityError(
-        "The selected rental period contains unavailable dates. Please choose another period."
+        "The selected rental period contains unavailable dates."
       );
       return;
     }
@@ -362,14 +435,13 @@ export default function EquipmentDetails() {
     }
   };
 
-  // ==========================================
+  // ============================================================
   // SUBMIT RENTAL REQUEST
-  // ==========================================
+  // ============================================================
 
   const handleRentalRequest = async () => {
     if (authLoading || requesting) return;
 
-    // Guests must log in before requesting rentals.
     if (!isAuthenticated) {
       navigate("/login", {
         state: {
@@ -381,7 +453,6 @@ export default function EquipmentDetails() {
       return;
     }
 
-    // Only customer accounts can submit requests.
     if (user?.role !== "CUSTOMER") {
       setRequestError(
         "Only customer accounts can request equipment rentals."
@@ -405,7 +476,6 @@ export default function EquipmentDetails() {
     setRequestMessage("");
 
     try {
-      // Recheck availability before submitting.
       const latestAvailability = await checkAvailability({
         equipmentId: id,
         startDate,
@@ -417,7 +487,7 @@ export default function EquipmentDetails() {
       if (!latestAvailability?.available) {
         setRequestError(
           latestAvailability?.message ||
-            "Equipment is no longer available for the selected dates."
+            "Equipment is no longer available for these dates."
         );
 
         await reloadCalendar();
@@ -453,6 +523,10 @@ export default function EquipmentDetails() {
     }
   };
 
+  // ============================================================
+  // CALENDAR DATA
+  // ============================================================
+
   const firstWeekday = new Date(
     `${month}-01T00:00:00Z`
   ).getUTCDay();
@@ -477,696 +551,867 @@ export default function EquipmentDetails() {
 
   const periods = calendar?.unavailablePeriods || [];
 
-  const inputStyle =
-    "rounded-xl border border-gray-300 px-4 py-3";
+  const numberOfDays = rentalDays(startDate, endDate);
+
+  const dailyRate = Number(
+    equipment?.rentalPricePerDay || 0
+  );
+
+  const securityDeposit = Number(
+    equipment?.securityDeposit || 0
+  );
+
+  // Illustrative frontend estimate only.
+  // The backend invoice remains authoritative.
+  const estimatedRentalCharge = numberOfDays * dailyRate;
+
+  const estimatedTotal =
+    estimatedRentalCharge + securityDeposit;
+
+  const currentImage = images[activeImage] || images[0];
+
+  // ============================================================
+  // LOADING
+  // ============================================================
 
   if (loading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="animate-pulse space-y-6">
-            <div className="h-6 w-32 rounded bg-gray-200" />
-            <div className="h-12 w-96 rounded bg-gray-200" />
+      <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-7xl animate-pulse">
+          <div className="h-7 w-40 rounded bg-gray-200" />
+          <div className="mt-5 h-12 w-80 max-w-full rounded bg-gray-200" />
 
-            <div className="grid gap-8 lg:grid-cols-2">
-              <div className="h-[500px] rounded-3xl bg-gray-200" />
-              <div className="h-[500px] rounded-3xl bg-gray-200" />
-            </div>
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <div className="h-[420px] rounded-3xl bg-gray-200" />
+            <div className="h-[420px] rounded-3xl bg-gray-200" />
           </div>
         </div>
       </main>
     );
   }
-
-  // ------------------------------------------
-  // ERROR
-  // ------------------------------------------
 
   if (error) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
+      <main className="min-h-screen bg-gray-50 px-4 py-10">
         <div className="mx-auto max-w-7xl">
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700"
+          >
             {error}
           </div>
-        </div>
-      </main>
-    );
-  }
 
-  // ------------------------------------------
-  // NOT FOUND
-  // ------------------------------------------
-
-  if (!equipment) {
-    return (
-      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-gray-600">
-            Equipment not found.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  const currentImage = images[activeImage];
-
-  return (
-
-    <>
-      <main className="min-h-[calc(100vh-4rem)] bg-gray-50 px-6 py-10">
-        <div className="mx-auto max-w-7xl">
-
-          {/* Back button */}
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="mb-6 flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-gray-950"
+            onClick={() => navigate("/customer/equipment")}
+            className="mt-5 font-semibold text-orange-600"
           >
             ← Back to Equipment
           </button>
+        </div>
+      </main>
+    );
+  }
 
-          {/* Page header */}
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-600">
-              Equipment Rental
+  if (!equipment) {
+    return (
+      <main className="min-h-screen bg-gray-50 px-4 py-10">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-2xl font-bold">
+            Equipment not found
+          </h1>
+
+          <button
+            type="button"
+            onClick={() => navigate("/customer/equipment")}
+            className="mt-4 font-semibold text-orange-600"
+          >
+            Browse Equipment
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // ============================================================
+  // PAGE
+  // ============================================================
+
+  return (
+    <>
+      <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:py-10">
+        <div className="mx-auto max-w-7xl">
+          {/* BREADCRUMB */}
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-6 flex flex-wrap items-center gap-2 text-sm"
+          >
+            <button
+              type="button"
+              onClick={() => navigate("/customer/equipment")}
+              className="font-medium text-gray-500 hover:text-orange-600"
+            >
+              Equipment
+            </button>
+
+            <span className="text-gray-300">/</span>
+
+            <span className="text-gray-500">
+              {equipment.category?.name || "Equipment"}
+            </span>
+
+            <span className="text-gray-300">/</span>
+
+            <span className="font-semibold text-gray-900">
+              {equipment.name}
+            </span>
+          </nav>
+
+          {/* HEADER */}
+          <div className="mb-7">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-600">
+              Professional Equipment Rental
             </p>
 
-            <h1 className="mt-2 text-4xl font-bold tracking-tight text-gray-950">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
               {equipment.name}
             </h1>
 
-            <p className="mt-2 text-lg text-gray-500">
-              {equipment.brand} {equipment.model}
+            <p className="mt-2 text-sm text-gray-500 sm:text-base">
+              {[equipment.brand, equipment.model]
+                .filter(Boolean)
+                .join(" ")}
             </p>
           </div>
 
-          {/* Main Product Section */}
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          {/* ====================================================
+              MAIN PRODUCT LAYOUT
+          ==================================================== */}
 
-            {/* =========================================
-                IMAGE GALLERY
-            ========================================== */}
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            {/* IMAGE GALLERY */}
+            <section className="min-w-0 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="relative">
+                <button
+                  type="button"
+                  disabled={!currentImage}
+                  onClick={() => setShowImageModal(true)}
+                  aria-label="Enlarge equipment image"
+                  className="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-gray-100 disabled:cursor-default"
+                >
+                  {currentImage ? (
+                    <img
+                      src={currentImage}
+                      alt={equipment.name}
+                      className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-gray-400">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="h-16 w-16"
+                        aria-hidden="true"
+                      >
+                        <path d="M4 7h4l2-2h4l2 2h4v12H4V7Z" />
+                        <circle cx="12" cy="13" r="3" />
+                      </svg>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-
-              {/* Main image */}
-              <div
-                className="group relative flex aspect-[4/3] cursor-zoom-in items-center justify-center overflow-hidden rounded-2xl bg-gray-100"
-                onClick={() => {
-                  if (currentImage) {
-                    setShowImageModal(true);
-                  }
-                }}
-              >
-                {currentImage ? (
-                  <img
-                    src={currentImage}
-                    alt={equipment.name}
-                    className="h-full w-full object-contain transition duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="text-center">
-                    <div className="text-7xl text-gray-300">
-                      ◇
+                      <span className="mt-3 text-sm">
+                        Image unavailable
+                      </span>
                     </div>
+                  )}
 
-                    <p className="mt-3 text-sm font-medium text-gray-400">
-                      No Equipment Image
-                    </p>
-                  </div>
-                )}
+                  {currentImage && (
+                    <span className="absolute bottom-4 right-4 rounded-full bg-gray-950/80 px-3 py-2 text-xs font-medium text-white">
+                      View larger image
+                    </span>
+                  )}
+                </button>
 
-                {/* Status */}
-                <div
-                  className={`absolute left-5 top-5 rounded-full border px-4 py-2 text-xs font-bold shadow-sm ${getStatusStyle(
+                <span
+                  className={`absolute left-4 top-4 rounded-full border px-3 py-1.5 text-xs font-bold ${getStatusStyle(
                     equipment.status
                   )}`}
                 >
-                  {equipment.status}
-                </div>
+                  {equipment.status || "UNKNOWN"}
+                </span>
 
-                {/* Zoom indicator */}
-                {currentImage && (
-                  <div className="absolute bottom-5 right-5 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                    Click to enlarge
-                  </div>
-                )}
-
-                {/* Previous */}
                 {images.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePreviousImage();
-                    }}
-                    className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-gray-800 shadow-md transition hover:bg-white"
-                  >
-                    ‹
-                  </button>
-                )}
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous image"
+                      onClick={handlePreviousImage}
+                      className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl text-gray-800 shadow-md transition hover:bg-orange-50"
+                    >
+                      ‹
+                    </button>
 
-                {/* Next */}
-                {images.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleNextImage();
-                    }}
-                    className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl text-gray-800 shadow-md transition hover:bg-white"
-                  >
-                    ›
-                  </button>
+                    <button
+                      type="button"
+                      aria-label="Next image"
+                      onClick={handleNextImage}
+                      className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl text-gray-800 shadow-md transition hover:bg-orange-50"
+                    >
+                      ›
+                    </button>
+                  </>
                 )}
               </div>
 
-              {/* Thumbnails */}
-              {images.length > 0 && (
-                <div className="mt-4 flex gap-3 overflow-x-auto">
+              {/* THUMBNAILS */}
+              {images.length > 1 && (
+                <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
                   {images.map((image, index) => (
                     <button
                       key={`${image}-${index}`}
                       type="button"
+                      aria-label={`View image ${index + 1}`}
+                      aria-pressed={activeImage === index}
                       onClick={() => setActiveImage(index)}
-                      className={`h-20 w-24 flex-shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                      className={`h-20 w-24 shrink-0 overflow-hidden rounded-xl border-2 bg-gray-50 p-1 transition ${
                         activeImage === index
-                          ? "border-orange-500"
+                          ? "border-orange-500 ring-2 ring-orange-100"
                           : "border-gray-200 hover:border-gray-400"
                       }`}
                     >
                       <img
                         src={image}
-                        alt={`${equipment.name} ${index + 1}`}
-                        className="h-full w-full object-cover"
+                        alt={`${equipment.name} view ${index + 1}`}
+                        className="h-full w-full object-contain"
                       />
                     </button>
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* =========================================
-                PRODUCT INFORMATION
-            ========================================== */}
+              <p className="mt-4 text-xs text-gray-400">
+                {images.length > 1
+                  ? `${images.length} equipment photos available`
+                  : "Equipment photo"}
+              </p>
+            </section>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
-
-              {/* Category */}
-              <div className="flex items-center justify-between">
-                <span className="rounded-full bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+            {/* PRODUCT INFORMATION */}
+            <section className="min-w-0 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-600">
                   {equipment.category?.name || "Equipment"}
                 </span>
 
                 <span
-                  className={`rounded-full border px-4 py-2 text-xs font-bold ${getStatusStyle(
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
                     equipment.status
                   )}`}
                 >
-                  {equipment.status}
+                  {equipment.status || "UNKNOWN"}
                 </span>
               </div>
 
-              {/* Product title */}
-              <h2 className="mt-6 text-3xl font-bold text-gray-950">
+              <h2 className="mt-5 text-2xl font-bold text-gray-950">
                 {equipment.name}
               </h2>
 
-              <p className="mt-1 text-gray-500">
-                {equipment.brand} {equipment.model}
+              <p className="mt-1 text-sm text-gray-500">
+                {[equipment.brand, equipment.model]
+                  .filter(Boolean)
+                  .join(" ")}
               </p>
 
-              {/* Price */}
-              <div className="mt-8 border-y border-gray-100 py-6">
-                <p className="text-sm font-medium text-gray-500">
+              {/* PRICING */}
+              <div className="mt-6 rounded-2xl border border-orange-100 bg-orange-50/60 p-5">
+                <p className="text-sm font-medium text-gray-600">
                   Rental price
                 </p>
 
-                <div className="mt-1 flex items-end gap-2">
-                  <span className="text-4xl font-bold text-orange-600">
-                    LKR{" "}
-                    {equipment.rentalPricePerDay?.toLocaleString()}
+                <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                  <span className="text-3xl font-bold tracking-tight text-orange-600 sm:text-4xl">
+                    {formatMoney(equipment.rentalPricePerDay)}
                   </span>
 
-                  <span className="mb-1 text-sm text-gray-500">
+                  <span className="text-sm text-gray-500">
                     / day
                   </span>
                 </div>
 
-                <p className="mt-3 text-sm text-gray-500">
-                  Security deposit:{" "}
-                  <span className="font-semibold text-gray-800">
-                    LKR{" "}
-                    {equipment.securityDeposit?.toLocaleString()}
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-orange-100 pt-4">
+                  <span className="text-sm text-gray-600">
+                    Security deposit
                   </span>
+
+                  <span className="text-sm font-bold text-gray-900">
+                    {formatMoney(equipment.securityDeposit)}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-gray-500">
+                  The security deposit is separate from rental
+                  charges and is subject to the rental agreement
+                  and return inspection.
                 </p>
               </div>
 
-              {/* Description */}
+              {/* DESCRIPTION */}
               <div className="mt-6">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-950">
-                  Description
+                <h3 className="text-base font-bold text-gray-950">
+                  About this equipment
                 </h3>
 
-                <p className="mt-3 text-sm leading-7 text-gray-600">
-                  {equipment.description ||
-                    "No description available for this equipment."}
-                </p>
-              </div>
-
-              {/* Quick specifications */}
-              <div className="mt-7 grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">
-                    Brand
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {equipment.brand}
-                  </p>
-                </div>
-                
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">
-                    Model
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {equipment.model}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">
-                    Category
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {equipment.category?.name || "N/A"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs text-gray-500">
-                    Condition
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {equipment.condition || "N/A"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* =========================================
-              RENTAL SECTION
-          ========================================== */}
-
-          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-                  Rental
-                </p>
-
-                <h2 className="mt-1 text-2xl font-bold text-gray-950">
-                  Check Availability
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Select your rental period to check whether this equipment is available.
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-orange-50 px-4 py-3 text-sm">
-                <span className="text-gray-500">
-                  Daily rate
-                </span>
-
-                <span className="ml-2 font-bold text-orange-600">
-                  LKR{" "}
-                  {equipment.rentalPricePerDay?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* =========================================
-              EQUIPMENT DETAILS
-          ========================================== */}
-
-          <div className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
-
-            <h2 className="text-2xl font-bold text-gray-950">
-              Equipment Specifications
-            </h2>
-
-            <div className="mt-6 divide-y divide-gray-100">
-
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Equipment Name
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.name}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Brand
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.brand}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Model
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.model}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Category
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.category?.name || "N/A"}
-                </span>
-              </div>
-
-             
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Availability
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.status}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 py-4">
-                <span className="text-sm text-gray-500">
-                  Serial Number
-                </span>
-
-                <span className="text-right text-sm font-semibold text-gray-900">
-                  {equipment.serialNumber || "Not available"}
-                </span>
-              </div>
-
-            </div>
-          </div>
-
-          {/* =========================================
-              RENTAL AVAILABILITY CALENDAR
-          ========================================== */}
-
-          <section className="mt-8 rounded-3xl border border-gray-200 bg-white p-7 shadow-sm">
-            <div className="mb-6">
-              <p className="text-sm font-semibold uppercase tracking-wider text-orange-600">
-                Rental Calendar
-              </p>
-
-              <h2 className="mt-1 text-2xl font-bold text-gray-950">
-                Select Rental Dates
-              </h2>
-
-              <p className="mt-2 text-sm text-gray-500">
-                Select your start date and then your end date.
-                Unavailable and past dates cannot be selected.
-              </p>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                type="button"
-                aria-label="Previous month"
-                disabled={month <= todayKey().slice(0, 7)}
-                onClick={() =>
-                  setMonth((value) => shiftMonth(value, -1))
-                }
-                className="rounded-lg border px-3 py-2 disabled:opacity-30"
-              >
-                ←
-              </button>
-
-              <span className="font-semibold">
-                {monthLabel(month)}
-              </span>
-
-                <button
-                  type="button"
-                  aria-label="Next month"
-                  onClick={() =>
-                    setMonth((value) =>
-                      shiftMonth(value, 1)
-                    )
-                  }
-                  className="rounded-lg border px-3 py-2"
-                >
-                  →
-                </button>
-              </div>
-
-              <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs">
-                {[
-                  "Su", "Mo", "Tu", "We",
-                  "Th", "Fr", "Sa",
-                ].map((day) => (
-                  <span
-                    key={day}
-                    className="py-2 font-semibold text-gray-500"
-                  >
-                    {day}
-                  </span>
-                ))}
-
-                {days.map((day, index) => {
-                  if (!day) {
-                    return (
-                      <span
-                        key={`blank-${index}`}
-                      />
-                    );
-                  }
-
-                  const past = day < todayKey();
-                  const blocked =
-                    calendar?.blocked ||
-                    isBlockedDay(day, periods);
-
-                  const disabled =
-                    calendarLoading ||
-                    !calendar ||
-                    past ||
-                    blocked;
-
-                  const selected =
-                    day === startDate ||
-                    day === endDate;
-
-                  const between =
-                    startDate &&
-                    endDate &&
-                    day > startDate &&
-                    day < endDate;
-
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() =>
-                        selectDay(day)
-                      }
-                      title={
-                        past
-                          ? "Past date"
-                          : blocked
-                          ? "Unavailable"
-                          : "Available"
-                      }
-                      className={`rounded-lg py-2 text-sm ${
-                        selected
-                          ? "bg-orange-600 font-bold text-white"
-                          : between
-                          ? "bg-orange-100 text-orange-800"
-                          : disabled
-                          ? "bg-gray-100 text-gray-400 line-through"
-                          : "bg-white text-gray-900 hover:bg-orange-50"
-                      } ${
-                        disabled
-                          ? "cursor-not-allowed"
-                          : "cursor-pointer"
-                      }`}
-                    >
-                      {Number(day.slice(-2))}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-                <span>■ Available</span>
-                <span className="text-gray-400">
-                  ■ Unavailable / past
-                </span>
-                <span className="text-orange-600">
-                  ■ Selected
-                </span>
-              </div>
-
-              {calendar?.message && (
-                <p className="mt-3 text-sm font-medium text-red-700">
-                  {calendar.message}
-                </p>
-              )}
-
-              {calendarError && (
-                <p className="mt-3 text-sm text-red-700">
-                  {calendarError}
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={reloadCalendar}
-                disabled={calendarLoading}
-                className="mt-3 text-sm font-semibold text-orange-700 underline disabled:opacity-50"
-              >
-                Refresh unavailable dates
-              </button>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Start Date
-                  <input
-                    type="text"
-                    readOnly
-                    value={startDate}
-                    placeholder="Select on calendar"
-                    className={`mt-2 w-full ${inputStyle}`}
-                  />
-                </label>
-
-                <label className="text-sm font-medium text-gray-700">
-                  End Date
-                  <input
-                    type="text"
-                    readOnly
-                    value={endDate}
-                    placeholder="Select on calendar"
-                    className={`mt-2 w-full ${inputStyle}`}
-                  />
-                </label>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  resetCheck();
-                }}
-                className="mt-3 text-sm font-semibold text-gray-600 underline"
-              >
-                Clear selection
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCheckAvailability}
-                disabled={
-                  checking ||
-                  calendarLoading ||
-                  !calendar ||
-                  calendar.blocked ||
-                  !startDate ||
-                  !endDate
-                }
-                className="mt-4 w-full rounded-xl bg-gray-950 px-4 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-              >
-                {checking
-                  ? "Checking..."
-                  : "Check Availability"}
-              </button>
-
-              {availabilityError && (
-                <p className="mt-4 text-sm text-red-600">
-                  {availabilityError}
-                </p>
-              )}
-
-              {availability && (
                 <p
-                  className={`mt-4 rounded-xl p-4 text-sm ${
-                    availability.available
-                      ? "bg-green-50 text-green-700"
-                      : "bg-red-50 text-red-700"
+                  className={`mt-3 whitespace-pre-line text-sm leading-7 text-gray-600 ${
+                    descriptionExpanded ? "" : "line-clamp-5"
                   }`}
                 >
-                  {availability.message ||
-                    (availability.available
-                      ? "Equipment is available."
-                      : "Equipment is unavailable.")}
+                  {equipment.description ||
+                    "No additional description is available for this equipment."}
                 </p>
-              )}
 
-              {availability?.available && (
+                {equipment.description?.length > 250 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDescriptionExpanded((value) => !value)
+                    }
+                    className="mt-2 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    {descriptionExpanded
+                      ? "Show less"
+                      : "Read full description"}
+                  </button>
+                )}
+              </div>
+
+              {/* QUICK DETAILS */}
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {[
+                  ["Brand", equipment.brand],
+                  ["Model", equipment.model],
+                  [
+                    "Category",
+                    equipment.category?.name,
+                  ],
+                  ["Condition", equipment.condition],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-3.5"
+                  >
+                    <p className="text-xs text-gray-500">
+                      {label}
+                    </p>
+
+                    <p className="mt-1 break-words text-sm font-semibold text-gray-900">
+                      {value || "Not specified"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <a
+                href="#rental-booking"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-orange-600"
+              >
+                Check Dates & Availability
+                <span aria-hidden="true">↓</span>
+              </a>
+            </section>
+          </div>
+
+          {/* ====================================================
+              SPECIFICATIONS
+          ==================================================== */}
+
+          <section className="mt-7 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
+            <SectionHeading
+              eyebrow="Product Information"
+              title="Equipment Specifications"
+              description="Review the equipment details before choosing your rental dates."
+            />
+
+            <div className="mt-5 grid gap-x-10 md:grid-cols-2">
+              <div>
+                <DetailRow
+                  label="Equipment Name"
+                  value={equipment.name}
+                />
+
+                <DetailRow
+                  label="Brand"
+                  value={equipment.brand}
+                />
+
+                <DetailRow
+                  label="Model"
+                  value={equipment.model}
+                />
+              </div>
+
+              <div>
+                <DetailRow
+                  label="Category"
+                  value={equipment.category?.name}
+                />
+
+                <DetailRow
+                  label="Condition"
+                  value={equipment.condition}
+                />
+
+                <DetailRow
+                  label="Availability Status"
+                  value={equipment.status}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ====================================================
+              RENTAL BOOKING
+          ==================================================== */}
+
+          <section
+            id="rental-booking"
+            className="mt-7 scroll-mt-24"
+          >
+            <div className="mb-5">
+              <SectionHeading
+                eyebrow="Rental Booking"
+                title="Choose Your Rental Dates"
+                description="Select your rental period, check availability, and submit your rental request."
+              />
+            </div>
+
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+              {/* CALENDAR CARD */}
+              <div className="min-w-0 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-950">
+                      Availability Calendar
+                    </h3>
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      Select the start date, then the end date.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={reloadCalendar}
+                    disabled={calendarLoading}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {calendarLoading ? "Loading..." : "Refresh"}
+                  </button>
+                </div>
+
+                {/* MONTH NAVIGATION */}
+                <div className="mt-6 flex items-center justify-between rounded-xl bg-gray-50 p-2">
+                  <button
+                    type="button"
+                    aria-label="Previous month"
+                    disabled={
+                      month <= todayKey().slice(0, 7)
+                    }
+                    onClick={() =>
+                      setMonth((value) =>
+                        shiftMonth(value, -1)
+                      )
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl text-gray-700 hover:bg-orange-50 disabled:opacity-30"
+                  >
+                    ‹
+                  </button>
+
+                  <span className="text-base font-bold text-gray-950">
+                    {monthLabel(month)}
+                  </span>
+
+                  <button
+                    type="button"
+                    aria-label="Next month"
+                    onClick={() =>
+                      setMonth((value) =>
+                        shiftMonth(value, 1)
+                      )
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl text-gray-700 hover:bg-orange-50"
+                  >
+                    ›
+                  </button>
+                </div>
+
+                {/* CALENDAR GRID */}
+                <div className="mt-5 grid grid-cols-7 gap-1.5 text-center sm:gap-2">
+                  {[
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                  ].map((day) => (
+                    <span
+                      key={day}
+                      className="py-2 text-xs font-bold text-gray-500"
+                    >
+                      {day}
+                    </span>
+                  ))}
+
+                  {days.map((day, index) => {
+                    if (!day) {
+                      return (
+                        <span key={`blank-${index}`} />
+                      );
+                    }
+
+                    const past = day < todayKey();
+
+                    const blocked =
+                      calendar?.blocked ||
+                      isBlockedDay(day, periods);
+
+                    const disabled =
+                      calendarLoading ||
+                      !calendar ||
+                      past ||
+                      blocked;
+
+                    const selected =
+                      day === startDate ||
+                      day === endDate;
+
+                    const between =
+                      startDate &&
+                      endDate &&
+                      day > startDate &&
+                      day < endDate;
+
+                    const isToday = day === todayKey();
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => selectDay(day)}
+                        aria-pressed={Boolean(selected)}
+                        aria-label={`${displayDate(day)}${
+                          disabled
+                            ? ", unavailable"
+                            : selected
+                              ? ", selected"
+                              : ", available"
+                        }`}
+                        title={
+                          past
+                            ? "Past date"
+                            : blocked
+                              ? "Unavailable"
+                              : "Available"
+                        }
+                        className={`relative flex aspect-square min-h-9 items-center justify-center rounded-xl text-sm font-semibold transition sm:min-h-11 ${
+                          selected
+                            ? "bg-orange-600 text-white shadow-sm"
+                            : between
+                              ? "bg-orange-100 text-orange-800"
+                              : disabled
+                                ? "cursor-not-allowed bg-gray-100 text-gray-400 line-through"
+                                : "bg-white text-gray-800 hover:bg-orange-50 hover:text-orange-600"
+                        } ${
+                          isToday && !selected
+                            ? "ring-1 ring-orange-300"
+                            : ""
+                        }`}
+                      >
+                        {Number(day.slice(-2))}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* LEGEND */}
+                <div className="mt-6 flex flex-wrap gap-x-5 gap-y-3 border-t border-gray-100 pt-5 text-xs text-gray-600">
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded bg-white ring-1 ring-gray-300" />
+                    Available
+                  </span>
+
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded bg-gray-200" />
+                    Unavailable / Past
+                  </span>
+
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded bg-orange-600" />
+                    Selected
+                  </span>
+
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded bg-orange-100" />
+                    Selected range
+                  </span>
+                </div>
+
+                {calendar?.message && (
+                  <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                    {calendar.message}
+                  </p>
+                )}
+
+                {calendarError && (
+                  <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                    {calendarError}
+                  </p>
+                )}
+              </div>
+
+              {/* BOOKING SUMMARY CARD */}
+              <div className="min-w-0 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                <h3 className="text-lg font-bold text-gray-950">
+                  Your Rental Summary
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Review your selected rental period and
+                  estimated charges.
+                </p>
+
+                {/* DATES */}
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-medium text-gray-500">
+                      Start Date
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-gray-950">
+                      {displayDate(startDate)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-medium text-gray-500">
+                      End Date
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-gray-950">
+                      {displayDate(endDate)}
+                    </p>
+                  </div>
+                </div>
+
+                {(startDate || endDate) && (
+                  <button
+                    type="button"
+                    onClick={clearDates}
+                    className="mt-3 text-xs font-semibold text-orange-600 hover:underline"
+                  >
+                    Clear selected dates
+                  </button>
+                )}
+
+                {/* COST BREAKDOWN */}
+                <div className="mt-6 rounded-2xl bg-gray-50 p-4">
+                  <h4 className="text-sm font-bold text-gray-900">
+                    Estimated Cost
+                  </h4>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-gray-500">
+                        Daily rental rate
+                      </span>
+
+                      <span className="font-semibold text-gray-900">
+                        {formatMoney(dailyRate)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-gray-500">
+                        Rental duration
+                      </span>
+
+                      <span className="font-semibold text-gray-900">
+                        {numberOfDays > 0
+                          ? `${numberOfDays} day${
+                              numberOfDays !== 1 ? "s" : ""
+                            }`
+                          : "Select dates"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-gray-500">
+                        Estimated rental charge
+                      </span>
+
+                      <span className="font-semibold text-gray-900">
+                        {numberOfDays > 0
+                          ? formatMoney(estimatedRentalCharge)
+                          : "—"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-gray-500">
+                        Security deposit
+                      </span>
+
+                      <span className="font-semibold text-gray-900">
+                        {formatMoney(securityDeposit)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                    <span className="text-sm font-bold text-gray-950">
+                      Estimated total
+                    </span>
+
+                    <span className="text-lg font-bold text-orange-600">
+                      {numberOfDays > 0
+                        ? formatMoney(estimatedTotal)
+                        : "—"}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-gray-500">
+                    This is an indicative estimate using
+                    the daily rate and date difference.
+                    Final charges, rental-day rules,
+                    and deposit amounts are determined
+                    by the backend invoice.
+                  </p>
+                </div>
+
+                {/* AVAILABILITY ACTION */}
                 <button
                   type="button"
-                  onClick={handleRentalRequest}
-                  disabled={requesting}
-                  className="mt-4 w-full rounded-xl bg-orange-600 px-4 py-3 font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                  onClick={handleCheckAvailability}
+                  disabled={
+                    checking ||
+                    requesting ||
+                    calendarLoading ||
+                    !calendar ||
+                    calendar.blocked ||
+                    !startDate ||
+                    !endDate
+                  }
+                  className="mt-5 w-full rounded-xl bg-gray-950 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {requesting
-                    ? "Submitting Request..."
-                    : "Request Rental"}
+                  {checking
+                    ? "Checking Availability..."
+                    : "Check Availability"}
                 </button>
-              )}
 
-              {requestMessage && (
-                <p className="mt-4 rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                  {requestMessage}
+                <p className="mt-3 text-center text-xs text-gray-500">
+                  Availability must be verified before requesting.
                 </p>
-              )}
-              
-              {requestError && (
-                <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
-                  {requestError}
-                </p>
-              )}
+
+                {/* ERRORS */}
+                {availabilityError && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                  >
+                    {availabilityError}
+                  </p>
+                )}
+
+                {/* AVAILABILITY RESULT */}
+                {availability && (
+                  <div
+                    role="status"
+                    className={`mt-4 rounded-xl border p-4 text-sm ${
+                      availability.available
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    <p className="font-bold">
+                      {availability.available
+                        ? "Available for selected dates"
+                        : "Unavailable for selected dates"}
+                    </p>
+
+                    <p className="mt-1">
+                      {availability.message ||
+                        (availability.available
+                          ? "You can proceed with your rental request."
+                          : "Please choose another rental period.")}
+                    </p>
+                  </div>
+                )}
+
+                {/* REQUEST ACTION */}
+                {availability?.available && (
+                  <button
+                    type="button"
+                    onClick={handleRentalRequest}
+                    disabled={requesting || authLoading}
+                    className="mt-4 w-full rounded-xl bg-orange-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {requesting
+                      ? "Submitting Request..."
+                      : !isAuthenticated
+                        ? "Login to Request Rental"
+                        : "Request Rental"}
+                  </button>
+                )}
+
+                {requestMessage && (
+                  <p
+                    role="status"
+                    className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+                  >
+                    {requestMessage}
+                  </p>
+                )}
+
+                {requestError && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                  >
+                    {requestError}
+                  </p>
+                )}
+
+                <div className="mt-5 border-t border-gray-100 pt-4">
+                  <p className="text-xs leading-5 text-gray-500">
+                    Rental requests are subject to approval.
+                    Submitting a request does not automatically
+                    confirm the booking.
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </main>
-      
-      {/* =========================================
+
+      {/* ====================================================
           FULLSCREEN IMAGE VIEWER
-      ========================================== */}
+      ==================================================== */}
 
       {showImageModal && currentImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5"
-          onClick={() => setShowImageModal(false)}
           role="presentation"
+          onClick={() => setShowImageModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
         >
           <button
             type="button"
             aria-label="Close image viewer"
             onClick={() => setShowImageModal(false)}
-            className="absolute right-6 top-6 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:bg-white/20"
+            className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/25"
           >
             ×
           </button>
@@ -1175,11 +1420,11 @@ export default function EquipmentDetails() {
             <button
               type="button"
               aria-label="Previous image"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 handlePreviousImage();
               }}
-              className="absolute left-5 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20"
+              className="absolute left-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-3xl text-white hover:bg-white/25"
             >
               ‹
             </button>
@@ -1188,26 +1433,31 @@ export default function EquipmentDetails() {
           <img
             src={currentImage}
             alt={equipment.name}
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-[88vh] max-w-[90vw] object-contain"
           />
 
           {images.length > 1 && (
             <button
               type="button"
               aria-label="Next image"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 handleNextImage();
               }}
-              className="absolute right-5 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20"
+              className="absolute right-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-3xl text-white hover:bg-white/25"
             >
               ›
             </button>
+          )}
+
+          {images.length > 1 && (
+            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/15 px-4 py-2 text-xs font-medium text-white">
+              {activeImage + 1} / {images.length}
+            </span>
           )}
         </div>
       )}
     </>
   );
 }
-

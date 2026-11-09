@@ -1691,6 +1691,12 @@ const returnRental = async (req, res, next) => {
         rental,
         returnedAt
       );
+      
+      // ============================================================
+      // CREATE EQUIPMENT RETURN RECORD
+      // ============================================================
+
+      const isDamaged = condition === "DAMAGED";
 
       const [returnRecord] = await Return.create(
         [
@@ -1699,9 +1705,13 @@ const returnRental = async (req, res, next) => {
             equipment: equipment._id,
             customer: rental.customer,
             returnedAt,
+
             condition,
-            damageDescription: description,
+            isDamaged,
+
+            damageDescription: isDamaged ? description : "",
             notes: cleanNotes,
+
             receivedBy: req.user.userId,
           },
         ],
