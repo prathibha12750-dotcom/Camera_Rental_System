@@ -119,8 +119,8 @@ app.use("/api/rental-agreements", rentalAgreementRoutes);
 // ERROR HANDLER
 // ==========================================
 
-app.use(errorHandler);
-
 app.use("/api/payment-instructions", bankDetailsRoutes);
+
+app.use(errorHandler);
 
 module.exports = app;
